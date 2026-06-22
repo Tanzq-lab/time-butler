@@ -1,9 +1,7 @@
 import Database from "@tauri-apps/plugin-sql";
 import { DEFAULT_CATEGORY_COLOR } from "@/lib/constants";
 
-const DB_NAME = import.meta.env.DEV
-  ? "sqlite:Kairos-Pomodoro-dev.db"
-  : "sqlite:Kairos-Pomodoro.db";
+const DB_NAME = "sqlite:Kairos-Pomodoro.db";
 
 let db: Database | null = null;
 
@@ -100,9 +98,12 @@ export async function initDb(): Promise<void> {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )`,
     ],
+    3: [
+      "ALTER TABLE tasks ADD COLUMN scheduled_for TEXT",
+    ],
   };
 
-  const targetVersion = 2;
+  const targetVersion = 3;
 
   for (let v = currentVersion + 1; v <= targetVersion; v++) {
     const statements = migrations[v];

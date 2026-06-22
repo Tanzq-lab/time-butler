@@ -9,6 +9,7 @@ export async function getTasks(): Promise<
     estimated_pomos: number;
     completed_pomos: number;
     category_id: number | null;
+    scheduled_for: string | null;
     created_at: string;
     archived: number;
   }[]
@@ -23,6 +24,7 @@ export async function getTasks(): Promise<
       estimated_pomos: number;
       completed_pomos: number;
       category_id: number | null;
+      scheduled_for: string | null;
       created_at: string;
       archived: number;
     }[]
@@ -35,16 +37,18 @@ export async function addTask(
   project?: string,
   priority?: string,
   categoryId?: number | null,
+  scheduledFor?: string | null,
 ): Promise<number> {
   const database = await getDb();
   const result = await database.execute(
-    "INSERT INTO tasks (name, estimated_pomos, project, priority, category_id) VALUES ($1, $2, $3, $4, $5)",
+    "INSERT INTO tasks (name, estimated_pomos, project, priority, category_id, scheduled_for) VALUES ($1, $2, $3, $4, $5, $6)",
     [
       name,
       estimatedPomos,
       project ?? null,
       priority ?? null,
       categoryId ?? null,
+      scheduledFor ?? null,
     ],
   );
   return result.lastInsertId as number;
@@ -68,6 +72,7 @@ export async function updateTask(
   project?: string | null,
   priority?: string | null,
   categoryId?: number | null,
+  scheduledFor?: string | null,
 ): Promise<void> {
   const database = await getDb();
   const fields: string[] = [];
@@ -93,6 +98,10 @@ export async function updateTask(
   if (categoryId !== undefined) {
     fields.push(`category_id = $${paramIndex++}`);
     values.push(categoryId ?? null);
+  }
+  if (scheduledFor !== undefined) {
+    fields.push(`scheduled_for = $${paramIndex++}`);
+    values.push(scheduledFor ?? null);
   }
 
   if (fields.length === 0) return;

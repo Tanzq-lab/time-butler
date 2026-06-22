@@ -1,4 +1,12 @@
-import { Target, Clock, CheckCircle2, Trash2, Edit3, Play } from "lucide-react";
+import {
+  CalendarClock,
+  Target,
+  Clock,
+  CheckCircle2,
+  Trash2,
+  Edit3,
+  Play,
+} from "lucide-react";
 import type { Task } from "@/features/tasks/task-types";
 import { cn } from "@/lib/cn";
 
@@ -10,6 +18,21 @@ interface TaskListCardProps {
   onEdit: () => void;
   onDelete: () => void;
   onCompletePomo: () => void;
+  isScheduled?: boolean;
+}
+
+function formatScheduledFor(value?: string | null): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
 }
 
 export function TaskListCard({
@@ -20,24 +43,29 @@ export function TaskListCard({
   onEdit,
   onDelete,
   onCompletePomo,
+  isScheduled = false,
 }: TaskListCardProps) {
   const isDone = task.completed_pomos >= task.estimated_pomos;
+  const canActivate = !isDone && !isScheduled;
 
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={() => !isDone && onToggleActive()}
+      onClick={() => canActivate && onToggleActive()}
       onKeyDown={(e) => {
-        if ((e.key === "Enter" || e.key === " ") && !isDone) {
+        if ((e.key === "Enter" || e.key === " ") && canActivate) {
           e.preventDefault();
           onToggleActive();
         }
       }}
       className={cn(
-        "group relative bg-sahara-surface border border-sahara-border/15 rounded-xl md:rounded-2xl p-3.5 md:p-5 transition-all cursor-pointer",
+        "group relative bg-sahara-surface border border-sahara-border/15 rounded-xl md:rounded-2xl p-3.5 md:p-5 transition-all",
+        canActivate ? "cursor-pointer" : "cursor-default",
         isDone
           ? "opacity-60 hover:opacity-80 border-sahara-border/10"
+          : isScheduled
+            ? "border-amber-200/60 bg-amber-50/30"
           : "hover:border-sahara-primary/25 hover:shadow-sm",
         isActive && !isDone &&
           "border-sahara-primary shadow-lg shadow-sahara-primary/5",
@@ -55,7 +83,7 @@ export function TaskListCard({
           {task.project || "通用"}
         </span>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-          {!isDone && (
+          {!isDone && !isScheduled && (
             <>
               {onFocus && (
                 <button
@@ -130,6 +158,13 @@ export function TaskListCard({
           <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 text-[9px] md:text-[10px] font-bold uppercase tracking-wider">
             <Clock className="size-2.5 md:w-3 md:h-3 animate-pulse" />
             进行中
+          </div>
+        )}
+
+        {isScheduled && task.scheduled_for && (
+          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[9px] md:text-[10px] font-bold tracking-wider">
+            <CalendarClock className="size-2.5 md:w-3 md:h-3" />
+            {formatScheduledFor(task.scheduled_for)}
           </div>
         )}
 

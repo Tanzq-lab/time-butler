@@ -6,6 +6,7 @@ export interface Task {
   estimated_pomos: number;
   completed_pomos: number;
   category_id?: number | null;
+  scheduled_for?: string | null;
   created_at: string;
   archived: number;
 }

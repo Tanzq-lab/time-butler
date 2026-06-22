@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useTaskStore } from "@/features/tasks/use-task-store";
+import { appendPomodoroEstimationLog } from "@/features/tasks/pomodoro-estimation-log";
 
 const mockTasks = [
   {
@@ -54,6 +55,30 @@ vi.mock("@/lib/db", () => ({
   incrementTaskPomos: vi.fn().mockResolvedValue(undefined),
   getSetting: vi.fn().mockResolvedValue("true"),
   setSetting: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/features/tasks/pomodoro-estimation-log", () => ({
+  appendPomodoroEstimationLog: vi.fn().mockResolvedValue(undefined),
+  buildCompletionLogEntry: vi.fn(
+    (task: {
+      name: string;
+      estimated_pomos: number;
+      completed_pomos: number;
+    }) => {
+      const delta = task.completed_pomos - task.estimated_pomos;
+      if (delta < 1) return null;
+
+      return {
+        event: "completion",
+        completedAt: "2026-06-22T00:00:00.000Z",
+        taskName: task.name,
+        estimatedPomos: task.estimated_pomos,
+        actualPomos: task.completed_pomos,
+        delta,
+        lesson: "actual exceeded estimate",
+      };
+    },
+  ),
 }));
 
 beforeEach(async () => {
@@ -168,6 +193,54 @@ describe("useTaskStore", () => {
       await useTaskStore.getState().incrementPomos(1);
       const other = useTaskStore.getState().tasks.find((t) => t.id === 2)!;
       expect(other.completed_pomos).toBe(5);
+    });
+
+    it("logs completion estimate delta on the first overrun", async () => {
+      useTaskStore.setState({
+        tasks: [
+          {
+            id: 3,
+            name: "Underestimated task",
+            estimated_pomos: 2,
+            completed_pomos: 2,
+            category_id: null,
+            created_at: "2026-01-03T00:00:00",
+            archived: 0,
+          },
+        ],
+      });
+
+      await useTaskStore.getState().incrementPomos(3);
+
+      expect(appendPomodoroEstimationLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: "completion",
+          taskName: "Underestimated task",
+          estimatedPomos: 2,
+          actualPomos: 3,
+          delta: 1,
+        }),
+      );
+    });
+
+    it("does not log completion delta when actual pomos match estimate", async () => {
+      useTaskStore.setState({
+        tasks: [
+          {
+            id: 4,
+            name: "Accurate task",
+            estimated_pomos: 2,
+            completed_pomos: 1,
+            category_id: null,
+            created_at: "2026-01-04T00:00:00",
+            archived: 0,
+          },
+        ],
+      });
+
+      await useTaskStore.getState().incrementPomos(4);
+
+      expect(appendPomodoroEstimationLog).not.toHaveBeenCalled();
     });
   });
 });

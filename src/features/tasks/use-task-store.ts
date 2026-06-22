@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import type { Task } from "@/features/tasks/task-types";
 import {
+  appendPomodoroEstimationLog,
+  buildCompletionLogEntry,
+} from "@/features/tasks/pomodoro-estimation-log";
+import {
   getTasks,
   addTask as dbAddTask,
   updateTask as dbUpdateTask,
@@ -22,6 +26,7 @@ interface TaskStore {
     project?: string,
     priority?: string,
     categoryId?: number | null,
+    scheduledFor?: string | null,
   ) => Promise<void>;
   updateTask: (
     id: number,
@@ -30,6 +35,7 @@ interface TaskStore {
     project?: string | null,
     priority?: string | null,
     categoryId?: number | null,
+    scheduledFor?: string | null,
   ) => Promise<void>;
   deleteTask: (id: number) => Promise<void>;
   archiveTask: (id: number) => Promise<void>;
@@ -66,7 +72,14 @@ export const useTaskStore = create<TaskStore>((set) => ({
     }
   },
 
-  addTask: async (name, estimatedPomos, project, priority, categoryId) => {
+  addTask: async (
+    name,
+    estimatedPomos,
+    project,
+    priority,
+    categoryId,
+    scheduledFor,
+  ) => {
     try {
       const id = await dbAddTask(
         name,
@@ -74,6 +87,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
         project,
         priority,
         categoryId,
+        scheduledFor,
       );
       const newTask: Task = {
         id,
@@ -83,6 +97,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
         project: project ?? undefined,
         priority: priority as Task["priority"] | undefined,
         category_id: categoryId ?? null,
+        scheduled_for: scheduledFor ?? null,
         created_at: new Date().toISOString(),
         archived: 0,
       };
@@ -103,6 +118,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
     project,
     priority,
     categoryId,
+    scheduledFor,
   ) => {
     try {
       await dbUpdateTask(
@@ -112,6 +128,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
         project,
         priority,
         categoryId,
+        scheduledFor,
       );
       set((state) => ({
         tasks: state.tasks.map((t) => {
@@ -128,6 +145,9 @@ export const useTaskStore = create<TaskStore>((set) => ({
             }),
             ...(categoryId !== undefined && {
               category_id: categoryId ?? null,
+            }),
+            ...(scheduledFor !== undefined && {
+              scheduled_for: scheduledFor ?? null,
             }),
           };
         }),
@@ -168,12 +188,28 @@ export const useTaskStore = create<TaskStore>((set) => ({
   incrementPomos: async (id) => {
     try {
       await incrementTaskPomos(id);
+      let completionLogTask: Task | null = null;
       set((state) => ({
-        tasks: state.tasks.map((t) =>
-          t.id === id ? { ...t, completed_pomos: t.completed_pomos + 1 } : t,
-        ),
+        tasks: state.tasks.map((t) => {
+          if (t.id !== id) return t;
+          const nextTask = {
+            ...t,
+            completed_pomos: t.completed_pomos + 1,
+          };
+          if (
+            nextTask.completed_pomos > nextTask.estimated_pomos &&
+            t.completed_pomos <= t.estimated_pomos
+          ) {
+            completionLogTask = nextTask;
+          }
+          return nextTask;
+        }),
         error: null,
       }));
+      if (completionLogTask) {
+        const entry = buildCompletionLogEntry(completionLogTask);
+        if (entry) await appendPomodoroEstimationLog(entry);
+      }
     } catch (err) {
       console.error("[TaskStore] Failed to increment pomos:", err);
       set({ error: String(err) });

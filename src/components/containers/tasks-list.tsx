@@ -11,15 +11,23 @@ import {
   ListTodo,
   LayoutGrid,
   Target,
+  CalendarClock,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
-import { AddTaskModal } from "@/components/base/add-task-modal";
+import {
+  AddTaskModal,
+  type AddTaskData,
+} from "@/components/base/add-task-modal";
 import { TaskListCard } from "@/components/base/task-list-card";
 import type { Task } from "@/features/tasks/task-types";
+import {
+  appendPomodoroEstimationLog,
+  buildCreatedLogEntry,
+} from "@/features/tasks/pomodoro-estimation-log";
 
 interface ListState {
   searchQuery: string;
@@ -82,7 +90,11 @@ export function TasksList() {
     loadCategories();
   }, [loadCategories]);
 
-  const { active: activeTasks, done: doneTasks } = useTaskFilter(
+  const {
+    active: activeTasks,
+    scheduled: scheduledTasks,
+    done: doneTasks,
+  } = useTaskFilter(
     tasks,
     searchQuery,
   );
@@ -92,30 +104,40 @@ export function TasksList() {
     navigate("/");
   };
 
-  const handleAddTask = async (data: {
-    name: string;
-    estimatedPomos: number;
-    project: string;
-    priority: string;
-    categoryId: number | null;
-  }) => {
+  const logCreatedTask = async (data: AddTaskData) => {
+    if (!data.draft) return;
+    await appendPomodoroEstimationLog(
+      buildCreatedLogEntry(data.draft, {
+        project: data.project,
+        category: data.categoryName,
+        needsBreakdown:
+          data.draft.needsBreakdown === true ||
+          data.draft.estimatedPomos > 4,
+      }),
+    );
+  };
+
+  const handleAddTask = async (data: AddTaskData) => {
     await addTask(
       data.name,
       data.estimatedPomos,
       data.project,
       data.priority,
       data.categoryId,
+      data.scheduledFor,
     );
+    await logCreatedTask(data);
     dispatch({ type: "CLOSE_ADD_MODAL" });
   };
 
-  const handleEditTask = async (data: {
-    name: string;
-    estimatedPomos: number;
-    project: string;
-    priority: string;
-    categoryId: number | null;
-  }) => {
+  const handleAddSubtasks = async (items: AddTaskData[]) => {
+    for (const item of items) {
+      await handleAddTask(item);
+    }
+    dispatch({ type: "CLOSE_ADD_MODAL" });
+  };
+
+  const handleEditTask = async (data: AddTaskData) => {
     if (!taskToEdit) return;
     await updateTask(
       taskToEdit.id,
@@ -193,12 +215,16 @@ export function TasksList() {
         open={showAddModal}
         onClose={() => dispatch({ type: "CLOSE_ADD_MODAL" })}
         onSubmit={taskToEdit ? handleEditTask : handleAddTask}
+        onSubmitSubtasks={handleAddSubtasks}
         editTask={taskToEdit}
         categories={categories}
       />
 
       {/* Task Sections */}
-      {activeTasks.length === 0 && doneTasks.length === 0 && searchQuery ? (
+      {activeTasks.length === 0 &&
+      scheduledTasks.length === 0 &&
+      doneTasks.length === 0 &&
+      searchQuery ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <Filter className="size-12 text-sahara-border mb-4" />
           <p className="text-sm font-bold text-sahara-text-muted">
@@ -250,7 +276,9 @@ export function TasksList() {
           )}
 
           {/* Active tasks empty state (when search yields results only in done) */}
-          {activeTasks.length === 0 && doneTasks.length > 0 && (
+          {activeTasks.length === 0 &&
+            scheduledTasks.length === 0 &&
+            doneTasks.length > 0 && (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Target className="size-10 text-sahara-border mb-3" />
               <p className="text-sm font-bold text-sahara-text-muted">
@@ -259,6 +287,41 @@ export function TasksList() {
               <p className="text-xs text-sahara-text-muted/60 mt-1">
                 所有任务都完成啦！
               </p>
+            </div>
+          )}
+
+          {scheduledTasks.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <CalendarClock className="size-4 text-amber-600" />
+                <span className="text-xs font-bold text-sahara-text-muted uppercase tracking-wider">
+                  稍后提醒（{scheduledTasks.length}）
+                </span>
+              </div>
+              <div
+                className={cn(
+                  viewMode === "grid"
+                    ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4"
+                    : "space-y-2.5 md:space-y-3",
+                )}
+              >
+                {scheduledTasks.map((task) => (
+                  <TaskListCard
+                    key={task.id}
+                    task={task}
+                    isActive={false}
+                    isScheduled
+                    onToggleActive={() => undefined}
+                    onEdit={() =>
+                      dispatch({ type: "OPEN_ADD_MODAL", taskToEdit: task })
+                    }
+                    onDelete={async () => {
+                      await deleteTask(task.id);
+                    }}
+                    onCompletePomo={() => incrementPomos(task.id)}
+                  />
+                ))}
+              </div>
             </div>
           )}
 
