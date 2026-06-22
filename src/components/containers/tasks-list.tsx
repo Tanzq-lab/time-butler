@@ -22,18 +22,16 @@ import {
   AddTaskModal,
   type AddTaskData,
 } from "@/components/base/add-task-modal";
+import { TaskCompletionReviewModal } from "@/components/base/task-completion-review-modal";
 import { TaskListCard } from "@/components/base/task-list-card";
 import type { Task } from "@/features/tasks/task-types";
-import {
-  appendPomodoroEstimationLog,
-  buildCreatedLogEntry,
-} from "@/features/tasks/pomodoro-estimation-log";
 
 interface ListState {
   searchQuery: string;
   viewMode: "list" | "grid";
   showAddModal: boolean;
   taskToEdit: Task | null;
+  taskToComplete: Task | null;
   showDone: boolean;
 }
 
@@ -42,6 +40,8 @@ type ListAction =
   | { type: "SET_VIEW_MODE"; mode: "list" | "grid" }
   | { type: "OPEN_ADD_MODAL"; taskToEdit?: Task | null }
   | { type: "CLOSE_ADD_MODAL" }
+  | { type: "OPEN_COMPLETE_MODAL"; task: Task }
+  | { type: "CLOSE_COMPLETE_MODAL" }
   | { type: "TOGGLE_DONE" };
 
 const INITIAL_LIST_STATE: ListState = {
@@ -49,6 +49,7 @@ const INITIAL_LIST_STATE: ListState = {
   viewMode: "list",
   showAddModal: false,
   taskToEdit: null,
+  taskToComplete: null,
   showDone: true,
 };
 
@@ -62,6 +63,10 @@ function listReducer(state: ListState, action: ListAction): ListState {
       return { ...state, showAddModal: true, taskToEdit: action.taskToEdit ?? null };
     case "CLOSE_ADD_MODAL":
       return { ...state, showAddModal: false, taskToEdit: null };
+    case "OPEN_COMPLETE_MODAL":
+      return { ...state, taskToComplete: action.task };
+    case "CLOSE_COMPLETE_MODAL":
+      return { ...state, taskToComplete: null };
     case "TOGGLE_DONE":
       return { ...state, showDone: !state.showDone };
     default:
@@ -76,12 +81,21 @@ export function TasksList() {
   const updateTask = useTaskStore((s) => s.updateTask);
   const deleteTask = useTaskStore((s) => s.deleteTask);
   const incrementPomos = useTaskStore((s) => s.incrementPomos);
+  const completeTask = useTaskStore((s) => s.completeTask);
+  const loadTasks = useTaskStore((s) => s.loadTasks);
 
   const activeTaskId = useTimerStore((s) => s.activeTaskId);
   const setActiveTask = useTimerStore((s) => s.setActiveTask);
 
   const [listState, dispatch] = useReducer(listReducer, INITIAL_LIST_STATE);
-  const { searchQuery, viewMode, showAddModal, taskToEdit, showDone } = listState;
+  const {
+    searchQuery,
+    viewMode,
+    showAddModal,
+    taskToEdit,
+    taskToComplete,
+    showDone,
+  } = listState;
 
   const categories = useCategoriesStore((s) => s.categories);
   const loadCategories = useCategoriesStore((s) => s.loadCategories);
@@ -89,6 +103,28 @@ export function TasksList() {
   useEffect(() => {
     loadCategories();
   }, [loadCategories]);
+
+  useEffect(() => {
+    let disposed = false;
+
+    const refreshTasks = () => {
+      if (!disposed) void loadTasks();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") refreshTasks();
+    };
+
+    refreshTasks();
+    window.addEventListener("focus", refreshTasks);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      disposed = true;
+      window.removeEventListener("focus", refreshTasks);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [loadTasks]);
 
   const {
     active: activeTasks,
@@ -104,19 +140,6 @@ export function TasksList() {
     navigate("/");
   };
 
-  const logCreatedTask = async (data: AddTaskData) => {
-    if (!data.draft) return;
-    await appendPomodoroEstimationLog(
-      buildCreatedLogEntry(data.draft, {
-        project: data.project,
-        category: data.categoryName,
-        needsBreakdown:
-          data.draft.needsBreakdown === true ||
-          data.draft.estimatedPomos > 4,
-      }),
-    );
-  };
-
   const handleAddTask = async (data: AddTaskData) => {
     await addTask(
       data.name,
@@ -126,14 +149,6 @@ export function TasksList() {
       data.categoryId,
       data.scheduledFor,
     );
-    await logCreatedTask(data);
-    dispatch({ type: "CLOSE_ADD_MODAL" });
-  };
-
-  const handleAddSubtasks = async (items: AddTaskData[]) => {
-    for (const item of items) {
-      await handleAddTask(item);
-    }
     dispatch({ type: "CLOSE_ADD_MODAL" });
   };
 
@@ -146,8 +161,21 @@ export function TasksList() {
       data.project || null,
       data.priority || null,
       data.categoryId,
+      data.scheduledFor,
     );
     dispatch({ type: "CLOSE_ADD_MODAL" });
+  };
+
+  const handleCompleteTask = async (data: {
+    actualPomos: number;
+    review: string;
+  }) => {
+    if (!taskToComplete) return;
+    await completeTask(taskToComplete.id, data.actualPomos, data.review);
+    if (activeTaskId === taskToComplete.id) {
+      await setActiveTask(null);
+    }
+    dispatch({ type: "CLOSE_COMPLETE_MODAL" });
   };
 
   return (
@@ -215,9 +243,14 @@ export function TasksList() {
         open={showAddModal}
         onClose={() => dispatch({ type: "CLOSE_ADD_MODAL" })}
         onSubmit={taskToEdit ? handleEditTask : handleAddTask}
-        onSubmitSubtasks={handleAddSubtasks}
         editTask={taskToEdit}
         categories={categories}
+      />
+      <TaskCompletionReviewModal
+        open={!!taskToComplete}
+        task={taskToComplete}
+        onClose={() => dispatch({ type: "CLOSE_COMPLETE_MODAL" })}
+        onSubmit={handleCompleteTask}
       />
 
       {/* Task Sections */}
@@ -269,6 +302,9 @@ export function TasksList() {
                       if (activeTaskId === task.id) setActiveTask(null);
                     }}
                     onCompletePomo={() => incrementPomos(task.id)}
+                    onCompleteTask={() =>
+                      dispatch({ type: "OPEN_COMPLETE_MODAL", task })
+                    }
                   />
                 ))}
               </div>
@@ -319,6 +355,9 @@ export function TasksList() {
                       await deleteTask(task.id);
                     }}
                     onCompletePomo={() => incrementPomos(task.id)}
+                    onCompleteTask={() =>
+                      dispatch({ type: "OPEN_COMPLETE_MODAL", task })
+                    }
                   />
                 ))}
               </div>
@@ -364,6 +403,9 @@ export function TasksList() {
                         await deleteTask(task.id);
                       }}
                       onCompletePomo={() => incrementPomos(task.id)}
+                      onCompleteTask={() =>
+                        dispatch({ type: "OPEN_COMPLETE_MODAL", task })
+                      }
                     />
                   ))}
                 </div>

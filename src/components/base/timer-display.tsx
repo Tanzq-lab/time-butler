@@ -15,7 +15,6 @@ interface TimerDisplayProps {
   secondsRemaining: number;
   totalSeconds: number;
   phase: TimerPhase;
-  overtimeSeconds?: number;
   editable?: boolean;
   onDurationChange?: (seconds: number) => void;
   style?: "solid" | "zigzag";
@@ -142,13 +141,12 @@ export function TimerDisplay({
   secondsRemaining,
   totalSeconds,
   phase,
-  overtimeSeconds = 0,
   editable = false,
   onDurationChange,
   style = "solid",
 }: TimerDisplayProps) {
   const isRunning = secondsRemaining > 0 && secondsRemaining < totalSeconds;
-  const isComplete = secondsRemaining <= 0 || overtimeSeconds > 0;
+  const isComplete = secondsRemaining <= 0;
   const progress =
     totalSeconds > 0
       ? Math.min(100, ((totalSeconds - secondsRemaining) / totalSeconds) * 100)
@@ -339,15 +337,11 @@ export function TimerDisplay({
               "md:text-[120px] text-[76px]",
             )}
           >
-            {isComplete
-              ? `+${formatSeconds(totalSeconds + overtimeSeconds)}`
-              : formatSeconds(secondsRemaining)}
+            {formatSeconds(secondsRemaining)}
           </Text>
         )}
         <p className="text-[10px] tracking-[0.3em] font-bold text-sahara-text-muted mt-1 md:mt-2 uppercase">
-          {isComplete
-            ? "超时中"
-            : phase === "work"
+          {phase === "work"
               ? "专注剩余"
               : phase === "short_break"
                 ? "短休息"

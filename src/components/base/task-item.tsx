@@ -1,6 +1,7 @@
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
+import { isTaskDone } from "@/features/tasks/task-completion";
 import type { Task } from "@/features/tasks/task-types";
 
 interface TaskItemProps {
@@ -18,7 +19,7 @@ export function TaskItem({
   onDelete,
   onSelect,
 }: TaskItemProps) {
-  const isComplete = task.completed_pomos >= task.estimated_pomos;
+  const isComplete = isTaskDone(task);
 
   return (
     <div

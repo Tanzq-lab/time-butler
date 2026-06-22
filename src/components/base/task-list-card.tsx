@@ -3,11 +3,13 @@ import {
   Target,
   Clock,
   CheckCircle2,
+  CircleCheckBig,
   Trash2,
   Edit3,
   Play,
 } from "lucide-react";
 import type { Task } from "@/features/tasks/task-types";
+import { isTaskDone } from "@/features/tasks/task-completion";
 import { cn } from "@/lib/cn";
 
 interface TaskListCardProps {
@@ -18,6 +20,7 @@ interface TaskListCardProps {
   onEdit: () => void;
   onDelete: () => void;
   onCompletePomo: () => void;
+  onCompleteTask: () => void;
   isScheduled?: boolean;
 }
 
@@ -43,9 +46,10 @@ export function TaskListCard({
   onEdit,
   onDelete,
   onCompletePomo,
+  onCompleteTask,
   isScheduled = false,
 }: TaskListCardProps) {
-  const isDone = task.completed_pomos >= task.estimated_pomos;
+  const isDone = isTaskDone(task);
   const canActivate = !isDone && !isScheduled;
 
   return (
@@ -102,13 +106,23 @@ export function TaskListCard({
                   e.stopPropagation();
                   onCompletePomo();
                 }}
-              className="p-1 rounded-lg hover:bg-sahara-card transition-colors cursor-pointer"
-              title="完成一个番茄"
-            >
-              <CheckCircle2 className="size-3.5 text-green-500" />
-            </button>
-          </>
-        )}
+                className="p-1 rounded-lg hover:bg-sahara-card transition-colors cursor-pointer"
+                title="记录一个番茄"
+              >
+                <CheckCircle2 className="size-3.5 text-green-500" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCompleteTask();
+                }}
+                className="p-1 rounded-lg hover:bg-sahara-card transition-colors cursor-pointer"
+                title="完成任务"
+              >
+                <CircleCheckBig className="size-3.5 text-sahara-primary" />
+              </button>
+            </>
+          )}
           <button
             onClick={(e) => {
               e.stopPropagation();

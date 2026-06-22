@@ -53,6 +53,7 @@ vi.mock("@/lib/db", () => ({
   deleteTask: vi.fn().mockResolvedValue(undefined),
   toggleTaskArchived: vi.fn().mockResolvedValue(undefined),
   incrementTaskPomos: vi.fn().mockResolvedValue(undefined),
+  completeTask: vi.fn().mockResolvedValue(undefined),
   getSetting: vi.fn().mockResolvedValue("true"),
   setSetting: vi.fn().mockResolvedValue(undefined),
 }));
@@ -60,13 +61,16 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/features/tasks/pomodoro-estimation-log", () => ({
   appendPomodoroEstimationLog: vi.fn().mockResolvedValue(undefined),
   buildCompletionLogEntry: vi.fn(
-    (task: {
-      name: string;
-      estimated_pomos: number;
-      completed_pomos: number;
-    }) => {
+    (
+      task: {
+        name: string;
+        estimated_pomos: number;
+        completed_pomos: number;
+      },
+      review?: string,
+    ) => {
       const delta = task.completed_pomos - task.estimated_pomos;
-      if (delta < 1) return null;
+      if (delta === 0) return null;
 
       return {
         event: "completion",
@@ -75,7 +79,7 @@ vi.mock("@/features/tasks/pomodoro-estimation-log", () => ({
         estimatedPomos: task.estimated_pomos,
         actualPomos: task.completed_pomos,
         delta,
-        lesson: "actual exceeded estimate",
+        lesson: review || "actual differed from estimate",
       };
     },
   ),
@@ -240,6 +244,66 @@ describe("useTaskStore", () => {
 
       await useTaskStore.getState().incrementPomos(4);
 
+      expect(appendPomodoroEstimationLog).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("completeTask", () => {
+    it("marks a task completed early and logs the review reason", async () => {
+      useTaskStore.setState({
+        tasks: [
+          {
+            id: 5,
+            name: "Early task",
+            estimated_pomos: 4,
+            completed_pomos: 2,
+            category_id: null,
+            created_at: "2026-01-05T00:00:00",
+            archived: 0,
+          },
+        ],
+      });
+
+      await useTaskStore
+        .getState()
+        .completeTask(5, 2, "需求比预期简单，提前完成。");
+
+      const updated = useTaskStore.getState().tasks.find((t) => t.id === 5)!;
+      expect(updated.completed_pomos).toBe(2);
+      expect(updated.completed_at).toBeTruthy();
+      expect(updated.completion_review).toBe("需求比预期简单，提前完成。");
+      expect(appendPomodoroEstimationLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: "completion",
+          taskName: "Early task",
+          estimatedPomos: 4,
+          actualPomos: 2,
+          delta: -2,
+          lesson: "需求比预期简单，提前完成。",
+        }),
+      );
+    });
+
+    it("does not log completion review when actual pomos match estimate", async () => {
+      useTaskStore.setState({
+        tasks: [
+          {
+            id: 6,
+            name: "Accurate completed task",
+            estimated_pomos: 2,
+            completed_pomos: 1,
+            category_id: null,
+            created_at: "2026-01-06T00:00:00",
+            archived: 0,
+          },
+        ],
+      });
+
+      await useTaskStore.getState().completeTask(6, 2, "");
+
+      const updated = useTaskStore.getState().tasks.find((t) => t.id === 6)!;
+      expect(updated.completed_pomos).toBe(2);
+      expect(updated.completed_at).toBeTruthy();
       expect(appendPomodoroEstimationLog).not.toHaveBeenCalled();
     });
   });

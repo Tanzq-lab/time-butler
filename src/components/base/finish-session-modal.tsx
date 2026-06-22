@@ -26,6 +26,8 @@ interface FinishSessionModalProps {
   onSubmit: (data: { mood: SessionMood; notes: string }) => void;
   category: Category | null;
   durationMinutes: number;
+  requiresNotes?: boolean;
+  notesRequirementText?: string;
 }
 
 function formatTimeRange(durationMin: number): string {
@@ -40,13 +42,18 @@ export function FinishSessionModal({
   onSubmit,
   category,
   durationMinutes,
+  requiresNotes = false,
+  notesRequirementText,
 }: FinishSessionModalProps) {
   const [mood, setMood] = useState<SessionMood>("neutral");
   const [notes, setNotes] = useState("");
 
   if (!open) return null;
 
+  const canSubmit = !requiresNotes || notes.trim().length > 0;
+
   const handleSubmit = () => {
+    if (!canSubmit) return;
     onSubmit({ mood, notes });
     setNotes("");
     setMood("neutral");
@@ -180,10 +187,20 @@ export function FinishSessionModal({
 
         {/* Notes */}
         <div>
+          {requiresNotes && (
+            <p className="mb-2 rounded-xl border border-amber-200/70 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
+              {notesRequirementText ||
+                "本次完成后会产生预估偏差，请写下原因，方便后续任务制定。"}
+            </p>
+          )}
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="写下这次的收获、卡点或分心原因..."
+            placeholder={
+              requiresNotes
+                ? "必须写明本次偏差原因..."
+                : "写下这次的收获、卡点或分心原因..."
+            }
             rows={3}
             className="w-full px-4 py-3 bg-sahara-bg/40 border border-sahara-border/20 rounded-xl text-sm text-sahara-text placeholder:text-sahara-text-muted/50 focus:outline-none focus:border-sahara-primary/50 focus:ring-2 focus:ring-sahara-primary/10 transition-all resize-none leading-relaxed"
           />
@@ -196,6 +213,7 @@ export function FinishSessionModal({
           fullWidth
           shape="rounded-2xl"
           onClick={handleSubmit}
+          disabled={!canSubmit}
         >
           提交记录
         </Button>

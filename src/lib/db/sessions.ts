@@ -33,6 +33,7 @@ export async function finishSession(
   durationSec?: number,
   mood?: string,
   notes?: string,
+  completed = true,
 ): Promise<void> {
   const database = await getDb();
 
@@ -42,12 +43,12 @@ export async function finishSession(
       UPDATE sessions
       SET ended_at = datetime('now', 'localtime'),
           duration_sec = $2,
-          completed = 1,
-          mood = $3,
-          notes = $4
+          completed = $3,
+          mood = $4,
+          notes = $5
       WHERE id = $1
     `,
-      [sessionId, durationSec, mood ?? null, notes ?? null],
+      [sessionId, durationSec, completed ? 1 : 0, mood ?? null, notes ?? null],
     );
   } else {
     await database.execute(
@@ -55,12 +56,12 @@ export async function finishSession(
       UPDATE sessions
       SET ended_at = datetime('now', 'localtime'),
           duration_sec = MAX(0, CAST(strftime('%s', 'now', 'localtime') - strftime('%s', started_at) AS INTEGER)),
-          completed = 1,
-          mood = $2,
-          notes = $3
+          completed = $2,
+          mood = $3,
+          notes = $4
       WHERE id = $1
     `,
-      [sessionId, mood ?? null, notes ?? null],
+      [sessionId, completed ? 1 : 0, mood ?? null, notes ?? null],
     );
   }
 }

@@ -10,7 +10,6 @@ export function useHotkeys() {
   const pause = useTimerStore((s) => s.pause);
   const resume = useTimerStore((s) => s.resume);
   const reset = useTimerStore((s) => s.reset);
-  const finishSession = useTimerStore((s) => s.finishSession);
   const hotkey = useSettingsStore((s) => s.settings.hotkey);
 
   useEffect(() => {
@@ -31,14 +30,6 @@ export function useHotkeys() {
         return;
       }
 
-      if (cmd && e.key.toLowerCase() === "f") {
-        e.preventDefault();
-        if (status === "focus_complete") {
-          finishSession().catch(() => {});
-        }
-        return;
-      }
-
       if (e.key === "Escape") {
         window.dispatchEvent(new CustomEvent("app:escape"));
       }
@@ -49,7 +40,7 @@ export function useHotkeys() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [status, start, pause, resume, reset, finishSession]);
+  }, [status, start, pause, resume, reset]);
 
   useEffect(() => {
     if (!isTauri()) return;
@@ -60,7 +51,6 @@ export function useHotkeys() {
       if (status === "idle") start();
       else if (status === "running") pause();
       else if (status === "paused") resume();
-      else if (status === "focus_complete") resume();
     });
 
     return () => {

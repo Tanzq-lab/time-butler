@@ -64,7 +64,14 @@ export default defineConfig(async () => ({
         }
       : undefined,
     watch: {
-      ignored: ["**/src-tauri/**"],
+      ignored: [
+        "**/src-tauri/**",
+        "**/data/**",
+        "**/docs/**",
+        "**/AGENTS.md",
+        "**/README.md",
+        "**/.DS_Store",
+      ],
     },
   },
 }));

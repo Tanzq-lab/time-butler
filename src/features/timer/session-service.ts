@@ -20,8 +20,9 @@ export const SessionService = {
     durationSec?: number,
     mood?: string,
     notes?: string,
+    completed = true,
   ): Promise<void> {
-    await dbFinishSession(sessionId, durationSec, mood, notes);
+    await dbFinishSession(sessionId, durationSec, mood, notes, completed);
   },
 
   async abandon(sessionId: number): Promise<void> {

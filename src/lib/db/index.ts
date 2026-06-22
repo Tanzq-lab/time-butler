@@ -8,6 +8,7 @@ export {
   deleteTask,
   toggleTaskArchived,
   incrementTaskPomos,
+  completeTask,
   getTaskTimeToday,
 } from "./tasks";
 export {

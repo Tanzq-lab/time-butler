@@ -18,7 +18,6 @@ import { useTimerSelectors } from "@/components/timer/use-timer-selectors";
 import { FullscreenTaskLabel } from "@/components/timer/fullscreen-task-label";
 import { IdleActions } from "@/components/timer/idle-actions";
 import { RunningActions } from "@/components/timer/running-actions";
-import { FocusCompleteActions } from "@/components/timer/focus-complete-actions";
 import type { SessionMood } from "@/features/timer/timer-types";
 
 export function TimerControls() {
@@ -28,11 +27,8 @@ export function TimerControls() {
     status,
     secondsRemaining,
     totalSeconds,
-    overtimeSeconds,
     durations,
     selectedCategory,
-    isFocusComplete,
-    isWorkPhase,
     durationMinutes,
     detectedBreakPhase,
     isFocus,
@@ -46,24 +42,18 @@ export function TimerControls() {
   const adjustDuration = useTimerStore((s) => s.adjustDuration);
   const finishSession = useTimerStore((s) => s.finishSession);
   const abandonSession = useTimerStore((s) => s.abandonSession);
-  const confirmStartNextPhase = useTimerStore((s) => s.confirmStartNextPhase);
   const setSelectedCategory = useTimerStore((s) => s.setSelectedCategory);
   const setDurationForCurrentPhase = useTimerStore(
     (s) => s.setDurationForCurrentPhase,
   );
 
   const [showFinishModal, setShowFinishModal] = useState(false);
-  const [modalMode, setModalMode] = useState<"finish" | "nextPhase">("finish");
 
   const handleFinishWithReflection = async (data: {
     mood: SessionMood;
     notes: string;
   }) => {
-    if (modalMode === "nextPhase") {
-      await confirmStartNextPhase(data.mood, data.notes);
-    } else {
-      await finishSession(data.mood, data.notes);
-    }
+    await finishSession(data.mood, data.notes);
     setShowFinishModal(false);
   };
 
@@ -136,7 +126,6 @@ export function TimerControls() {
           secondsRemaining={secondsRemaining}
           totalSeconds={totalSeconds}
           phase={phase}
-          overtimeSeconds={overtimeSeconds}
           editable={status === "idle"}
           onDurationChange={setDurationForCurrentPhase}
           style={timerStyle}
@@ -186,17 +175,7 @@ export function TimerControls() {
         layout="position"
         className="flex items-center gap-2 md:gap-4 flex-wrap justify-center max-w-lg md:max-w-none"
       >
-        {isFocusComplete ? (
-          <FocusCompleteActions
-            isWorkPhase={isWorkPhase}
-            overtimeSeconds={overtimeSeconds}
-            isFullscreenFocus={isFullscreenFocus}
-            onStartBreak={() => {
-              setModalMode("nextPhase");
-              setShowFinishModal(true);
-            }}
-          />
-        ) : status === "idle" ? (
+        {status === "idle" ? (
           <IdleActions
             phase={phase}
             secondsRemaining={secondsRemaining}
@@ -208,7 +187,6 @@ export function TimerControls() {
             status={status}
             isFullscreenFocus={isFullscreenFocus}
             onFinish={() => {
-              setModalMode("finish");
               setShowFinishModal(true);
             }}
             onAbandon={() => abandonSession()}

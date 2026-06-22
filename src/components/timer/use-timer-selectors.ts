@@ -12,7 +12,6 @@ export function useTimerSelectors() {
   const status = useTimerStore((s) => s.status);
   const secondsRemaining = useTimerStore((s) => s.secondsRemaining);
   const totalSeconds = useTimerStore((s) => s.totalSeconds);
-  const overtimeSeconds = useTimerStore((s) => s.overtimeSeconds);
   const durations = useTimerStore((s) => s.durations);
   const completedPomos = useTimerStore((s) => s.completedPomos);
   const selectedCategory = useTimerStore((s) => s.selectedCategory);
@@ -20,8 +19,6 @@ export function useTimerSelectors() {
 
   const isFocus = phase === "work";
   const isBreak = phase === "short_break" || phase === "long_break";
-  const isFocusComplete = status === "focus_complete";
-  const isWorkPhase = phase === "work";
   const durationMinutes = Math.round(totalSeconds / 60);
 
   const detectedBreakPhase: TimerPhase =
@@ -30,12 +27,10 @@ export function useTimerSelectors() {
       : "short_break";
 
   const [endTime, startTime] = useMemo(() => {
-    const end = isFocusComplete
-      ? new Date()
-      : new Date(Date.now() + secondsRemaining * 1000);
+    const end = new Date(Date.now() + secondsRemaining * 1000);
     const start = new Date(end.getTime() - totalSeconds * 1000);
     return [end, start];
-  }, [secondsRemaining, totalSeconds, isFocusComplete]);
+  }, [secondsRemaining, totalSeconds]);
 
   return {
     timerStyle,
@@ -43,15 +38,12 @@ export function useTimerSelectors() {
     status,
     secondsRemaining,
     totalSeconds,
-    overtimeSeconds,
     durations,
     completedPomos,
     selectedCategory,
     isFullscreenFocus,
     isFocus,
     isBreak,
-    isFocusComplete,
-    isWorkPhase,
     durationMinutes,
     detectedBreakPhase,
     startTime,

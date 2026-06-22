@@ -55,13 +55,22 @@ export function buildCreatedLogEntry(
   };
 }
 
-export function buildCompletionLogEntry(task: {
-  name: string;
-  estimated_pomos: number;
-  completed_pomos: number;
-}): PomodoroEstimationCompletionLog | null {
+export function buildCompletionLogEntry(
+  task: {
+    name: string;
+    estimated_pomos: number;
+    completed_pomos: number;
+  },
+  review?: string,
+): PomodoroEstimationCompletionLog | null {
   const delta = task.completed_pomos - task.estimated_pomos;
-  if (delta < 1) return null;
+  if (delta === 0) return null;
+
+  const trimmedReview = review?.trim();
+  const generatedLesson =
+    delta > 0
+      ? `实际比预估多 ${delta} 个番茄，后续类似任务应提高预估或提前拆分。`
+      : `实际比预估少 ${Math.abs(delta)} 个番茄，后续类似任务可以降低预估或缩小任务粒度。`;
 
   return {
     event: "completion",
@@ -70,7 +79,7 @@ export function buildCompletionLogEntry(task: {
     estimatedPomos: task.estimated_pomos,
     actualPomos: task.completed_pomos,
     delta,
-    lesson: `实际比预估多 ${delta} 个番茄，后续类似任务应提高预估或提前拆分。`,
+    lesson: trimmedReview || generatedLesson,
   };
 }
 

@@ -11,6 +11,7 @@ import {
   deleteTask as dbDeleteTask,
   toggleTaskArchived,
   incrementTaskPomos,
+  completeTask as dbCompleteTask,
   getSetting,
   setSetting,
 } from "@/lib/db";
@@ -39,7 +40,12 @@ interface TaskStore {
   ) => Promise<void>;
   deleteTask: (id: number) => Promise<void>;
   archiveTask: (id: number) => Promise<void>;
-  incrementPomos: (id: number) => Promise<void>;
+  incrementPomos: (id: number, review?: string) => Promise<void>;
+  completeTask: (
+    id: number,
+    actualPomos: number,
+    review?: string,
+  ) => Promise<void>;
 }
 
 export const useTaskStore = create<TaskStore>((set) => ({
@@ -98,6 +104,8 @@ export const useTaskStore = create<TaskStore>((set) => ({
         priority: priority as Task["priority"] | undefined,
         category_id: categoryId ?? null,
         scheduled_for: scheduledFor ?? null,
+        completed_at: null,
+        completion_review: null,
         created_at: new Date().toISOString(),
         archived: 0,
       };
@@ -185,7 +193,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
     }
   },
 
-  incrementPomos: async (id) => {
+  incrementPomos: async (id, review) => {
     try {
       await incrementTaskPomos(id);
       let completionLogTask: Task | null = null;
@@ -207,11 +215,45 @@ export const useTaskStore = create<TaskStore>((set) => ({
         error: null,
       }));
       if (completionLogTask) {
-        const entry = buildCompletionLogEntry(completionLogTask);
+        const entry = buildCompletionLogEntry(completionLogTask, review);
         if (entry) await appendPomodoroEstimationLog(entry);
       }
     } catch (err) {
       console.error("[TaskStore] Failed to increment pomos:", err);
+      set({ error: String(err) });
+    }
+  },
+
+  completeTask: async (id, actualPomos, review) => {
+    try {
+      const safeActualPomos = Math.max(0, Math.floor(actualPomos));
+      await dbCompleteTask(id, safeActualPomos, review);
+      const completedAt = new Date().toISOString();
+      let completionLogTask: Task | null = null;
+
+      set((state) => ({
+        tasks: state.tasks.map((t) => {
+          if (t.id !== id) return t;
+          const nextTask = {
+            ...t,
+            completed_pomos: safeActualPomos,
+            completed_at: completedAt,
+            completion_review: review?.trim() || null,
+          };
+          if (nextTask.completed_pomos !== nextTask.estimated_pomos) {
+            completionLogTask = nextTask;
+          }
+          return nextTask;
+        }),
+        error: null,
+      }));
+
+      if (completionLogTask) {
+        const entry = buildCompletionLogEntry(completionLogTask, review);
+        if (entry) await appendPomodoroEstimationLog(entry);
+      }
+    } catch (err) {
+      console.error("[TaskStore] Failed to complete task:", err);
       set({ error: String(err) });
     }
   },

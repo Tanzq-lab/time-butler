@@ -19,7 +19,6 @@ import {
 import { recordPomoCompletion } from "@/features/timer/pomo-tracker";
 import {
   notifyPhaseComplete,
-  notifySessionComplete,
   notifySkipped,
 } from "@/features/timer/timer-notifications";
 import { useSettingsStore } from "@/features/settings/use-settings-store";
@@ -33,7 +32,6 @@ interface TimerStore {
   activeTaskId: number | null;
   currentSessionId: number | null;
   selectedCategory: Category | null;
-  overtimeSeconds: number;
   durations: TimerDurations;
 
   start: (duration?: number) => void;
@@ -54,28 +52,151 @@ interface TimerStore {
   endWithoutBreak: () => Promise<void>;
 }
 
+type PersistedTimerState = Pick<
+  TimerStore,
+  | "phase"
+  | "status"
+  | "secondsRemaining"
+  | "totalSeconds"
+  | "completedPomos"
+  | "activeTaskId"
+  | "currentSessionId"
+  | "selectedCategory"
+  | "durations"
+> & {
+  savedAt: number;
+};
+
+const TIMER_STORAGE_KEY = "time-butler:timer-state:v1";
+
 const engine = new TimerEngine();
 
+function canUseStorage(): boolean {
+  return typeof window !== "undefined" && !!window.localStorage;
+}
+
+function loadPersistedTimerState(): Partial<TimerStore> {
+  if (!canUseStorage()) return {};
+
+  try {
+    const raw = window.localStorage.getItem(TIMER_STORAGE_KEY);
+    if (!raw) return {};
+
+    const saved = JSON.parse(raw) as PersistedTimerState;
+    const elapsed = Math.max(0, Math.floor((Date.now() - saved.savedAt) / 1000));
+
+    if (saved.status === "running") {
+      const remaining = saved.secondsRemaining - elapsed;
+      if (remaining <= 0) {
+        const completedPomos =
+          saved.phase === "work" ? saved.completedPomos + 1 : saved.completedPomos;
+        const next = getNextPhase(saved.phase, completedPomos, saved.durations);
+        return {
+          ...saved,
+          phase: next.phase,
+          status: "idle",
+          secondsRemaining: next.duration,
+          totalSeconds: next.duration,
+          completedPomos,
+          currentSessionId: null,
+        };
+      }
+
+      return {
+        ...saved,
+        secondsRemaining: remaining,
+      };
+    }
+
+    if ((saved.status as string) === "focus_complete") {
+      const duration = getPhaseDuration(saved.phase, saved.durations);
+      return {
+        ...saved,
+        status: "idle",
+        secondsRemaining: duration,
+        totalSeconds: duration,
+        currentSessionId: null,
+      };
+    }
+
+    return saved;
+  } catch (err) {
+    console.warn("[TimerStore] Failed to restore timer state:", err);
+    return {};
+  }
+}
+
+function persistTimerState(state: TimerStore): void {
+  if (!canUseStorage()) return;
+
+  const snapshot: PersistedTimerState = {
+    phase: state.phase,
+    status: state.status,
+    secondsRemaining: state.secondsRemaining,
+    totalSeconds: state.totalSeconds,
+    completedPomos: state.completedPomos,
+    activeTaskId: state.activeTaskId,
+    currentSessionId: state.currentSessionId,
+    selectedCategory: state.selectedCategory,
+    durations: state.durations,
+    savedAt: Date.now(),
+  };
+
+  try {
+    window.localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(snapshot));
+  } catch (err) {
+    console.warn("[TimerStore] Failed to persist timer state:", err);
+  }
+}
+
 export const useTimerStore = create<TimerStore>((set, get) => {
-  function onTimerDone() {
+  const persistedTimerState = loadPersistedTimerState();
+
+  async function settleCompletedPhase() {
     const state = get();
+    const {
+      currentSessionId,
+      activeTaskId,
+      phase,
+      totalSeconds,
+      completedPomos,
+      durations,
+    } = state;
     const durationMin = Math.round(state.totalSeconds / 60);
     notifyPhaseComplete(state.phase, durationMin);
 
-    const settings = useSettingsStore.getState().settings;
-    if (state.phase === "work" && settings.autoStartBreaks) {
-      state.skip();
-      return;
+    engine.terminate();
+
+    if (currentSessionId) {
+      await SessionService.finish(currentSessionId, totalSeconds, undefined, undefined, true);
+      recordPomoCompletion(phase, activeTaskId);
     }
 
-    engine.startOvertime(0);
-    set({ status: "focus_complete", secondsRemaining: 0, overtimeSeconds: 0 });
+    const newPomos = phase === "work" ? completedPomos + 1 : completedPomos;
+    const next = getNextPhase(phase, newPomos, durations);
+    const settings = useSettingsStore.getState().settings;
+
+    set({
+      phase: next.phase,
+      status: "idle",
+      secondsRemaining: next.duration,
+      totalSeconds: next.duration,
+      completedPomos: newPomos,
+      currentSessionId: null,
+    });
+
+    if (phase === "work" && settings.autoStartBreaks) {
+      void get().start(next.duration);
+    }
+  }
+
+  function onTimerDone() {
+    void settleCompletedPhase();
   }
 
   engine.setCallbacks({
     onTick: (remaining) => set({ secondsRemaining: remaining }),
     onDone: onTimerDone,
-    onOvertimeTick: (overtime) => set({ overtimeSeconds: overtime }),
   });
 
   return {
@@ -87,12 +208,12 @@ export const useTimerStore = create<TimerStore>((set, get) => {
     activeTaskId: null,
     currentSessionId: null,
     selectedCategory: null,
-    overtimeSeconds: 0,
     durations: {
       work: DEFAULT_WORK_SEC,
       short: DEFAULT_SHORT_BREAK_SEC,
       long: DEFAULT_LONG_BREAK_SEC,
     },
+    ...persistedTimerState,
 
     start: async (duration?: number) => {
       const state = get();
@@ -118,7 +239,6 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         secondsRemaining: secs,
         totalSeconds: secs,
         currentSessionId: sessionId,
-        overtimeSeconds: 0,
       });
     },
 
@@ -134,10 +254,10 @@ export const useTimerStore = create<TimerStore>((set, get) => {
 
     skip: () => {
       const state = get();
-      const { phase, secondsRemaining, totalSeconds, activeTaskId, completedPomos, overtimeSeconds } = state;
+      const { phase, secondsRemaining, totalSeconds, activeTaskId, completedPomos } = state;
 
-      const completed = secondsRemaining <= 0 || overtimeSeconds > 0;
-      const elapsed = Math.max(0, totalSeconds - secondsRemaining + overtimeSeconds);
+      const completed = secondsRemaining <= 0;
+      const elapsed = Math.max(0, totalSeconds - secondsRemaining);
       SessionService.recordSkip(activeTaskId, phase, elapsed, completed);
 
       if (completed) {
@@ -156,7 +276,6 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         secondsRemaining: next.duration,
         totalSeconds: next.duration,
         completedPomos: newPomos,
-        overtimeSeconds: 0,
       });
 
       if (phase === "work" && completed) {
@@ -167,13 +286,13 @@ export const useTimerStore = create<TimerStore>((set, get) => {
     reset: () => {
       engine.terminate();
       const duration = getPhaseDuration(get().phase, get().durations);
-      set({ status: "idle", secondsRemaining: duration, totalSeconds: duration, overtimeSeconds: 0 });
+      set({ status: "idle", secondsRemaining: duration, totalSeconds: duration });
     },
 
     setPhase: (phase: TimerPhase) => {
       engine.terminate();
       const duration = getPhaseDuration(phase, get().durations);
-      set({ phase, status: "idle", secondsRemaining: duration, totalSeconds: duration, overtimeSeconds: 0 });
+      set({ phase, status: "idle", secondsRemaining: duration, totalSeconds: duration });
     },
 
     setActiveTask: async (taskId: number | null) => {
@@ -240,13 +359,12 @@ export const useTimerStore = create<TimerStore>((set, get) => {
 
     finishSession: async (mood?: string, notes?: string) => {
       const state = get();
-      const { currentSessionId, activeTaskId, phase } = state;
+      const { currentSessionId, totalSeconds, secondsRemaining } = state;
       engine.terminate();
 
       if (currentSessionId) {
-        await SessionService.finish(currentSessionId, undefined, mood, notes);
-        notifySessionComplete();
-        recordPomoCompletion(phase, activeTaskId);
+        const elapsed = Math.max(0, totalSeconds - secondsRemaining);
+        await SessionService.finish(currentSessionId, elapsed, mood, notes, false);
       }
 
       const duration = getPhaseDuration("work", state.durations);
@@ -256,8 +374,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         secondsRemaining: duration,
         totalSeconds: duration,
         currentSessionId: null,
-        completedPomos: get().completedPomos + (phase === "work" ? 1 : 0),
-        overtimeSeconds: 0,
+        completedPomos: state.completedPomos,
       });
     },
 
@@ -275,7 +392,6 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         secondsRemaining: duration,
         totalSeconds: duration,
         currentSessionId: null,
-        overtimeSeconds: 0,
       });
     },
 
@@ -285,13 +401,12 @@ export const useTimerStore = create<TimerStore>((set, get) => {
 
     confirmStartNextPhase: async (mood?: string, notes?: string) => {
       const state = get();
-      const { currentSessionId, activeTaskId, phase, totalSeconds, overtimeSeconds } = state;
+      const { currentSessionId, activeTaskId, phase, totalSeconds } = state;
       engine.terminate();
 
       if (currentSessionId) {
-        const actualDuration = totalSeconds + overtimeSeconds;
-        await SessionService.finish(currentSessionId, actualDuration, mood, notes);
-        recordPomoCompletion(phase, activeTaskId);
+        await SessionService.finish(currentSessionId, totalSeconds, mood, notes, true);
+        recordPomoCompletion(phase, activeTaskId, notes);
       }
 
       const newPomos = phase === "work" ? state.completedPomos + 1 : state.completedPomos;
@@ -304,37 +419,27 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         totalSeconds: next.duration,
         completedPomos: newPomos,
         currentSessionId: null,
-        overtimeSeconds: 0,
       });
 
       get().start(next.duration);
     },
 
     addFiveMinutes: () => {
-      const state = get();
-      const { overtimeSeconds } = state;
-
-      if (overtimeSeconds > 0 || state.secondsRemaining <= 0) {
-        engine.terminate();
-        get().start(5 * 60);
-      } else {
-        const addedSec = 5 * 60;
-        engine.addTime(addedSec);
-        set((s) => ({
-          totalSeconds: s.totalSeconds + addedSec,
-          secondsRemaining: s.secondsRemaining + addedSec,
-        }));
-      }
+      const addedSec = 5 * 60;
+      engine.addTime(addedSec);
+      set((s) => ({
+        totalSeconds: s.totalSeconds + addedSec,
+        secondsRemaining: s.secondsRemaining + addedSec,
+      }));
     },
 
     endWithoutBreak: async () => {
       const state = get();
-      const { currentSessionId, activeTaskId, phase, totalSeconds, overtimeSeconds } = state;
+      const { currentSessionId, activeTaskId, phase, totalSeconds } = state;
       engine.terminate();
 
       if (currentSessionId) {
-        const actualDuration = totalSeconds + overtimeSeconds;
-        await SessionService.finish(currentSessionId, actualDuration);
+        await SessionService.finish(currentSessionId, totalSeconds, undefined, undefined, true);
         recordPomoCompletion(phase, activeTaskId);
       }
 
@@ -346,8 +451,24 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         totalSeconds: duration,
         currentSessionId: null,
         completedPomos: get().completedPomos + (phase === "work" ? 1 : 0),
-        overtimeSeconds: 0,
       });
     },
   };
+});
+
+useTimerStore.subscribe((state) => persistTimerState(state));
+
+queueMicrotask(() => {
+  const state = useTimerStore.getState();
+  if (state.status === "running") {
+    engine.start(state.secondsRemaining);
+  } else if ((state.status as string) === "focus_complete") {
+    const duration = getPhaseDuration(state.phase, state.durations);
+    useTimerStore.setState({
+      status: "idle",
+      secondsRemaining: duration,
+      totalSeconds: duration,
+      currentSessionId: null,
+    });
+  }
 });

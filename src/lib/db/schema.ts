@@ -101,9 +101,13 @@ export async function initDb(): Promise<void> {
     3: [
       "ALTER TABLE tasks ADD COLUMN scheduled_for TEXT",
     ],
+    4: [
+      "ALTER TABLE tasks ADD COLUMN completed_at TEXT",
+      "ALTER TABLE tasks ADD COLUMN completion_review TEXT",
+    ],
   };
 
-  const targetVersion = 3;
+  const targetVersion = 4;
 
   for (let v = currentVersion + 1; v <= targetVersion; v++) {
     const statements = migrations[v];

@@ -3,7 +3,6 @@ import { createTimerWorker } from "@/features/timer/use-timer-worker";
 export interface TimerEngineCallbacks {
   onTick: (remaining: number) => void;
   onDone: () => void;
-  onOvertimeTick: (overtime: number) => void;
 }
 
 export class TimerEngine {
@@ -19,10 +18,9 @@ export class TimerEngine {
 
     const worker = createTimerWorker();
     worker.onmessage = (e: MessageEvent) => {
-      const { type, remaining, overtime } = e.data;
+      const { type, remaining } = e.data;
       if (type === "tick") this.callbacks?.onTick(remaining);
       if (type === "done") this.callbacks?.onDone();
-      if (type === "overtime_tick") this.callbacks?.onOvertimeTick(overtime);
     };
     worker.postMessage({ command: "start", seconds });
     this.worker = worker;
@@ -40,18 +38,6 @@ export class TimerEngine {
     if (this.worker) {
       this.worker.postMessage({ command: "add_time", seconds });
     }
-  }
-
-  startOvertime(startFrom = 0) {
-    this.terminateWorker();
-    const worker = createTimerWorker();
-    worker.onmessage = (e: MessageEvent) => {
-      const { type, overtime } = e.data;
-      if (type === "overtime_tick") this.callbacks?.onOvertimeTick(overtime);
-      if (type === "done") this.callbacks?.onDone();
-    };
-    worker.postMessage({ command: "start_overtime", startFrom });
-    this.worker = worker;
   }
 
   private terminateWorker() {

@@ -1,7 +1,6 @@
 import {
   Play,
   Pause,
-  Square,
   SkipForward,
   Maximize2,
   Hash,
@@ -21,19 +20,17 @@ export function TimerMiniPlayer() {
     status,
     secondsRemaining,
     totalSeconds,
-    overtimeSeconds,
     activeTaskId,
     selectedCategory,
     pause,
     resume,
     skip,
-    finishSession,
   } = useTimerStore();
 
   const tasks = useTaskStore((s) => s.tasks);
   const activeTask = tasks.find((t) => t.id === activeTaskId);
 
-  // Only show if a session is active (running, paused, or complete)
+  // Only show if a session is active and we are NOT on the timer page.
   // and we are NOT on the timer page
   const isTimerPage =
     location.pathname === "/" || location.pathname === "/timer";
@@ -41,19 +38,10 @@ export function TimerMiniPlayer() {
 
   if (isTimerPage || !isActive) return null;
 
-  const progress =
-    status === "focus_complete"
-      ? 100
-      : Math.max(
-          0,
-          Math.min(
-            100,
-            ((totalSeconds - secondsRemaining) / totalSeconds) * 100,
-          ),
-        );
-
-  const displayTime =
-    status === "focus_complete" ? overtimeSeconds : secondsRemaining;
+  const progress = Math.max(
+    0,
+    Math.min(100, ((totalSeconds - secondsRemaining) / totalSeconds) * 100),
+  );
 
   const phaseLabel = phase === "work" ? "专注" : "休息";
   const accentColor = selectedCategory?.color || "var(--color-sahara-primary)";
@@ -109,18 +97,11 @@ export function TimerMiniPlayer() {
             <p
               className={cn(
                 "text-lg md:text-xl font-black tracking-tight",
-                status === "focus_complete"
-                  ? "text-sahara-primary animate-pulse"
-                  : "text-sahara-text",
+                "text-sahara-text",
               )}
             >
-              {formatDuration(displayTime)}
+              {formatDuration(secondsRemaining)}
             </p>
-            {status === "focus_complete" && (
-              <p className="text-[9px] font-black uppercase text-sahara-primary/60 tracking-tighter -mt-1">
-                超时中
-              </p>
-            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -140,25 +121,16 @@ export function TimerMiniPlayer() {
               </button>
             )}
 
-            {status === "focus_complete" ? (
-              <button
-                onClick={() => finishSession()}
-                className="size-10 md:w-11 md:h-11 rounded-full bg-emerald-500 flex items-center justify-center text-white hover:brightness-110 transition-all shadow-lg shadow-emerald-500/20"
-              >
-                <Square className="size-4 md:w-5 md:h-5" fill="currentColor" />
-              </button>
-            ) : (
-              <button
-                onClick={skip}
-                className="size-10 md:w-11 md:h-11 rounded-full bg-sahara-surface border border-sahara-border/10 flex items-center justify-center text-sahara-text-muted hover:text-sahara-text hover:bg-sahara-card transition-colors"
-                title="跳过当前阶段"
-              >
-                <SkipForward
-                  className="size-4 md:w-5 md:h-5"
-                  fill="currentColor"
-                />
-              </button>
-            )}
+            <button
+              onClick={skip}
+              className="size-10 md:w-11 md:h-11 rounded-full bg-sahara-surface border border-sahara-border/10 flex items-center justify-center text-sahara-text-muted hover:text-sahara-text hover:bg-sahara-card transition-colors"
+              title="跳过当前阶段"
+            >
+              <SkipForward
+                className="size-4 md:w-5 md:h-5"
+                fill="currentColor"
+              />
+            </button>
           </div>
         </div>
       </div>

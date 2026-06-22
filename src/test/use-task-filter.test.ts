@@ -36,4 +36,25 @@ describe("useTaskFilter", () => {
       "Apply for unemployment benefit",
     ]);
   });
+
+  it("treats manually completed tasks as done even when actual pomos are lower than estimate", () => {
+    const tasks: Task[] = [
+      {
+        ...baseTask,
+        id: 1,
+        name: "Finished early",
+        estimated_pomos: 4,
+        completed_pomos: 2,
+        completed_at: "2026-06-22T14:30:00+08:00",
+        completion_review: "需求比预期简单",
+      },
+    ];
+
+    const { result } = renderHook(() => useTaskFilter(tasks, ""));
+
+    expect(result.current.active).toHaveLength(0);
+    expect(result.current.done.map((task) => task.name)).toEqual([
+      "Finished early",
+    ]);
+  });
 });

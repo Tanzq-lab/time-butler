@@ -10,6 +10,8 @@ export async function getTasks(): Promise<
     completed_pomos: number;
     category_id: number | null;
     scheduled_for: string | null;
+    completed_at: string | null;
+    completion_review: string | null;
     created_at: string;
     archived: number;
   }[]
@@ -25,6 +27,8 @@ export async function getTasks(): Promise<
       completed_pomos: number;
       category_id: number | null;
       scheduled_for: string | null;
+      completed_at: string | null;
+      completion_review: string | null;
       created_at: string;
       archived: number;
     }[]
@@ -123,6 +127,24 @@ export async function incrementTaskPomos(id: number): Promise<void> {
   await database.execute(
     "UPDATE tasks SET completed_pomos = completed_pomos + 1 WHERE id = $1",
     [id],
+  );
+}
+
+export async function completeTask(
+  id: number,
+  actualPomos: number,
+  review?: string | null,
+): Promise<void> {
+  const database = await getDb();
+  await database.execute(
+    `
+    UPDATE tasks
+    SET completed_pomos = $2,
+        completed_at = datetime('now', 'localtime'),
+        completion_review = $3
+    WHERE id = $1
+    `,
+    [id, Math.max(0, actualPomos), review?.trim() || null],
   );
 }
 

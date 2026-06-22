@@ -1,5 +1,5 @@
 import type { TimerPhase } from "@/features/timer/timer-types";
-import { sendNotification, playChime } from "@/lib/notifications";
+import { sendNotification } from "@/lib/notifications";
 
 function getPhaseLabel(phase: TimerPhase): string {
   if (phase === "work") return "专注";
@@ -11,14 +11,12 @@ export function notifyPhaseComplete(
   phase: TimerPhase,
   durationMin: number,
 ) {
-  playChime();
-
   const phaseLabel = getPhaseLabel(phase);
   const isWorkPhase = phase === "work";
 
   sendNotification(
     isWorkPhase ? "focus-complete" : "break-over",
-    `${durationMin} 分钟${phaseLabel}已完成，现在进入超时计时。`,
+    `${durationMin} 分钟${phaseLabel}已完成。`,
   );
 }
 

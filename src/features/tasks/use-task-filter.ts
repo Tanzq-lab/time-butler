@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { isTaskDone } from "@/features/tasks/task-completion";
 import type { Task } from "@/features/tasks/task-types";
 
 function isScheduledForFuture(task: Task): boolean {
@@ -18,15 +19,13 @@ export function useTaskFilter(tasks: Task[], searchQuery: string) {
 
     const active = filtered.filter(
       (t) =>
-        t.completed_pomos < t.estimated_pomos && !isScheduledForFuture(t),
+        !isTaskDone(t) && !isScheduledForFuture(t),
     );
     const scheduled = filtered.filter(
       (t) =>
-        t.completed_pomos < t.estimated_pomos && isScheduledForFuture(t),
+        !isTaskDone(t) && isScheduledForFuture(t),
     );
-    const done = filtered.filter(
-      (t) => t.completed_pomos >= t.estimated_pomos,
-    );
+    const done = filtered.filter(isTaskDone);
 
     return { filtered, active, scheduled, done };
   }, [tasks, searchQuery]);

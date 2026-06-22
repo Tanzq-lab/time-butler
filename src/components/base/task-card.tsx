@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import type { Task } from "@/features/tasks/task-types";
 import { Button } from "@/components/ui/button";
+import { isTaskDone } from "@/features/tasks/task-completion";
 import { cn } from "@/lib/cn";
 
 interface TaskCardProps {
@@ -28,7 +29,7 @@ export function TaskCard({
 }: TaskCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const isComplete = task.completed_pomos >= task.estimated_pomos;
+  const isComplete = isTaskDone(task);
 
   const priorityColors: Record<string, string> = {
     high: "border-l-red-400",
