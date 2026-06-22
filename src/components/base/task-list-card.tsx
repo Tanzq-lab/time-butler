@@ -19,7 +19,6 @@ interface TaskListCardProps {
   onFocus?: () => void;
   onEdit: () => void;
   onDelete: () => void;
-  onCompletePomo: () => void;
   onCompleteTask: () => void;
   isScheduled?: boolean;
 }
@@ -45,7 +44,6 @@ export function TaskListCard({
   onFocus,
   onEdit,
   onDelete,
-  onCompletePomo,
   onCompleteTask,
   isScheduled = false,
 }: TaskListCardProps) {
@@ -101,16 +99,6 @@ export function TaskListCard({
                   <Play className="size-3.5 text-sahara-primary fill-sahara-primary group-hover/play:scale-110 transition-transform" />
                 </button>
               )}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onCompletePomo();
-                }}
-                className="p-1 rounded-lg hover:bg-sahara-card transition-colors cursor-pointer"
-                title="记录一个番茄"
-              >
-                <CheckCircle2 className="size-3.5 text-green-500" />
-              </button>
               <button
                 onClick={(e) => {
                   e.stopPropagation();

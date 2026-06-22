@@ -25,6 +25,7 @@ pub fn run() {
             commands::menubar::menubar_hide,
             commands::menubar::menubar_set_title,
             commands::menubar::menubar_set_tooltip,
+            commands::music::control_netease_music,
             commands::pomodoro_estimation::read_pomodoro_estimation_memo,
             commands::pomodoro_estimation::append_pomodoro_estimation_log,
             commands::pomodoro_estimation::read_pomodoro_estimation_log,

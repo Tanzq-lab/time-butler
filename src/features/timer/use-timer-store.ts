@@ -22,6 +22,7 @@ import {
   notifySkipped,
 } from "@/features/timer/timer-notifications";
 import { useSettingsStore } from "@/features/settings/use-settings-store";
+import { playFocusMusic, stopFocusMusic } from "@/features/timer/focus-music";
 
 interface TimerStore {
   phase: TimerPhase;
@@ -149,6 +150,14 @@ function persistTimerState(state: TimerStore): void {
   }
 }
 
+function stopFocusMusicForActiveWork(
+  state: Pick<TimerStore, "phase" | "status" | "currentSessionId">,
+): void {
+  if (state.phase === "work" && (state.status !== "idle" || state.currentSessionId)) {
+    void stopFocusMusic();
+  }
+}
+
 export const useTimerStore = create<TimerStore>((set, get) => {
   const persistedTimerState = loadPersistedTimerState();
 
@@ -166,6 +175,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
     notifyPhaseComplete(state.phase, durationMin);
 
     engine.terminate();
+    stopFocusMusicForActiveWork(state);
 
     if (currentSessionId) {
       await SessionService.finish(currentSessionId, totalSeconds, undefined, undefined, true);
@@ -240,6 +250,10 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         totalSeconds: secs,
         currentSessionId: sessionId,
       });
+
+      if (resolvedPhase === "work") {
+        void playFocusMusic();
+      }
     },
 
     pause: () => {
@@ -266,6 +280,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
       }
 
       engine.terminate();
+      stopFocusMusicForActiveWork(state);
 
       const newPomos = phase === "work" && completed ? completedPomos + 1 : completedPomos;
       const next = getNextPhase(phase, newPomos, state.durations);
@@ -284,14 +299,18 @@ export const useTimerStore = create<TimerStore>((set, get) => {
     },
 
     reset: () => {
+      const state = get();
       engine.terminate();
-      const duration = getPhaseDuration(get().phase, get().durations);
+      stopFocusMusicForActiveWork(state);
+      const duration = getPhaseDuration(state.phase, state.durations);
       set({ status: "idle", secondsRemaining: duration, totalSeconds: duration });
     },
 
     setPhase: (phase: TimerPhase) => {
+      const state = get();
       engine.terminate();
-      const duration = getPhaseDuration(phase, get().durations);
+      stopFocusMusicForActiveWork(state);
+      const duration = getPhaseDuration(phase, state.durations);
       set({ phase, status: "idle", secondsRemaining: duration, totalSeconds: duration });
     },
 
@@ -361,6 +380,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
       const state = get();
       const { currentSessionId, totalSeconds, secondsRemaining } = state;
       engine.terminate();
+      stopFocusMusicForActiveWork(state);
 
       if (currentSessionId) {
         const elapsed = Math.max(0, totalSeconds - secondsRemaining);
@@ -381,6 +401,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
     abandonSession: async () => {
       const state = get();
       engine.terminate();
+      stopFocusMusicForActiveWork(state);
 
       if (state.currentSessionId) {
         await SessionService.abandon(state.currentSessionId);
@@ -403,6 +424,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
       const state = get();
       const { currentSessionId, activeTaskId, phase, totalSeconds } = state;
       engine.terminate();
+      stopFocusMusicForActiveWork(state);
 
       if (currentSessionId) {
         await SessionService.finish(currentSessionId, totalSeconds, mood, notes, true);
@@ -437,6 +459,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
       const state = get();
       const { currentSessionId, activeTaskId, phase, totalSeconds } = state;
       engine.terminate();
+      stopFocusMusicForActiveWork(state);
 
       if (currentSessionId) {
         await SessionService.finish(currentSessionId, totalSeconds, undefined, undefined, true);

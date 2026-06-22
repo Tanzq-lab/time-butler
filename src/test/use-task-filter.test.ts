@@ -57,4 +57,24 @@ describe("useTaskFilter", () => {
       "Finished early",
     ]);
   });
+
+  it("keeps tasks active when pomos reach the estimate until manually completed", () => {
+    const tasks: Task[] = [
+      {
+        ...baseTask,
+        id: 1,
+        name: "Needs human completion",
+        estimated_pomos: 2,
+        completed_pomos: 2,
+        completed_at: null,
+      },
+    ];
+
+    const { result } = renderHook(() => useTaskFilter(tasks, ""));
+
+    expect(result.current.active.map((task) => task.name)).toEqual([
+      "Needs human completion",
+    ]);
+    expect(result.current.done).toHaveLength(0);
+  });
 });

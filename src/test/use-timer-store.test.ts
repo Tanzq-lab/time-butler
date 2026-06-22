@@ -5,7 +5,13 @@ import {
   DEFAULT_SHORT_BREAK_SEC,
   DEFAULT_LONG_BREAK_SEC,
   POMOS_BEFORE_LONG_BREAK,
+  HOTKEY_DEFAULT,
 } from "@/lib/constants";
+
+const focusMusicMocks = vi.hoisted(() => ({
+  playFocusMusic: vi.fn(),
+  stopFocusMusic: vi.fn(),
+}));
 
 const mockWorker = {
   postMessage: vi.fn(),
@@ -18,6 +24,8 @@ const mockWorker = {
 vi.mock("@/features/timer/use-timer-worker", () => ({
   createTimerWorker: vi.fn(() => mockWorker),
 }));
+
+vi.mock("@/features/timer/focus-music", () => focusMusicMocks);
 
 vi.mock("@/lib/db", () => ({
   getSetting: vi.fn().mockResolvedValue("true"),
@@ -63,7 +71,6 @@ beforeEach(() => {
     activeTaskId: null,
     currentSessionId: null,
     selectedCategory: null,
-    overtimeSeconds: 0,
     durations: {
       work: DEFAULT_WORK_SEC,
       short: DEFAULT_SHORT_BREAK_SEC,
@@ -83,7 +90,6 @@ describe("useTimerStore", () => {
       expect(state.completedPomos).toBe(0);
       expect(state.activeTaskId).toBeNull();
       expect(state.currentSessionId).toBeNull();
-      expect(state.overtimeSeconds).toBe(0);
     });
   });
 
@@ -95,7 +101,6 @@ describe("useTimerStore", () => {
       expect(state.secondsRemaining).toBe(DEFAULT_SHORT_BREAK_SEC);
       expect(state.totalSeconds).toBe(DEFAULT_SHORT_BREAK_SEC);
       expect(state.status).toBe("idle");
-      expect(state.overtimeSeconds).toBe(0);
     });
 
     it("resets secondsRemaining to correct duration for long_break", () => {
@@ -233,7 +238,20 @@ describe("useTimerStore", () => {
       expect(state.secondsRemaining).toBe(DEFAULT_WORK_SEC);
       expect(state.totalSeconds).toBe(DEFAULT_WORK_SEC);
       expect(state.currentSessionId).toBe(1);
-      expect(state.overtimeSeconds).toBe(0);
+    });
+
+    it("plays focus music when a work session starts", async () => {
+      await useTimerStore.getState().start();
+
+      expect(focusMusicMocks.playFocusMusic).toHaveBeenCalledOnce();
+    });
+
+    it("does not play focus music when a break starts", async () => {
+      useTimerStore.setState({ phase: "short_break" });
+
+      await useTimerStore.getState().start();
+
+      expect(focusMusicMocks.playFocusMusic).not.toHaveBeenCalled();
     });
 
     it("uses custom duration when provided", async () => {
@@ -275,10 +293,84 @@ describe("useTimerStore", () => {
     });
   });
 
+  describe("natural timer completion", () => {
+    it("records a completed work session, increments the active task, and stops at break idle", async () => {
+      useTimerStore.setState({ activeTaskId: 42 });
+      await useTimerStore.getState().start();
+
+      mockWorker.onmessage?.({
+        data: { type: "done", remaining: 0 },
+      } as MessageEvent);
+
+      const { finishSession: dbFinish, incrementTaskPomos } = await import("@/lib/db");
+      await vi.waitFor(() =>
+        expect(dbFinish).toHaveBeenCalledWith(
+          1,
+          DEFAULT_WORK_SEC,
+          undefined,
+          undefined,
+          true,
+        ),
+      );
+      expect(incrementTaskPomos).toHaveBeenCalledWith(42);
+      expect(focusMusicMocks.stopFocusMusic).toHaveBeenCalledOnce();
+
+      const state = useTimerStore.getState();
+      expect(state.completedPomos).toBe(1);
+      expect(state.phase).toBe("short_break");
+      expect(state.status).toBe("idle");
+      expect(state.currentSessionId).toBeNull();
+    });
+
+    it("auto-starts break after natural work completion when the setting is enabled", async () => {
+      const { useSettingsStore } = await import("@/features/settings/use-settings-store");
+      vi.mocked(useSettingsStore.getState).mockReturnValueOnce({
+        settings: {
+          workDuration: DEFAULT_WORK_SEC,
+          shortBreakDuration: DEFAULT_SHORT_BREAK_SEC,
+          longBreakDuration: DEFAULT_LONG_BREAK_SEC,
+          pomosBeforeLongBreak: POMOS_BEFORE_LONG_BREAK,
+          autoStartBreaks: true,
+          hotkey: HOTKEY_DEFAULT,
+          soundEnabled: true,
+          theme: "system",
+          timerStyle: "solid",
+        },
+        loaded: true,
+        error: null,
+        loadSettings: vi.fn().mockResolvedValue(undefined),
+        updateSetting: vi.fn().mockResolvedValue(undefined),
+      });
+
+      await useTimerStore.getState().start();
+
+      mockWorker.onmessage?.({
+        data: { type: "done", remaining: 0 },
+      } as MessageEvent);
+
+      const { startSession } = await import("@/lib/db");
+      await vi.waitFor(() =>
+        expect(startSession).toHaveBeenCalledWith(
+          null,
+          "short_break",
+          undefined,
+          undefined,
+        ),
+      );
+
+      const state = useTimerStore.getState();
+      expect(state.completedPomos).toBe(1);
+      expect(state.phase).toBe("short_break");
+      expect(state.status).toBe("running");
+      expect(focusMusicMocks.stopFocusMusic).toHaveBeenCalledOnce();
+      expect(focusMusicMocks.playFocusMusic).toHaveBeenCalledOnce();
+    });
+  });
+
   describe("skip", () => {
     it("records completed session and transitions to break when work is done", async () => {
       await useTimerStore.getState().start();
-      useTimerStore.setState({ secondsRemaining: 0, overtimeSeconds: 0 });
+      useTimerStore.setState({ secondsRemaining: 0 });
 
       useTimerStore.getState().skip();
 
@@ -352,14 +444,12 @@ describe("useTimerStore", () => {
         status: "running" as const,
         secondsRemaining: 10,
         totalSeconds: 100,
-        overtimeSeconds: 30,
       });
       useTimerStore.getState().reset();
       const state = useTimerStore.getState();
       expect(state.status).toBe("idle");
       expect(state.secondsRemaining).toBe(DEFAULT_WORK_SEC);
       expect(state.totalSeconds).toBe(DEFAULT_WORK_SEC);
-      expect(state.overtimeSeconds).toBe(0);
     });
 
     it("resets with correct duration for current phase", () => {
@@ -374,20 +464,22 @@ describe("useTimerStore", () => {
   });
 
   describe("finishSession", () => {
-    it("finishes DB session, increments pomos, and resets to work idle", async () => {
+    it("finishes early as incomplete, does not increment pomos, and resets to work idle", async () => {
       useTimerStore.setState({ activeTaskId: 10 });
       await useTimerStore.getState().start();
+      useTimerStore.setState({ secondsRemaining: DEFAULT_WORK_SEC - 300 });
 
       await useTimerStore.getState().finishSession("great", "Good session");
 
       const { finishSession: dbFinish, incrementTaskPomos } = await import("@/lib/db");
-      expect(dbFinish).toHaveBeenCalledWith(1, undefined, "great", "Good session");
-      expect(incrementTaskPomos).toHaveBeenCalledWith(10);
+      expect(dbFinish).toHaveBeenCalledWith(1, 300, "great", "Good session", false);
+      expect(incrementTaskPomos).not.toHaveBeenCalled();
+      expect(focusMusicMocks.stopFocusMusic).toHaveBeenCalledOnce();
 
       const state = useTimerStore.getState();
       expect(state.status).toBe("idle");
       expect(state.phase).toBe("work");
-      expect(state.completedPomos).toBe(1);
+      expect(state.completedPomos).toBe(0);
       expect(state.currentSessionId).toBeNull();
     });
 
@@ -441,7 +533,7 @@ describe("useTimerStore", () => {
       await useTimerStore.getState().confirmStartNextPhase("good", "Nice");
 
       const { finishSession: dbFinish, incrementTaskPomos } = await import("@/lib/db");
-      expect(dbFinish).toHaveBeenCalledWith(1, DEFAULT_WORK_SEC, "good", "Nice");
+      expect(dbFinish).toHaveBeenCalledWith(1, DEFAULT_WORK_SEC, "good", "Nice", true);
       expect(incrementTaskPomos).toHaveBeenCalledWith(5);
 
       const state = useTimerStore.getState();
@@ -471,7 +563,7 @@ describe("useTimerStore", () => {
       await useTimerStore.getState().endWithoutBreak();
 
       const { finishSession: dbFinish, incrementTaskPomos } = await import("@/lib/db");
-      expect(dbFinish).toHaveBeenCalledWith(1, DEFAULT_WORK_SEC, undefined, undefined);
+      expect(dbFinish).toHaveBeenCalledWith(1, DEFAULT_WORK_SEC, undefined, undefined, true);
       expect(incrementTaskPomos).toHaveBeenCalledWith(3);
 
       const state = useTimerStore.getState();
@@ -499,17 +591,6 @@ describe("useTimerStore", () => {
       const state = useTimerStore.getState();
       expect(state.totalSeconds).toBe(DEFAULT_WORK_SEC + 300);
       expect(state.secondsRemaining).toBe(DEFAULT_WORK_SEC + 300);
-    });
-
-    it("starts a new 5-min session when in overtime", async () => {
-      await useTimerStore.getState().start();
-      useTimerStore.setState({ overtimeSeconds: 30, secondsRemaining: 0 });
-
-      await useTimerStore.getState().addFiveMinutes();
-      await vi.waitFor(() => {
-        expect(useTimerStore.getState().secondsRemaining).toBe(300);
-      });
-      expect(useTimerStore.getState().totalSeconds).toBe(300);
     });
   });
 });

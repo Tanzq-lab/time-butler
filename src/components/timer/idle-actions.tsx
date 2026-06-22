@@ -24,6 +24,7 @@ export function IdleActions({
     (phase === "work" && secondsRemaining !== durations.work) ||
     (phase === "short_break" && secondsRemaining !== durations.short) ||
     (phase === "long_break" && secondsRemaining !== durations.long);
+  const startLabel = phase === "work" ? "开始专注" : "开始休息";
 
   return (
     <>
@@ -39,7 +40,7 @@ export function IdleActions({
         className="gap-1.5 md:gap-2 text-xs md:text-xs px-6 md:px-8 py-3 md:py-3.5"
       >
         <Play className="size-3.5 md:w-4 md:h-4 fill-current ml-0.5" />
-        开始专注
+        {startLabel}
       </Button>
 
       {isModified && (

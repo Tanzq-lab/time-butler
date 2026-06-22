@@ -80,7 +80,6 @@ export function TasksList() {
   const addTask = useTaskStore((s) => s.addTask);
   const updateTask = useTaskStore((s) => s.updateTask);
   const deleteTask = useTaskStore((s) => s.deleteTask);
-  const incrementPomos = useTaskStore((s) => s.incrementPomos);
   const completeTask = useTaskStore((s) => s.completeTask);
   const loadTasks = useTaskStore((s) => s.loadTasks);
 
@@ -99,6 +98,7 @@ export function TasksList() {
 
   const categories = useCategoriesStore((s) => s.categories);
   const loadCategories = useCategoriesStore((s) => s.loadCategories);
+  const addCategory = useCategoriesStore((s) => s.addCategory);
 
   useEffect(() => {
     loadCategories();
@@ -178,6 +178,10 @@ export function TasksList() {
     dispatch({ type: "CLOSE_COMPLETE_MODAL" });
   };
 
+  const handleCompleteTaskRequest = (task: Task) => {
+    dispatch({ type: "OPEN_COMPLETE_MODAL", task });
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -243,6 +247,7 @@ export function TasksList() {
         open={showAddModal}
         onClose={() => dispatch({ type: "CLOSE_ADD_MODAL" })}
         onSubmit={taskToEdit ? handleEditTask : handleAddTask}
+        onCreateCategory={addCategory}
         editTask={taskToEdit}
         categories={categories}
       />
@@ -301,10 +306,7 @@ export function TasksList() {
                       await deleteTask(task.id);
                       if (activeTaskId === task.id) setActiveTask(null);
                     }}
-                    onCompletePomo={() => incrementPomos(task.id)}
-                    onCompleteTask={() =>
-                      dispatch({ type: "OPEN_COMPLETE_MODAL", task })
-                    }
+                    onCompleteTask={() => handleCompleteTaskRequest(task)}
                   />
                 ))}
               </div>
@@ -354,10 +356,7 @@ export function TasksList() {
                     onDelete={async () => {
                       await deleteTask(task.id);
                     }}
-                    onCompletePomo={() => incrementPomos(task.id)}
-                    onCompleteTask={() =>
-                      dispatch({ type: "OPEN_COMPLETE_MODAL", task })
-                    }
+                    onCompleteTask={() => handleCompleteTaskRequest(task)}
                   />
                 ))}
               </div>
@@ -402,10 +401,7 @@ export function TasksList() {
                       onDelete={async () => {
                         await deleteTask(task.id);
                       }}
-                      onCompletePomo={() => incrementPomos(task.id)}
-                      onCompleteTask={() =>
-                        dispatch({ type: "OPEN_COMPLETE_MODAL", task })
-                      }
+                      onCompleteTask={() => handleCompleteTaskRequest(task)}
                     />
                   ))}
                 </div>

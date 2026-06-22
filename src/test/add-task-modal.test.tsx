@@ -54,4 +54,47 @@ describe("AddTaskModal", () => {
     });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it("creates a category inline and selects it for the task", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const onClose = vi.fn();
+    const onCreateCategory = vi.fn().mockResolvedValue({
+      id: 2,
+      name: "阅读",
+      color: "#6b9080",
+      created_at: "2026-06-22T00:00:00",
+    });
+
+    render(
+      <AddTaskModal
+        open
+        onClose={onClose}
+        onSubmit={onSubmit}
+        onCreateCategory={onCreateCategory}
+        categories={categories}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "新增分类" }));
+    fireEvent.change(screen.getByPlaceholderText("输入新分类名称"), {
+      target: { value: "阅读" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "创建分类" }));
+
+    await waitFor(() => expect(onCreateCategory).toHaveBeenCalledWith("阅读"));
+
+    fireEvent.change(screen.getByLabelText("任务名称"), {
+      target: { value: "读产品文档" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /创建任务/ }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit).toHaveBeenCalledWith({
+      name: "读产品文档",
+      estimatedPomos: 4,
+      project: "",
+      priority: "",
+      categoryId: 2,
+    });
+  });
 });

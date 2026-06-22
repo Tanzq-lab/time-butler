@@ -31,8 +31,11 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const status = useTimerStore((s) => s.status);
+  const phase = useTimerStore((s) => s.phase);
   const start = useTimerStore((s) => s.start);
   const isRunning = status === "running";
+  const idleStartLabel = phase === "work" ? "开始专注" : "开始休息";
+  const runningLabel = phase === "work" ? "专注进行中" : "休息进行中";
 
   return (
     <m.aside
@@ -135,8 +138,8 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
           title={
             isCollapsed
               ? isRunning
-                ? "专注进行中"
-                : "开始专注"
+                ? runningLabel
+                : idleStartLabel
               : undefined
           }
           className={cn(
@@ -152,7 +155,7 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
             )}
           />
           {!isCollapsed && (
-            <span>{isRunning ? "专注进行中" : "开始专注"}</span>
+            <span>{isRunning ? runningLabel : idleStartLabel}</span>
           )}
         </Button>
       </div>
