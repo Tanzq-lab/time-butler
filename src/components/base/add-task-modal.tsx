@@ -19,10 +19,10 @@ interface AddTaskModalProps {
 }
 
 const PRIORITY_OPTIONS = [
-  { value: "", label: "None" },
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Medium" },
-  { value: "high", label: "High" },
+  { value: "", label: "无" },
+  { value: "low", label: "低" },
+  { value: "medium", label: "中" },
+  { value: "high", label: "高" },
 ];
 
 interface FormState {
@@ -150,10 +150,10 @@ export function AddTaskModal({
           </div>
           <div>
             <h3 className="font-serif text-xl text-sahara-text font-semibold">
-              {isEditing ? "Edit Task" : "New Task"}
+              {isEditing ? "编辑任务" : "新建任务"}
             </h3>
             <p className="text-xs text-sahara-text-muted mt-0.5">
-              {isEditing ? "Update task details" : "Add a task to focus on"}
+              {isEditing ? "更新任务详情" : "添加一个要专注推进的任务"}
             </p>
           </div>
         </div>
@@ -161,7 +161,7 @@ export function AddTaskModal({
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label htmlFor="task-name" className="block text-[11px] font-bold text-sahara-text-muted uppercase tracking-wider mb-1.5">
-              Task Name
+              任务名称
             </label>
             <input
               id="task-name"
@@ -170,7 +170,7 @@ export function AddTaskModal({
               onChange={(e) =>
                 dispatch({ type: "SET_FIELD", field: "name", value: e.target.value })
               }
-              placeholder="What are you working on?"
+              placeholder="你现在要做什么？"
               className="w-full px-4 py-3 bg-sahara-bg/40 border border-sahara-border/20 rounded-xl text-sm text-sahara-text placeholder:text-sahara-text-muted/50 focus:outline-none focus:border-sahara-primary/50 focus:ring-2 focus:ring-sahara-primary/10 transition-all"
             />
           </div>
@@ -178,7 +178,7 @@ export function AddTaskModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label htmlFor="task-pomos" className="block text-[11px] font-bold text-sahara-text-muted uppercase tracking-wider mb-1.5">
-                Estimated Pomos
+                预计番茄数
               </label>
               <input
                 id="task-pomos"
@@ -199,7 +199,7 @@ export function AddTaskModal({
 
             <div>
               <label htmlFor="task-priority" className="block text-[11px] font-bold text-sahara-text-muted uppercase tracking-wider mb-1.5">
-                Priority
+                优先级
               </label>
               <select
                 id="task-priority"
@@ -222,7 +222,7 @@ export function AddTaskModal({
             <label htmlFor="task-category" className="block text-[11px] font-bold text-sahara-text-muted uppercase tracking-wider mb-1.5">
               <span className="inline-flex items-center gap-1.5">
                 <Tag className="size-3" />
-                Category (Intent)
+                分类（意图）
               </span>
             </label>
             <select
@@ -237,7 +237,7 @@ export function AddTaskModal({
               }
               className="w-full px-4 py-3 bg-sahara-bg/40 border border-sahara-border/20 rounded-xl text-sm text-sahara-text focus:outline-none focus:border-sahara-primary/50 focus:ring-2 focus:ring-sahara-primary/10 transition-all appearance-none cursor-pointer"
             >
-              <option value="">No category</option>
+              <option value="">未分类</option>
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.id}>
                   {cat.name}
@@ -265,7 +265,7 @@ export function AddTaskModal({
 
           <div>
             <label htmlFor="task-project" className="block text-[11px] font-bold text-sahara-text-muted uppercase tracking-wider mb-1.5">
-              Project (Container)
+              项目（归属）
             </label>
             <input
               id="task-project"
@@ -274,7 +274,7 @@ export function AddTaskModal({
               onChange={(e) =>
                 dispatch({ type: "SET_FIELD", field: "project", value: e.target.value })
               }
-              placeholder="e.g., Kairos-Pomodoro, Client Work"
+              placeholder="例如：时间管家、客户项目"
               className="w-full px-4 py-3 bg-sahara-bg/40 border border-sahara-border/20 rounded-xl text-sm text-sahara-text placeholder:text-sahara-text-muted/50 focus:outline-none focus:border-sahara-primary/50 focus:ring-2 focus:ring-sahara-primary/10 transition-all"
             />
           </div>
@@ -288,7 +288,7 @@ export function AddTaskModal({
               fullWidth
               onClick={onClose}
             >
-              Cancel
+              取消
             </Button>
             <Button
               type="submit"
@@ -300,11 +300,11 @@ export function AddTaskModal({
             >
               {isEditing ? (
                 <>
-                  <Edit3 className="size-4" /> SAVE CHANGES
+                  <Edit3 className="size-4" /> 保存修改
                 </>
               ) : (
                 <>
-                  <Plus className="size-4" /> CREATE TASK
+                  <Plus className="size-4" /> 创建任务
                 </>
               )}
             </Button>

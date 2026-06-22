@@ -16,31 +16,31 @@ const STEP_ICON_COLOR = "bg-sahara-primary-light text-sahara-primary";
 
 const steps = [
   {
-    title: "Welcome to Deep Work",
-    subtitle: "A sanctuary for your focus.",
+    title: "欢迎使用时间管家",
+    subtitle: "把注意力安放在该做的事上。",
     description:
-      "Kairos-Pomodoro is designed to help you reclaim your attention and achieve flow state through intentional focus sessions.",
+      "时间管家帮助你用有意图的专注时段收回注意力，进入更稳定的工作节奏。",
     icon: Star,
   },
   {
-    title: "The Focus Rhythm",
-    subtitle: "25 minutes of pure intent.",
+    title: "专注节奏",
+    subtitle: "25 分钟，只做一件事。",
     description:
-      "We use a refined pomodoro technique. Focus for 25 minutes, then take a 5 minute breath. Every 4 sessions, enjoy a longer rest.",
+      "使用精简的番茄钟节奏：专注 25 分钟，休息 5 分钟。每 4 轮后，给自己一段更长的恢复时间。",
     icon: Zap,
   },
   {
-    title: "Curate Your Day",
-    subtitle: "Tasks with purpose.",
+    title: "规划今天",
+    subtitle: "让任务带着目的前进。",
     description:
-      "Link your focus sessions directly to tasks. Track your progress and see your productivity grow over time.",
+      "把专注时段关联到具体任务，记录进度，看见自己的投入如何一点点累积。",
     icon: Target,
   },
   {
-    title: "Insights & Growth",
-    subtitle: "Data that empowers.",
+    title: "复盘与成长",
+    subtitle: "用数据看见自己的节奏。",
     description:
-      "Visualize your focus distribution and build a streak. Consistency is the key to mastering deep work.",
+      "查看专注分布、任务完成和连续记录。稳定的节奏，才是深度工作的底气。",
     icon: Clock,
   },
 ];
@@ -60,7 +60,7 @@ export function OnboardingPage() {
   return (
     <div className="h-screen bg-sahara-bg flex items-center justify-center p-4 md:p-8 overflow-hidden">
       <div className="max-w-3xl md:max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 bg-sahara-surface rounded-3xl md:rounded-[40px] shadow-2xl shadow-sahara-primary/10 overflow-hidden border border-sahara-border/20 min-h-auto md:min-h-150">
-        {/* Left Side: Brand — full-width on mobile, half on desktop */}
+        {/* Brand panel */}
         <div className="bg-sahara-primary p-6 sm:p-10 md:p-16 flex flex-col justify-between text-white relative order-last md:order-first">
           <div className="absolute inset-0 opacity-10 pointer-events-none hidden md:block">
             <div className="absolute top-[-10%] right-[-10%] size-[60%] rounded-full border-40 border-white"></div>
@@ -69,10 +69,10 @@ export function OnboardingPage() {
 
           <div>
             <h1 className="font-serif text-2xl md:text-4xl tracking-tight mb-1 md:mb-2">
-              Kairos-Pomodoro
+              时间管家
             </h1>
             <p className="text-[9px] md:text-[10px] tracking-[0.2em] md:tracking-[0.3em] font-bold uppercase opacity-70">
-              The Art of Focus
+              专注 · 记录 · 复盘
             </p>
           </div>
 
@@ -100,7 +100,7 @@ export function OnboardingPage() {
           </div>
         </div>
 
-        {/* Right Side: Content & Actions */}
+        {/* Content and actions */}
         <div className="p-6 sm:p-8 md:p-16 flex flex-col justify-between">
           <div className="flex justify-end">
             <Button
@@ -110,7 +110,7 @@ export function OnboardingPage() {
               className="text-[9px] md:text-[10px] tracking-widest uppercase"
               onClick={() => completeOnboarding()}
             >
-              Skip to App
+              跳过引导
             </Button>
           </div>
 
@@ -147,7 +147,7 @@ export function OnboardingPage() {
               )}
             >
               <ChevronLeft className="size-3.5 md:w-4 md:h-4" />
-              BACK
+              上一步
             </Button>
 
             {step === steps.length - 1 ? (
@@ -159,7 +159,7 @@ export function OnboardingPage() {
                 onClick={() => completeOnboarding()}
                 className="hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-sahara-primary/20 text-[10px] sm:text-xs tracking-widest font-bold uppercase px-5 md:px-7 py-2.5 md:py-3 transition-all"
               >
-                GET STARTED
+                开始使用
               </Button>
             ) : (
               <Button
@@ -172,7 +172,7 @@ export function OnboardingPage() {
                 }
                 className="gap-1.5 md:gap-2 shadow-lg shadow-sahara-primary/20 hover:shadow-xl hover:shadow-sahara-primary/30 group text-[10px] sm:text-xs tracking-widest font-bold uppercase px-5 md:px-7 py-2.5 md:py-3 transition-all"
               >
-                CONTINUE
+                继续
                 <ChevronRight className="size-3.5 md:w-4 md:h-4 transition-transform group-hover:translate-x-1" />
               </Button>
             )}

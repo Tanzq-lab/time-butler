@@ -18,16 +18,16 @@ export function SettingsPanel() {
     setDurations(s.workDuration, s.shortBreakDuration, s.longBreakDuration);
   };
 
-  const formatMin = (sec: number) => `${Math.round(sec / 60)} min`;
+  const formatMin = (sec: number) => `${Math.round(sec / 60)} 分钟`;
 
   return (
     <div className="flex flex-col gap-6 py-4">
-      <Text variant="h2">Settings</Text>
+      <Text variant="h2">设置</Text>
 
       <div className="flex flex-col gap-5">
-        <Text variant="h3">Timer</Text>
+        <Text variant="h3">计时器</Text>
         <SliderField
-          label="Work duration"
+          label="专注时长"
           value={settings.workDuration}
           min={60}
           max={3600}
@@ -36,7 +36,7 @@ export function SettingsPanel() {
           formatValue={formatMin}
         />
         <SliderField
-          label="Short break"
+          label="短休息"
           value={settings.shortBreakDuration}
           min={60}
           max={1800}
@@ -45,7 +45,7 @@ export function SettingsPanel() {
           formatValue={formatMin}
         />
         <SliderField
-          label="Long break"
+          label="长休息"
           value={settings.longBreakDuration}
           min={60}
           max={3600}
@@ -56,16 +56,16 @@ export function SettingsPanel() {
       </div>
 
       <div className="flex flex-col gap-4">
-        <Text variant="h3">Behavior</Text>
+        <Text variant="h3">行为</Text>
         <div className="flex items-center justify-between">
-          <Text variant="body">Auto-start breaks</Text>
+          <Text variant="body">自动开始休息</Text>
           <Switch
             checked={settings.autoStartBreaks}
             onCheckedChange={(v) => updateSetting("autoStartBreaks", v)}
           />
         </div>
         <div className="flex items-center justify-between">
-          <Text variant="body">Sound notifications</Text>
+          <Text variant="body">声音提醒</Text>
           <Switch
             checked={settings.soundEnabled}
             onCheckedChange={(v) => updateSetting("soundEnabled", v)}

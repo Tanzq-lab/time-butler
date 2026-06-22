@@ -104,7 +104,7 @@ export function UpdateProvider({ children }: UpdateProviderProps) {
               </div>
               <div>
                 <p className="text-sm font-bold text-sahara-text">
-                  Update Available
+                  发现新版本
                 </p>
                 <p className="text-[11px] text-sahara-text-muted">
                   v{pendingUpdate.version}
@@ -113,7 +113,7 @@ export function UpdateProvider({ children }: UpdateProviderProps) {
             </div>
             <button
               onClick={handleDismiss}
-              aria-label="Dismiss update"
+              aria-label="忽略更新"
               className="p-1 rounded-lg text-sahara-text-muted hover:text-sahara-text hover:bg-sahara-card transition-colors cursor-pointer"
             >
               <X className="size-4" />
@@ -130,7 +130,7 @@ export function UpdateProvider({ children }: UpdateProviderProps) {
             <div className="flex items-start gap-2 p-2.5 bg-red-500/10 border border-red-500/20 rounded-xl">
               <AlertCircle className="size-3.5 text-red-400 shrink-0 mt-0.5" />
               <p className="text-[11px] text-red-400 leading-relaxed">
-                Update failed. Please try again or download manually from GitHub.
+                更新失败。请重试，或前往 GitHub 手动下载。
               </p>
             </div>
           )}
@@ -146,7 +146,7 @@ export function UpdateProvider({ children }: UpdateProviderProps) {
               className="gap-1.5 text-[10px] flex-1"
             >
               <Download className="size-3" />
-              {downloading ? "Downloading…" : installError ? "Retry Update" : "Install Update"}
+              {downloading ? "下载中…" : installError ? "重试更新" : "安装更新"}
             </Button>
             <Button
               variant="outline"
@@ -156,12 +156,12 @@ export function UpdateProvider({ children }: UpdateProviderProps) {
               onClick={handleDismiss}
               className="text-[10px]"
             >
-              Later
+              稍后
             </Button>
           </div>
 
           <p className="text-[9px] text-sahara-text-muted text-center">
-            App will restart after installation
+            安装完成后应用会自动重启
           </p>
         </div>
       </div>

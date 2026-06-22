@@ -17,11 +17,11 @@ export function CalendarWeekNav({
   onToday,
 }: CalendarWeekNavProps) {
   const formatRange = (start: Date, end: Date) => {
-    const s = start.toLocaleDateString("en-US", {
+    const s = start.toLocaleDateString("zh-CN", {
       month: "short",
       day: "numeric",
     });
-    const e = end.toLocaleDateString("en-US", {
+    const e = end.toLocaleDateString("zh-CN", {
       month: "short",
       day: "numeric",
       year: start.getFullYear() !== end.getFullYear() ? "numeric" : undefined,
@@ -66,7 +66,7 @@ export function CalendarWeekNav({
         onClick={onToday}
         className="ml-1 text-[10px] md:text-xs font-bold tracking-wider uppercase text-sahara-primary hover:text-sahara-primary/80"
       >
-        Today
+        今天
       </Button>
     </div>
   );

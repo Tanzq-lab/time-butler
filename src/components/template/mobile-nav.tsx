@@ -10,10 +10,10 @@ import {
 import { cn } from "@/lib/cn";
 
 const NAV_ITEMS = [
-  { path: "/", label: "Timer", icon: Timer },
-  { path: "/tasks", label: "Tasks", icon: CheckSquare },
-  { path: "/calendar", label: "Calendar", icon: Calendar },
-  { path: "/analytics", label: "Analytics", icon: BarChart2 },
+  { path: "/", label: "计时", icon: Timer },
+  { path: "/tasks", label: "任务", icon: CheckSquare },
+  { path: "/calendar", label: "日历", icon: Calendar },
+  { path: "/analytics", label: "分析", icon: BarChart2 },
 ] as const;
 
 export function MobileNav() {
@@ -62,7 +62,7 @@ export function MobileNav() {
           <button
             onClick={() => navigate("/onboarding")}
             className="flex items-center justify-center p-2 text-sahara-text-muted hover:text-sahara-text-secondary transition-colors cursor-pointer"
-            title="Help"
+            title="帮助"
           >
             <HelpCircle className="size-4.5" />
           </button>
@@ -74,7 +74,7 @@ export function MobileNav() {
                 ? "text-sahara-primary"
                 : "text-sahara-text-muted hover:text-sahara-text-secondary",
             )}
-            title="Settings"
+            title="设置"
           >
             <Settings className="size-4.5" />
           </button>

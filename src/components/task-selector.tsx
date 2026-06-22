@@ -59,7 +59,7 @@ export function TaskSelector({ disabled = false }: TaskSelectorProps) {
           <>
             <ListTodo className="size-3.5 text-sahara-text-muted shrink-0" />
             <span className="text-[11px] font-medium text-sahara-text-muted tracking-wide truncate">
-              Select Task
+              选择任务
             </span>
             <ChevronDown className="size-3 text-sahara-text-muted shrink-0" />
           </>
@@ -69,7 +69,7 @@ export function TaskSelector({ disabled = false }: TaskSelectorProps) {
       <ModalOverlay open={isOpen} onClose={() => setIsOpen(false)} showCloseButton>
         <div className="px-6 py-5 border-b border-sahara-border/20">
           <h2 className="font-serif text-xl text-sahara-text">
-            Select Task
+            选择任务
           </h2>
         </div>
 
@@ -77,7 +77,7 @@ export function TaskSelector({ disabled = false }: TaskSelectorProps) {
           <div className="relative">
             <input
               type="text"
-              placeholder="Search active tasks..."
+              placeholder="搜索进行中的任务..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-sahara-border/30 bg-sahara-bg/50 text-sm font-medium placeholder:text-sahara-text-muted focus:outline-none focus:border-sahara-primary/50 focus:ring-2 focus:ring-sahara-primary/10 transition-all"
@@ -111,7 +111,7 @@ export function TaskSelector({ disabled = false }: TaskSelectorProps) {
                     : "text-sahara-text-muted",
                 )}
               >
-                No Task (Independent Session)
+                不关联任务（独立专注）
               </span>
             </div>
           </Button>
@@ -145,7 +145,7 @@ export function TaskSelector({ disabled = false }: TaskSelectorProps) {
                   {task.name}
                 </span>
                 <span className="text-[10px] text-sahara-text-muted">
-                  {task.completed_pomos} / {task.estimated_pomos} Pomos
+                  {task.completed_pomos} / {task.estimated_pomos} 个番茄
                 </span>
               </div>
             </Button>
@@ -153,7 +153,7 @@ export function TaskSelector({ disabled = false }: TaskSelectorProps) {
 
           {availableTasks.length === 0 && searchQuery && (
             <p className="text-center text-sm text-sahara-text-muted py-6">
-              No matching tasks found
+              没有找到匹配的任务
             </p>
           )}
         </div>

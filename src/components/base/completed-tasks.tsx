@@ -23,7 +23,7 @@ export function CompletedTasks({ startDate, endDate }: CompletedTasksProps) {
   if (loadingRef.current) {
     return (
       <div className="bg-sahara-surface border border-sahara-border/20 rounded-xl md:rounded-2xl p-3.5 md:p-5">
-        <p className="text-xs text-sahara-text-muted">Loading…</p>
+        <p className="text-xs text-sahara-text-muted">加载中…</p>
       </div>
     );
   }
@@ -31,17 +31,17 @@ export function CompletedTasks({ startDate, endDate }: CompletedTasksProps) {
   return (
     <div className="bg-sahara-surface border border-sahara-border/20 rounded-xl md:rounded-2xl p-3.5 md:p-5">
       {/* <h3 className="text-xs md:text-sm font-bold text-sahara-text-muted uppercase tracking-wider mb-4 md:mb-5">
-        Tasks Worked On
+        完成过的任务
       </h3> */}
 
       {tasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 gap-2">
           <ClipboardList className="size-8 text-sahara-text-muted/40" />
           <p className="text-[15px] text-sahara-text-muted text-center">
-            No tasks in this period
+            这个时间段还没有任务
           </p>
           <p className="text-xs text-sahara-text-muted/60">
-            Tasks linked to focus sessions will appear here
+            关联到专注记录的任务会显示在这里
           </p>
         </div>
       ) : (
@@ -108,7 +108,7 @@ export function CompletedTasks({ startDate, endDate }: CompletedTasksProps) {
                   </p>
                   <p className="text-[11px] font-bold text-sahara-text-muted uppercase tracking-wider">
                     {task.session_count}
-                    {task.session_count === 1 ? " session" : " sessions"}
+                    条记录
                   </p>
                 </div>
               </div>

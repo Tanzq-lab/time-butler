@@ -21,7 +21,7 @@ export function TaskList() {
               {activeTask.name}
             </h4>
             <p className="text-xs text-sahara-text-muted mt-1 font-bold tracking-wider uppercase">
-              Project: {activeTask.project || "General"}
+              项目：{activeTask.project || "通用"}
             </p>
           </div>
 
@@ -34,7 +34,7 @@ export function TaskList() {
                 /{activeTask.estimated_pomos}
               </span>
               <p className="text-[10px] text-sahara-text-muted font-bold tracking-widest uppercase mt-0.5">
-                Pomos
+                个番茄
               </p>
             </div>
             <ChevronRight className="size-5 text-sahara-border group-hover:text-sahara-primary transition-colors" />
@@ -47,10 +47,10 @@ export function TaskList() {
           </div>
           <div>
             <p className="text-sm font-bold text-sahara-text-secondary">
-              No active task
+              没有专注任务
             </p>
             <p className="text-xs text-sahara-text-muted mt-1">
-              Select a task from the Tasks page to track progress
+              从任务页选择一个任务来记录进度
             </p>
           </div>
         </div>

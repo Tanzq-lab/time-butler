@@ -35,14 +35,14 @@ export function TopCategoryBadge({ sessions }: TopCategoryBadgeProps) {
       </div>
       <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
         <span className="text-xs md:text-sm font-black text-sahara-text-secondary uppercase tracking-widest">
-          Top Focus:
+          今日重点：
         </span>
         <div className="flex items-center gap-2">
           <span className="px-3 py-1 rounded-lg bg-sahara-primary text-white text-[11px] md:text-xs font-black tracking-tight shadow-md shadow-sahara-primary/20">
             {topCategory[0]}
           </span>
           <span className="text-[11px] md:text-xs font-bold text-sahara-text-muted tabular-nums">
-            {topCategory[1]} Sessions Recorded Today
+            今天已记录 {topCategory[1]} 次
           </span>
         </div>
       </div>

@@ -10,7 +10,10 @@ import {
 import type { Session } from "@/lib/db";
 import type { CategoryBreakdown as CategoryBreakdownType } from "@/lib/db";
 import { FocusSummaryBar } from "@/components/base/focus-summary-bar";
-import { CategoryBreakdown as CategoryBars } from "@/components/base/category-breakdown";
+import {
+  CategoryBreakdown as CategoryBars,
+  hasCategoryBreakdownData,
+} from "@/components/base/category-breakdown";
 import { ActiveTaskCard } from "@/components/base/active-task-card";
 import { DEFAULT_CATEGORY_COLOR } from "@/lib/constants";
 
@@ -69,7 +72,7 @@ export function TodayFocus() {
     return sorted[0] ?? null;
   })();
 
-  const hasAnyData = sessions.length > 0 || breakdowns.length > 0;
+  const hasAnyData = sessions.length > 0 || hasCategoryBreakdownData(breakdowns);
 
   return (
     <div className="w-full space-y-4 md:space-y-5">
@@ -83,7 +86,7 @@ export function TodayFocus() {
               variant="body"
               className="text-[11px] md:text-xs font-black text-sahara-text-secondary uppercase tracking-widest"
             >
-              Category Breakdown
+              分类分布
             </Text>
           </div>
           <CategoryBars breakdowns={breakdowns} />

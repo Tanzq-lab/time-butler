@@ -7,11 +7,11 @@ export interface DateRange {
 }
 
 export const PERIOD_OPTIONS: { value: DatePeriod; label: string }[] = [
-  { value: "today", label: "Today" },
-  { value: "yesterday", label: "Yesterday" },
-  { value: "last7days", label: "Last 7 Days" },
-  { value: "month", label: "This Month" },
-  { value: "year", label: "This Year" },
+  { value: "today", label: "今天" },
+  { value: "yesterday", label: "昨天" },
+  { value: "last7days", label: "最近 7 天" },
+  { value: "month", label: "本月" },
+  { value: "year", label: "今年" },
 ];
 
 export function toISODate(d: Date): string {
@@ -24,25 +24,25 @@ export function getDateRange(period: DatePeriod): DateRange {
 
   switch (period) {
     case "today": {
-      return { startDate: endDate, endDate, label: "Today" };
+      return { startDate: endDate, endDate, label: "今天" };
     }
     case "yesterday": {
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
-      return { startDate: toISODate(yesterday), endDate: toISODate(yesterday), label: "Yesterday" };
+      return { startDate: toISODate(yesterday), endDate: toISODate(yesterday), label: "昨天" };
     }
     case "last7days": {
       const start = new Date(today);
       start.setDate(start.getDate() - 6);
-      return { startDate: toISODate(start), endDate, label: "Last 7 Days" };
+      return { startDate: toISODate(start), endDate, label: "最近 7 天" };
     }
     case "month": {
       const start = new Date(today.getFullYear(), today.getMonth(), 1);
-      return { startDate: toISODate(start), endDate, label: "This Month" };
+      return { startDate: toISODate(start), endDate, label: "本月" };
     }
     case "year": {
       const start = new Date(today.getFullYear(), 0, 1);
-      return { startDate: toISODate(start), endDate, label: "This Year" };
+      return { startDate: toISODate(start), endDate, label: "今年" };
     }
   }
 }

@@ -65,7 +65,7 @@ export function IntentionSelector({
         ) : (
           <>
             <span className="text-[11px] font-medium text-sahara-text-muted tracking-wide">
-              Set Intention
+              设置意图
             </span>
             <ChevronDown className="size-3 text-sahara-text-muted" />
           </>
@@ -75,7 +75,7 @@ export function IntentionSelector({
       <ModalOverlay open={isOpen} onClose={() => setIsOpen(false)} showCloseButton>
         <div className="px-6 py-5 border-b border-sahara-border/20">
           <h2 className="font-serif text-xl text-sahara-text">
-            Set Intention
+            设置意图
           </h2>
         </div>
 
@@ -83,7 +83,7 @@ export function IntentionSelector({
           <div className="relative">
             <input
               type="text"
-              placeholder="Filter Categories"
+              placeholder="筛选分类"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-sahara-border/30 bg-sahara-bg/50 text-sm font-medium placeholder:text-sahara-text-muted focus:outline-none focus:border-sahara-primary/50 focus:ring-2 focus:ring-sahara-primary/10 transition-all"
@@ -126,7 +126,7 @@ export function IntentionSelector({
                 </span>
                 {selectedCategory?.id === category.id && (
                   <span className="text-[10px] font-bold tracking-wider uppercase text-sahara-primary bg-sahara-primary/10 px-2 py-0.5 rounded-full">
-                    Selected
+                    已选择
                   </span>
                 )}
               </div>
@@ -135,7 +135,7 @@ export function IntentionSelector({
 
           {filteredCategories.length === 0 && (
             <p className="text-center text-sm text-sahara-text-muted py-6">
-              No categories found
+              没有找到分类
             </p>
           )}
         </div>
@@ -152,7 +152,7 @@ export function IntentionSelector({
             className="gap-2 bg-green-500/90 hover:bg-green-500"
           >
             <Plus className="size-4" />
-            MANAGE CATEGORIES
+            管理分类
           </Button>
         </div>
       </ModalOverlay>

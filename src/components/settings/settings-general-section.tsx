@@ -5,14 +5,14 @@ import { Moon, Sun, Monitor, Circle, Activity } from "lucide-react";
 import type { ThemeMode } from "@/features/settings/settings-types";
 
 const THEME_OPTIONS: { id: ThemeMode; label: string; icon: typeof Sun }[] = [
-  { id: "light", label: "Light", icon: Sun },
-  { id: "dark", label: "Dark", icon: Moon },
-  { id: "system", label: "System", icon: Monitor },
+  { id: "light", label: "浅色", icon: Sun },
+  { id: "dark", label: "深色", icon: Moon },
+  { id: "system", label: "跟随系统", icon: Monitor },
 ];
 
 const TIMER_STYLES: { id: "solid" | "zigzag"; label: string; icon: typeof Activity }[] = [
-  { id: "solid", label: "Solid", icon: Circle },
-  { id: "zigzag", label: "Zigzag", icon: Activity },
+  { id: "solid", label: "平滑", icon: Circle },
+  { id: "zigzag", label: "波形", icon: Activity },
 ];
 
 interface ToggleItem {
@@ -23,8 +23,8 @@ interface ToggleItem {
 
 const TOGGLE_ITEMS: ToggleItem[] = [
   {
-    label: "Auto-start breaks",
-    desc: "Automatically start break timer after focus",
+    label: "自动开始休息",
+    desc: "专注结束后自动进入休息计时",
     key: "autoStartBreaks",
   },
 ];
@@ -49,7 +49,7 @@ export function SettingsGeneralSection({
   return (
     <section>
       <h3 className="font-serif text-xl md:text-2xl text-sahara-text mb-6 md:mb-8">
-        Appearance
+        外观
       </h3>
       <div className="grid grid-cols-3 gap-3 md:gap-4">
         {THEME_OPTIONS.map((theme) => (
@@ -78,7 +78,7 @@ export function SettingsGeneralSection({
 
       <div className="mt-12">
         <h3 className="font-serif text-xl md:text-2xl text-sahara-text mb-6 md:mb-8">
-          Timer Animation Style
+          计时动画样式
         </h3>
         <div className="grid grid-cols-2 gap-3 md:gap-4">
           {TIMER_STYLES.map((style) => (

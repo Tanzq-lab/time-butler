@@ -107,7 +107,7 @@ export function PresetSelector() {
       >
         <Settings2 className="size-3.5" />
         <span className="text-[11px] font-bold uppercase tracking-wider">
-          Presets
+          预设
         </span>
       </Button>
 
@@ -120,10 +120,10 @@ export function PresetSelector() {
         <div className="px-6 py-5 border-b border-sahara-border/10 flex items-center justify-between">
           <div>
             <h3 className="font-serif text-xl text-sahara-text">
-              Timer Presets
+              计时预设
             </h3>
             <p className="text-[10px] text-sahara-text-muted uppercase tracking-widest font-bold">
-              Quick Switch Configs
+              快速切换配置
             </p>
           </div>
           <button
@@ -183,9 +183,9 @@ export function PresetSelector() {
                       {preset.name}
                     </h4>
                     <div className="flex items-center gap-2 text-[10px] text-sahara-text-muted font-medium">
-                      <span>{preset.work_duration / 60}m Focus</span>
+                      <span>{preset.work_duration / 60} 分钟专注</span>
                       <span className="size-1 rounded-full bg-sahara-border" />
-                      <span>{preset.short_break_duration / 60}m Break</span>
+                      <span>{preset.short_break_duration / 60} 分钟休息</span>
                     </div>
                   </div>
                 </div>
@@ -228,7 +228,7 @@ export function PresetSelector() {
             <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-300">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] font-bold text-sahara-text-muted uppercase tracking-wider">
-                  Edit Preset
+                  编辑预设
                 </span>
                 <button
                   onClick={() => dispatch({ type: "END_EDIT" })}
@@ -242,19 +242,19 @@ export function PresetSelector() {
                 type="text"
                 value={ui.name}
                 onChange={(e) => dispatch({ type: "SET_EDIT_NAME", name: e.target.value })}
-                placeholder="Preset name"
+                placeholder="预设名称"
                 className="w-full bg-sahara-surface border border-sahara-border/20 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-sahara-primary/50 transition-all shadow-inner"
               />
 
               <div className="grid grid-cols-2 gap-3">
                 <DurationControl
-                  label="Focus"
+                  label="专注"
                   value={ui.work}
                   onChange={(v) => dispatch({ type: "SET_EDIT_WORK", work: v })}
                   step={300}
                 />
                 <DurationControl
-                  label="Break"
+                  label="休息"
                   value={ui.break}
                   onChange={(v) => dispatch({ type: "SET_EDIT_BREAK", break_: v })}
                   step={60}
@@ -269,14 +269,14 @@ export function PresetSelector() {
                 disabled={!ui.name.trim()}
                 className="py-3 shadow-lg shadow-sahara-primary/20"
               >
-                Save Changes
+                保存修改
               </Button>
             </div>
           ) : ui.type === "saving-new" ? (
             <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-300">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] font-bold text-sahara-text-muted uppercase tracking-wider">
-                  New Preset Details
+                  新预设详情
                 </span>
                 <button
                   onClick={() => dispatch({ type: "END_SAVE" })}
@@ -290,13 +290,13 @@ export function PresetSelector() {
                 type="text"
                 value={ui.name}
                 onChange={(e) => dispatch({ type: "SET_NEW_NAME", name: e.target.value })}
-                placeholder="Name (e.g. Deep Work)"
+                placeholder="名称（例如：深度工作）"
                 className="w-full bg-sahara-surface border border-sahara-border/20 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-sahara-primary/50 transition-all shadow-inner"
               />
 
               <div className="grid grid-cols-2 gap-3">
                 <DurationControl
-                  label="Focus"
+                  label="专注"
                   value={currentDurations.work}
                   onChange={(v) =>
                     useTimerStore
@@ -306,7 +306,7 @@ export function PresetSelector() {
                   step={300}
                 />
                 <DurationControl
-                  label="Break"
+                  label="休息"
                   value={currentDurations.short}
                   onChange={(v) =>
                     useTimerStore
@@ -325,7 +325,7 @@ export function PresetSelector() {
                 disabled={!ui.name.trim()}
                 className="py-3 shadow-lg shadow-sahara-primary/20 cursor-pointer"
               >
-                Confirm & Save Preset
+                确认并保存预设
               </Button>
             </div>
           ) : (
@@ -334,14 +334,14 @@ export function PresetSelector() {
               className="w-full py-4 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest text-sahara-text-muted hover:text-sahara-primary transition-all border border-dashed border-sahara-border/30 rounded-2xl hover:border-sahara-primary/30 hover:bg-sahara-primary/5 group cursor-pointer"
             >
               <Plus className="size-4 group-hover:scale-110 transition-transform" />
-              Create New Preset
+              新建预设
             </button>
           )}
         </div>
 
         {timerStatus !== "idle" && (
           <div className="px-6 py-2.5 bg-amber-50 text-[10px] text-amber-700 font-black text-center uppercase tracking-widest border-t border-amber-100">
-            Timer is active - Mode switching disabled
+            计时进行中，暂时不能切换模式
           </div>
         )}
       </ModalOverlay>
@@ -367,7 +367,7 @@ function DurationControl({
       </p>
       <div className="flex items-center justify-between">
         <span className="text-sm font-bold text-sahara-text">
-          {value / 60}m
+          {value / 60} 分钟
         </span>
         <div className="flex gap-1">
           <button

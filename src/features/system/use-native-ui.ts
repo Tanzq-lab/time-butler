@@ -43,15 +43,15 @@ export function useNativeUI() {
     invoke("menubar_show").catch(() => {});
     invoke("menubar_set_title", { title }).catch(() => {});
 
-    const phaseLabel = phase === "work" ? "Focus" : "Break";
+    const phaseLabel = phase === "work" ? "专注" : "休息";
     const phaseIcon = phase === "work" ? "\u{1F351}" : "\u2615";
 
-    const menubarTooltip = `Kairos-Pomodoro - ${phaseLabel} ${formatSeconds(secondsRemaining)}`;
+    const menubarTooltip = `时间管家 - ${phaseLabel} ${formatSeconds(secondsRemaining)}`;
     invoke("menubar_set_tooltip", { tooltip: menubarTooltip }).catch(() => {});
 
     const trayTooltip =
       status === "focus_complete" || overtimeSeconds > 0
-        ? `+${formatOvertime(totalSeconds, overtimeSeconds)} OT ${phaseIcon}`
+        ? `+${formatOvertime(totalSeconds, overtimeSeconds)} 超时 ${phaseIcon}`
         : `${formatSeconds(secondsRemaining)} ${phaseIcon}`;
     invoke("plugin:tray|set_tooltip", { tooltip: trayTooltip }).catch(() => {});
 

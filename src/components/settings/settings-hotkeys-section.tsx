@@ -1,15 +1,15 @@
 const SHORTCUTS = [
-  { keys: "\u2318 + Enter", action: "Start / Pause Timer" },
-  { keys: "\u2318 + R", action: "Reset Timer" },
-  { keys: "\u2318 + F", action: "Finish Session" },
-  { keys: "Escape", action: "Close Modal" },
+  { keys: "\u2318 + Enter", action: "开始 / 暂停计时" },
+  { keys: "\u2318 + R", action: "重置计时" },
+  { keys: "\u2318 + F", action: "完成本轮" },
+  { keys: "Escape", action: "关闭弹窗" },
 ];
 
 export function SettingsHotkeysSection() {
   return (
     <section>
       <h3 className="font-serif text-xl md:text-2xl text-sahara-text mb-6 md:mb-8">
-        Keyboard Shortcuts
+        键盘快捷键
       </h3>
       <div className="bg-sahara-bg/50 border border-sahara-border/15 rounded-xl md:rounded-2xl p-4 md:p-6">
         <div className="space-y-4">

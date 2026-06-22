@@ -98,7 +98,7 @@ export function TimerControls() {
                   disabled={status !== "idle"}
                   className="px-3 sm:px-4 md:px-6 py-2 text-[10px] sm:text-xs font-bold tracking-wider"
                 >
-                  Focus
+                  专注
                 </Button>
                 <Button
                   variant="ghost"
@@ -110,7 +110,7 @@ export function TimerControls() {
                   disabled={status !== "idle"}
                   className="px-3 sm:px-4 md:px-6 py-2 text-[10px] sm:text-xs font-bold tracking-wider"
                 >
-                  Break
+                  休息
                 </Button>
               </div>
               <div className="w-px h-6 bg-sahara-border/20" />

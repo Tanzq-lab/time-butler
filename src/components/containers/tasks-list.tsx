@@ -133,10 +133,10 @@ export function TasksList() {
       {/* Header */}
       <div className="mb-6 md:mb-10">
         <p className="text-[10px] font-bold text-sahara-text-muted uppercase tracking-[0.2em] mb-1">
-          Task Management
+          任务管理
         </p>
         <h1 className="font-serif text-2xl md:text-4xl text-sahara-text">
-          Your Tasks
+          我的任务
         </h1>
       </div>
 
@@ -146,7 +146,7 @@ export function TasksList() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-sahara-text-muted" />
           <input
             type="text"
-            placeholder="Search tasks..."
+            placeholder="搜索任务..."
             value={searchQuery}
             onChange={(e) => dispatch({ type: "SET_SEARCH", query: e.target.value })}
             className="w-full bg-sahara-card border border-sahara-border/20 rounded-full pl-9 pr-4 py-2.5 text-sm text-sahara-text placeholder:text-sahara-text-muted/50 outline-none focus:border-sahara-primary/40 transition-colors"
@@ -184,7 +184,7 @@ export function TasksList() {
             className="gap-1.5 ml-1 md:ml-2 px-4 shadow-lg shadow-sahara-primary/20 hover:shadow-xl hover:shadow-sahara-primary/30 text-[10px] sm:text-xs font-bold tracking-widest uppercase transition-all"
           >
             <Plus className="size-3.5 md:size-4" />
-            <span className="hidden sm:inline">Add Task</span>
+            <span className="hidden sm:inline">添加任务</span>
           </Button>
         </div>
       </div>
@@ -202,10 +202,10 @@ export function TasksList() {
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <Filter className="size-12 text-sahara-border mb-4" />
           <p className="text-sm font-bold text-sahara-text-muted">
-            No tasks found
+            没有找到任务
           </p>
           <p className="text-xs text-sahara-text-muted/60 mt-1">
-            Try a different search term
+            换个关键词试试
           </p>
         </div>
       ) : (
@@ -216,7 +216,7 @@ export function TasksList() {
               <div className="flex items-center gap-2 mb-4">
                 <Target className="size-4 text-sahara-primary" />
                 <span className="text-xs font-bold text-sahara-text-muted uppercase tracking-wider">
-                  Active ({activeTasks.length})
+                  进行中（{activeTasks.length}）
                 </span>
               </div>
               <div
@@ -254,10 +254,10 @@ export function TasksList() {
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Target className="size-10 text-sahara-border mb-3" />
               <p className="text-sm font-bold text-sahara-text-muted">
-                No active tasks
+                没有进行中的任务
               </p>
               <p className="text-xs text-sahara-text-muted/60 mt-1">
-                All tasks are completed!
+                所有任务都完成啦！
               </p>
             </div>
           )}
@@ -276,7 +276,7 @@ export function TasksList() {
                 )}
                 <CheckCircle2 className="size-4 text-green-500" />
                 <span className="text-xs font-bold text-sahara-text-muted uppercase tracking-wider">
-                  Completed ({doneTasks.length})
+                  已完成（{doneTasks.length}）
                 </span>
               </button>
 

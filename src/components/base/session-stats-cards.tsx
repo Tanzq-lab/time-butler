@@ -31,28 +31,28 @@ export function SessionStatsCards({ sessions }: SessionStatsCardsProps) {
 
   const stats: StatItem[] = [
     {
-      label: "Focus Time",
+      label: "专注时长",
       value: formatTotalTime(totalFocusSec),
       icon: Target,
       color: "text-[#c2652a]",
       bg: "bg-[#c2652a]/10",
     },
     {
-      label: "Sessions",
+      label: "记录数",
       value: String(workSessions.length),
       icon: CheckCircle2,
       color: "text-emerald-600",
       bg: "bg-emerald-500/10",
     },
     {
-      label: "Avg Length",
+      label: "平均时长",
       value: formatDuration(avgSessionLength),
       icon: TrendingUp,
       color: "text-blue-600",
       bg: "bg-blue-500/10",
     },
     {
-      label: "Break Time",
+      label: "休息时长",
       value: formatTotalTime(totalBreakSec),
       icon: Zap,
       color: "text-amber-600",

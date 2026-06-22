@@ -14,11 +14,11 @@ import { SettingsHotkeysSection } from "@/components/settings/settings-hotkeys-s
 import { SettingsPrivacySection } from "@/components/settings/settings-privacy-section";
 
 const TABS: SidebarTab[] = [
-  { id: "general", label: "General", icon: Monitor },
-  { id: "focus", label: "Focus Rhythm", icon: Zap },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "hotkeys", label: "Hotkeys", icon: Keyboard },
-  { id: "privacy", label: "Privacy & Data", icon: Shield },
+  { id: "general", label: "通用", icon: Monitor },
+  { id: "focus", label: "专注节奏", icon: Zap },
+  { id: "notifications", label: "通知", icon: Bell },
+  { id: "hotkeys", label: "快捷键", icon: Keyboard },
+  { id: "privacy", label: "隐私与数据", icon: Shield },
 ];
 
 export function SettingsPage() {
@@ -39,10 +39,10 @@ export function SettingsPage() {
       <div className="px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 py-8 md:py-12 max-w-6xl xl:max-w-7xl mx-auto h-full flex flex-col">
         <header className="mb-8 md:mb-12">
           <p className="text-[10px] font-bold text-sahara-text-muted uppercase tracking-[0.2em] mb-1">
-            Configuration
+            配置
           </p>
           <h1 className="font-serif text-2xl md:text-4xl text-sahara-text">
-            App Settings
+            应用设置
           </h1>
         </header>
 

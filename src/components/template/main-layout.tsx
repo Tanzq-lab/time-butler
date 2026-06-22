@@ -58,7 +58,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                 shape="rounded-full"
                 onClick={() => useUIStore.getState().setFullscreenFocus(false)}
                 className="bg-sahara-surface/80 backdrop-blur-md shadow-xl border-sahara-border/40 hover:text-sahara-primary hover:border-sahara-primary/40 group"
-                title="Exit Focus Mode"
+                title="退出专注模式"
               >
                 <Minimize2 className="size-5 transition-transform group-hover:scale-110" />
               </Button>

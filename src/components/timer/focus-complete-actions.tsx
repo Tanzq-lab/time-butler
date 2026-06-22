@@ -31,7 +31,7 @@ export function FocusCompleteActions({
         className="gap-1.5 md:gap-2 text-[10px] md:text-xs"
       >
         <Coffee className="size-3.5 md:w-4 md:h-4" />
-        {isWorkPhase ? "Start Break" : "Back to Work"}
+        {isWorkPhase ? "开始休息" : "回到专注"}
       </Button>
 
       <Button
@@ -43,7 +43,7 @@ export function FocusCompleteActions({
         className="gap-1 md:gap-1.5 text-[10px]"
       >
         <Flag className="size-3.5 md:w-4 md:h-4" />
-        End Session
+        结束本轮
       </Button>
 
       <div className="h-6 md:h-8 w-px bg-sahara-border/20 mx-0.5 md:mx-1 hidden sm:block" />
@@ -58,7 +58,7 @@ export function FocusCompleteActions({
           className="gap-1.5 md:gap-2 text-[10px] md:text-xs"
         >
           <Pause className="size-3.5 md:w-4 md:h-4 fill-current" />
-          Pause Overtime
+          暂停超时
         </Button>
       )}
 

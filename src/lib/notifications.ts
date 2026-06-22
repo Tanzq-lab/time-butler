@@ -9,10 +9,10 @@ type NotificationType =
   | "focus-complete";
 
 const NOTIFICATION_TITLES: Record<NotificationType, string> = {
-  "session-complete": "Focus Session Complete!",
-  "break-over": "Break is Over",
-  "focus-start": "Time to Focus",
-  "focus-complete": "Focus time's up!",
+  "session-complete": "专注已完成",
+  "break-over": "休息结束了",
+  "focus-start": "该专注了",
+  "focus-complete": "专注时间到",
 };
 
 function getSettings() {

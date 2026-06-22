@@ -13,7 +13,7 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   const activeLabel =
-    PERIOD_OPTIONS.find((o) => o.value === value)?.label ?? "Last 7 Days";
+    PERIOD_OPTIONS.find((o) => o.value === value)?.label ?? "最近 7 天";
 
   useEffect(() => {
     if (!open) return;

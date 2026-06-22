@@ -40,18 +40,18 @@ export function TodaySessions() {
       >
         <div className="flex items-center gap-2 md:gap-3">
           <Text variant="h3" className="font-serif text-xl md:text-2xl">
-            Today's Sessions
+            今日记录
           </Text>
           {sessions.length > 0 && (
             <span className="px-2 py-0.5 md:px-2.5 md:py-1 rounded-full bg-sahara-primary/10 text-sahara-primary text-[9px] md:text-[10px] font-bold tracking-wider">
-              {sessions.length} completed
+              已完成 {sessions.length} 条
             </span>
           )}
         </div>
         <div className="flex items-center gap-2 md:gap-3">
           {sessions.length > 0 && !isCollapsed && (
             <span className="text-[10px] md:text-xs font-medium text-sahara-text-muted hidden sm:block">
-              Total Focus: {formatTotalTime(totalFocusSec)}
+              专注总计：{formatTotalTime(totalFocusSec)}
             </span>
           )}
           {isCollapsed ? (

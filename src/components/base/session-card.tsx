@@ -15,9 +15,9 @@ const MOOD_EMOJI: Record<string, string> = {
 };
 
 function getPhaseLabel(phase: string): string {
-  if (phase === "work") return "Focus";
-  if (phase === "short_break") return "Short Break";
-  if (phase === "long_break") return "Long Break";
+  if (phase === "work") return "专注";
+  if (phase === "short_break") return "短休息";
+  if (phase === "long_break") return "长休息";
   return phase.replace("_", " ");
 }
 
@@ -83,7 +83,7 @@ export function SessionCard({ session }: SessionCardProps) {
                 {formatTime(session.started_at)} &mdash;{" "}
                 {session.ended_at
                   ? formatTime(session.ended_at)
-                  : "In Progress"}
+                  : "进行中"}
               </p>
               {session.task_name && (
                 <>

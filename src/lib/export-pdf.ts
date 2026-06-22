@@ -23,9 +23,9 @@ const COLORS = {
 };
 
 const MOOD_LABELS: Record<string, string> = {
-  distracted: "Distracted",
-  neutral: "Neutral",
-  focused: "Focused",
+  distracted: "分心",
+  neutral: "平稳",
+  focused: "专注",
 };
 
 function addHeader(doc: jsPDF, title: string, range: DateRange) {
@@ -37,15 +37,15 @@ function addHeader(doc: jsPDF, title: string, range: DateRange) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
   doc.setTextColor(...COLORS.white);
-  doc.text("KAIROS - Focus Insights", 14, 18);
+  doc.text("时间管家 - 专注洞察", 14, 18);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(200, 210, 220);
-  doc.text(`${title}  |  ${range.label} (${range.startDate} to ${range.endDate})`, 14, 28);
+  doc.text(`${title}  |  ${range.label}（${range.startDate} 至 ${range.endDate}）`, 14, 28);
 
   doc.setFontSize(8);
-  doc.text(`Generated on ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}`, 14, 35);
+  doc.text(`生成于 ${new Date().toLocaleDateString("zh-CN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}`, 14, 35);
 }
 
 function addSectionTitle(doc: jsPDF, title: string, y: number): number {
@@ -61,7 +61,7 @@ function addSectionTitle(doc: jsPDF, title: string, y: number): number {
 }
 
 function formatDurationPdf(seconds: number): string {
-  if (seconds <= 0) return "0m";
+  if (seconds <= 0) return "0分钟";
   return formatTotalTime(seconds);
 }
 
@@ -81,7 +81,7 @@ export async function exportAnalyticsPdf(period: DatePeriod): Promise<void> {
   const pageWidth = doc.internal.pageSize.getWidth();
   const contentWidth = pageWidth - 28;
 
-  addHeader(doc, "Performance Report", range);
+  addHeader(doc, "表现报告", range);
 
   let y = 50;
 
@@ -91,13 +91,13 @@ export async function exportAnalyticsPdf(period: DatePeriod): Promise<void> {
   const avgSessionSec = totalSessions > 0 ? Math.round(totalFocusSec / totalSessions) : 0;
   const avgDailySec = weekData.length > 0 ? Math.round(totalFocusSec / weekData.length) : 0;
 
-  y = addSectionTitle(doc, "Overview", y);
+  y = addSectionTitle(doc, "概览", y);
 
   const stats = [
-    { label: "Total Focus", value: formatDurationPdf(totalFocusSec) },
-    { label: "Sessions", value: String(totalSessions) },
-    { label: "Avg Session", value: avgSessionSec > 0 ? formatDuration(avgSessionSec) : "0m" },
-    { label: "Daily Avg", value: avgDailySec > 0 ? formatDurationPdf(avgDailySec) : "0m" },
+    { label: "专注总时长", value: formatDurationPdf(totalFocusSec) },
+    { label: "记录数", value: String(totalSessions) },
+    { label: "平均单次", value: avgSessionSec > 0 ? formatDuration(avgSessionSec) : "0分钟" },
+    { label: "日均专注", value: avgDailySec > 0 ? formatDurationPdf(avgDailySec) : "0分钟" },
   ];
 
   const statBoxWidth = contentWidth / 4 - 2;
@@ -119,13 +119,13 @@ export async function exportAnalyticsPdf(period: DatePeriod): Promise<void> {
 
   y += 28;
 
-  // --- Daily Breakdown Table ---
+  // --- 每日明细表 ---
   if (weekData.length > 0) {
-    y = addSectionTitle(doc, "Daily Breakdown", y);
+    y = addSectionTitle(doc, "每日明细", y);
 
     autoTable(doc, {
       startY: y,
-      head: [["Day", "Date", "Focus Time", "Sessions"]],
+      head: [["星期", "日期", "专注时长", "记录数"]],
       body: weekData.map((d) => [
         d.day_name,
         d.date,
@@ -143,18 +143,18 @@ export async function exportAnalyticsPdf(period: DatePeriod): Promise<void> {
     y = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
   }
 
-  // --- Category Breakdown ---
+  // --- 分类明细 ---
   if (categoryBreakdown.length > 0) {
     if (y > 240) { doc.addPage(); y = 20; }
-    y = addSectionTitle(doc, "Category Breakdown", y);
+    y = addSectionTitle(doc, "分类分布", y);
 
     autoTable(doc, {
       startY: y,
-      head: [["Category", "Focus Time", "Sessions", "Share"]],
+      head: [["分类", "专注时长", "记录数", "占比"]],
       body: categoryBreakdown.map((c) => {
         const pct = totalFocusSec > 0 ? Math.round((c.total_seconds / totalFocusSec) * 100) : 0;
         return [
-          c.category_name || c.intention || "Uncategorized",
+          c.category_name || c.intention || "未分类",
           formatDurationPdf(c.total_seconds),
           String(c.session_count),
           `${pct}%`,
@@ -171,16 +171,16 @@ export async function exportAnalyticsPdf(period: DatePeriod): Promise<void> {
     y = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
   }
 
-  // --- Mood Distribution ---
+  // --- 心情分布 ---
   if (moodStats.length > 0) {
     if (y > 250) { doc.addPage(); y = 20; }
-    y = addSectionTitle(doc, "Mood Distribution", y);
+    y = addSectionTitle(doc, "状态分布", y);
 
     const totalMoods = moodStats.reduce((s, m) => s + m.count, 0);
 
     autoTable(doc, {
       startY: y,
-      head: [["Mood", "Sessions", "Share"]],
+      head: [["状态", "记录数", "占比"]],
       body: moodStats.map((m) => {
         const pct = totalMoods > 0 ? Math.round((m.count / totalMoods) * 100) : 0;
         return [MOOD_LABELS[m.mood] ?? m.mood, String(m.count), `${pct}%`];
@@ -196,14 +196,14 @@ export async function exportAnalyticsPdf(period: DatePeriod): Promise<void> {
     y = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
   }
 
-  // --- Tasks Worked On ---
+  // --- 任务明细 ---
   if (completedTasks.length > 0) {
     if (y > 220) { doc.addPage(); y = 20; }
-    y = addSectionTitle(doc, "Tasks Worked On", y);
+    y = addSectionTitle(doc, "任务投入", y);
 
     autoTable(doc, {
       startY: y,
-      head: [["Task", "Category", "Focus Time", "Sessions", "Pomos"]],
+      head: [["任务", "分类", "专注时长", "记录数", "番茄数"]],
       body: completedTasks.map((t) => [
         t.task_name,
         t.category_name || "-",
@@ -223,14 +223,14 @@ export async function exportAnalyticsPdf(period: DatePeriod): Promise<void> {
     y = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
   }
 
-  // --- Session Notes ---
+  // --- 专注笔记 ---
   if (sessionNotes.length > 0) {
     if (y > 200) { doc.addPage(); y = 20; }
-    y = addSectionTitle(doc, "Session Notes", y);
+    y = addSectionTitle(doc, "专注笔记", y);
 
     autoTable(doc, {
       startY: y,
-      head: [["Date", "Category", "Task", "Mood", "Duration", "Notes"]],
+      head: [["日期", "分类", "任务", "状态", "时长", "笔记"]],
       body: sessionNotes.map((n) => [
         n.started_at.split("T")[0],
         n.category_name || "-",
@@ -264,16 +264,16 @@ export async function exportAnalyticsPdf(period: DatePeriod): Promise<void> {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
     doc.setTextColor(...COLORS.muted);
-    doc.text("Kairos - Focus Insights", 14, pageHeight - 10);
-    doc.text(`Page ${i} of ${totalPages}`, pageWidth - 14, pageHeight - 10, { align: "right" });
+    doc.text("时间管家 - 专注洞察", 14, pageHeight - 10);
+    doc.text(`第 ${i} 页 / 共 ${totalPages} 页`, pageWidth - 14, pageHeight - 10, { align: "right" });
   }
 
-  const defaultFilename = `kairos-analytics-${range.startDate}-to-${range.endDate}.pdf`;
+  const defaultFilename = `time-butler-analytics-${range.startDate}-to-${range.endDate}.pdf`;
 
   const filePath = await save({
     defaultPath: defaultFilename,
     filters: [{ name: "PDF", extensions: ["pdf"] }],
-    title: "Save Analytics Report",
+    title: "保存分析报告",
   });
 
   if (!filePath) return;

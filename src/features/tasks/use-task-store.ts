@@ -49,9 +49,9 @@ export const useTaskStore = create<TaskStore>((set) => ({
 
       if (tasks.length === 0) {
         if (!hasSeeded) {
-          await dbAddTask("Plan your first project", 4, "Personal");
-          await dbAddTask("Review important documents", 2, "Work");
-          await dbAddTask("Learn something new today", 3, "Learning");
+          await dbAddTask("规划第一个项目", 4, "个人");
+          await dbAddTask("整理重要资料", 2, "工作");
+          await dbAddTask("今天学习一点新东西", 3, "学习");
           await setSetting("has_seeded_tasks", "true");
           tasks = await getTasks();
         }

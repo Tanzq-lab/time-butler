@@ -18,7 +18,7 @@ function formatSessionTime(startedAt: string, endedAt: string | null): string {
 
 function formatSessionDate(startedAt: string): string {
   const date = new Date(startedAt);
-  return date.toLocaleDateString("en-US", {
+  return date.toLocaleDateString("zh-CN", {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -45,7 +45,7 @@ export function SessionNotes({ startDate, endDate }: SessionNotesProps) {
   if (loadingRef.current) {
     return (
       <div className="bg-sahara-surface border border-sahara-border/20 rounded-xl md:rounded-2xl p-3.5 md:p-5">
-        <p className="text-[15px] text-sahara-text-muted">Loading…</p>
+        <p className="text-[15px] text-sahara-text-muted">加载中…</p>
       </div>
     );
   }
@@ -60,10 +60,10 @@ export function SessionNotes({ startDate, endDate }: SessionNotesProps) {
         <div className="flex flex-col items-center justify-center py-8 gap-2">
           <FileText className="size-8 text-sahara-text-muted/40" />
           <p className="text-[15px] text-sahara-text-muted text-center">
-            No session notes yet
+            还没有专注笔记
           </p>
           <p className="text-[15px] text-sahara-text-muted/60">
-            Notes from finished sessions will appear here
+            完成专注后填写的笔记会显示在这里
           </p>
         </div>
       ) : (

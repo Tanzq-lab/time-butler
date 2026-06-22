@@ -75,21 +75,21 @@ export function FocusSummaryBar({
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
       <StatBox 
-        label="Focus Time" 
+        label="专注时长" 
         value={formatTotalTime(totalFocusSec)} 
         icon={Clock} 
         styleKey="clock" 
       />
       
       <StatBox 
-        label="Sessions" 
+        label="记录数" 
         value={sessionCount} 
         icon={Target} 
         styleKey="target" 
       />
 
       <StatBox 
-        label="Top Focus" 
+        label="主要专注" 
         styleKey="flame"
         icon={Flame}
         iconColor={topCategory?.color}
@@ -101,15 +101,15 @@ export function FocusSummaryBar({
                 style={{ backgroundColor: topCategory.color }}
               />
               <span className="text-[9px] font-bold text-sahara-text-muted tabular-nums uppercase">
-                {topCategory.count} Recorded
+                已记录 {topCategory.count} 次
               </span>
           </div>
         )}
       />
 
       <StatBox 
-        label="Avg Focus" 
-        value={sessionCount > 0 ? formatTotalTime(Math.round(totalFocusSec / sessionCount)) : "0m"} 
+        label="平均专注" 
+        value={sessionCount > 0 ? formatTotalTime(Math.round(totalFocusSec / sessionCount)) : "0分钟"} 
         icon={Timer} 
         styleKey="timer" 
       />

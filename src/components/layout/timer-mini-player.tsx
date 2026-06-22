@@ -55,7 +55,7 @@ export function TimerMiniPlayer() {
   const displayTime =
     status === "focus_complete" ? overtimeSeconds : secondsRemaining;
 
-  const phaseLabel = phase === "work" ? "Focus" : "Break";
+  const phaseLabel = phase === "work" ? "专注" : "休息";
   const accentColor = selectedCategory?.color || "var(--color-sahara-primary)";
 
   return (
@@ -99,7 +99,7 @@ export function TimerMiniPlayer() {
             )}
           </div>
           <h4 className="text-sm md:text-base font-semibold text-sahara-text truncate leading-tight">
-            {activeTask?.name || "Independent Session"}
+            {activeTask?.name || "独立专注"}
           </h4>
         </div>
 
@@ -118,7 +118,7 @@ export function TimerMiniPlayer() {
             </p>
             {status === "focus_complete" && (
               <p className="text-[9px] font-black uppercase text-sahara-primary/60 tracking-tighter -mt-1">
-                Overtime
+                超时中
               </p>
             )}
           </div>
@@ -151,7 +151,7 @@ export function TimerMiniPlayer() {
               <button
                 onClick={skip}
                 className="size-10 md:w-11 md:h-11 rounded-full bg-sahara-surface border border-sahara-border/10 flex items-center justify-center text-sahara-text-muted hover:text-sahara-text hover:bg-sahara-card transition-colors"
-                title="Skip Phase"
+                title="跳过当前阶段"
               >
                 <SkipForward
                   className="size-4 md:w-5 md:h-5"

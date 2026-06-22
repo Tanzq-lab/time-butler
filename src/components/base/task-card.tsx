@@ -118,7 +118,7 @@ export function TaskCard({
                     }}
                     className="gap-2 text-xs font-medium text-sahara-text-secondary hover:bg-sahara-bg/50"
                   >
-                    <Edit3 className="size-3.5" /> Edit
+                    <Edit3 className="size-3.5" /> 编辑
                   </Button>
                 )}
                 {onDelete && (
@@ -134,7 +134,7 @@ export function TaskCard({
                     }}
                     className="gap-2 text-xs font-medium hover:bg-red-50"
                   >
-                    <Trash2 className="size-3.5" /> Delete
+                    <Trash2 className="size-3.5" /> 删除
                   </Button>
                 )}
               </div>
@@ -184,7 +184,7 @@ export function TaskCard({
           <span className="text-xs font-bold text-sahara-text-secondary tabular-nums">
             {task.completed_pomos}/{task.estimated_pomos}{" "}
             <span className="text-[10px] text-sahara-text-muted uppercase tracking-widest ml-1">
-              Pomos
+              个番茄
             </span>
           </span>
         </div>
@@ -193,12 +193,12 @@ export function TaskCard({
           <div className="flex items-center gap-1.5 text-sahara-primary">
             <Target className="size-3.5" />
             <span className="text-[10px] font-bold tracking-widest uppercase">
-              Active
+              进行中
             </span>
           </div>
         ) : (
           <span className="text-[10px] font-bold tracking-widest uppercase text-sahara-text-muted group-hover:text-sahara-primary transition-colors">
-            Link Session
+            关联专注
           </span>
         )}
 

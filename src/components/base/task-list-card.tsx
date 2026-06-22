@@ -52,7 +52,7 @@ export function TaskListCard({
               : "bg-sahara-card text-sahara-text-muted",
           )}
         >
-          {task.project || "General"}
+          {task.project || "通用"}
         </span>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
           {!isDone && (
@@ -64,7 +64,7 @@ export function TaskListCard({
                     onFocus();
                   }}
                   className="p-1 rounded-lg hover:bg-sahara-primary/10 transition-colors cursor-pointer group/play"
-                  title="Start Focus"
+                  title="开始专注"
                 >
                   <Play className="size-3.5 text-sahara-primary fill-sahara-primary group-hover/play:scale-110 transition-transform" />
                 </button>
@@ -75,7 +75,7 @@ export function TaskListCard({
                   onCompletePomo();
                 }}
               className="p-1 rounded-lg hover:bg-sahara-card transition-colors cursor-pointer"
-              title="Complete pomodoro"
+              title="完成一个番茄"
             >
               <CheckCircle2 className="size-3.5 text-green-500" />
             </button>
@@ -87,7 +87,7 @@ export function TaskListCard({
               onEdit();
             }}
             className="p-1 rounded-lg hover:bg-sahara-card transition-colors cursor-pointer"
-            title="Edit task"
+            title="编辑任务"
           >
             <Edit3 className="size-3.5 text-sahara-text-muted hover:text-sahara-text" />
           </button>
@@ -97,7 +97,7 @@ export function TaskListCard({
               onDelete();
             }}
             className="p-1 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
-            title="Delete task"
+            title="删除任务"
           >
             <Trash2 className="size-3.5 text-red-400" />
           </button>
@@ -121,7 +121,7 @@ export function TaskListCard({
           <span className="text-[10px] md:text-xs font-bold text-sahara-text-secondary tabular-nums">
             {task.completed_pomos}/{task.estimated_pomos}{" "}
             <span className="text-sahara-text-muted font-normal">
-              pomos
+              个番茄
             </span>
           </span>
         </div>
@@ -129,14 +129,14 @@ export function TaskListCard({
         {isActive && !isDone && (
           <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 text-[9px] md:text-[10px] font-bold uppercase tracking-wider">
             <Clock className="size-2.5 md:w-3 md:h-3 animate-pulse" />
-            Active
+            进行中
           </div>
         )}
 
         {isDone && (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sahara-bg text-sahara-text-muted text-[9px] md:text-[10px] font-bold uppercase tracking-wider">
             <CheckCircle2 className="size-2.5 md:w-3 md:h-3" />
-            Done
+            已完成
           </span>
         )}
       </div>

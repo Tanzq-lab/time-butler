@@ -62,7 +62,7 @@ export function CalendarSessionBlock({
           isWork ? "text-white" : "text-sahara-text",
         )}
       >
-        {isWork ? "Work" : "Break"}
+        {isWork ? "专注" : "休息"}
       </div>
 
       {/* Title / Task Name */}

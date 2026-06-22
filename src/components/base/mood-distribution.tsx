@@ -3,9 +3,9 @@ import { getMoodDistribution, type MoodStat } from "@/lib/db";
 import { cn } from "@/lib/cn";
 
 const MOOD_META: Record<string, { emoji: string; label: string; color: string }> = {
-  distracted: { emoji: "😔", label: "Distracted", color: "#f87171" },
-  neutral: { emoji: "😊", label: "Neutral", color: "#facc15" },
-  focused: { emoji: "🤩", label: "Focused", color: "#4ade80" },
+  distracted: { emoji: "😔", label: "分心", color: "#f87171" },
+  neutral: { emoji: "😊", label: "平稳", color: "#facc15" },
+  focused: { emoji: "🤩", label: "专注", color: "#4ade80" },
 };
 
 interface MoodDistributionProps {
@@ -28,7 +28,7 @@ export function MoodDistribution({ startDate, endDate }: MoodDistributionProps) 
   if (loadingRef.current) {
     return (
       <div className="bg-sahara-surface border border-sahara-border/20 rounded-xl md:rounded-2xl p-3.5 md:p-5">
-        <p className="text-[15px] text-sahara-text-muted">Loading…</p>
+        <p className="text-[15px] text-sahara-text-muted">加载中…</p>
       </div>
     );
   }
@@ -44,7 +44,7 @@ export function MoodDistribution({ startDate, endDate }: MoodDistributionProps) 
 
       {moods.length === 0 ? (
         <p className="text-[15px] text-sahara-text-muted text-center py-6">
-          No mood data yet
+          还没有状态数据
         </p>
       ) : (
         <div className="space-y-6.5">
@@ -68,7 +68,7 @@ export function MoodDistribution({ startDate, endDate }: MoodDistributionProps) 
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-sm font-bold text-sahara-text-secondary tabular-nums">
-                      {m.count}{m.count === 1 ? " session" : " sessions"}
+                      {m.count} 条记录
                     </span>
                     <span className="text-xs font-bold text-sahara-text-muted tabular-nums bg-sahara-bg/50 px-1.5 py-0.5 rounded">
                       {percentage}%
@@ -96,10 +96,10 @@ export function MoodDistribution({ startDate, endDate }: MoodDistributionProps) 
       {totalMoods > 0 && (
         <div className="mt-4 pt-3 border-t border-sahara-border/15 flex items-center justify-between">
           <span className="text-sm font-bold text-sahara-text-muted uppercase tracking-wider">
-            Total Rated
+            已评分总数
           </span>
           <span className="text-[17px] font-bold text-sahara-text tabular-nums">
-            {totalMoods} sessions
+            {totalMoods} 条记录
           </span>
         </div>
       )}

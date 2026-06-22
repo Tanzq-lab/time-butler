@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { getCategoryBreakdown, type CategoryBreakdown } from "@/lib/db";
-import { CategoryBreakdown as CategoryBreakdownBars } from "@/components/base/category-breakdown";
+import {
+  CategoryBreakdown as CategoryBreakdownBars,
+  hasCategoryBreakdownData,
+} from "@/components/base/category-breakdown";
 
 interface AnalyticsCategoryBreakdownProps {
   startDate?: string;
@@ -22,7 +25,7 @@ export function AnalyticsCategoryBreakdown({ startDate, endDate }: AnalyticsCate
   if (loadingRef.current) {
     return (
       <div className="bg-sahara-surface border border-sahara-border/20 rounded-xl md:rounded-2xl p-3.5 md:p-5">
-        <p className="text-xs text-sahara-text-muted">Loading…</p>
+        <p className="text-xs text-sahara-text-muted">加载中…</p>
       </div>
     );
   }
@@ -30,12 +33,12 @@ export function AnalyticsCategoryBreakdown({ startDate, endDate }: AnalyticsCate
   return (
     <div className="bg-sahara-surface border border-sahara-border/20 rounded-xl md:rounded-2xl p-3.5 md:p-5">
       {/* <h3 className="text-xs md:text-sm font-bold text-sahara-text-muted uppercase tracking-wider mb-3 md:mb-4">
-        Time by Category
+        分类时间
       </h3> */}
       <CategoryBreakdownBars breakdowns={breakdowns} />
-      {breakdowns.length === 0 && (
+      {!hasCategoryBreakdownData(breakdowns) && (
         <p className="text-[15px] text-sahara-text-muted text-center py-6">
-          No category data yet
+          还没有分类数据
         </p>
       )}
     </div>

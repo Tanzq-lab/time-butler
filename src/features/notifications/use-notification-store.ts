@@ -67,9 +67,9 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
 
         try {
           await sendNotification({
-            title: "Kairos-Pomodoro",
+            title: "时间管家",
             body:
-              "Notifications enabled! You'll receive alerts when your timer ends.",
+              "通知已开启！计时结束时会提醒你。",
           });
 
           granted = true;

@@ -136,7 +136,7 @@ export function CalendarDashboard() {
       <div className="flex flex-col items-center justify-center h-full gap-4">
         <Loader2 className="size-8 text-sahara-primary animate-spin" />
         <p className="text-xs font-semibold text-sahara-text-muted uppercase tracking-wider">
-          Loading calendar…
+          正在加载日历…
         </p>
       </div>
     );
@@ -148,10 +148,10 @@ export function CalendarDashboard() {
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
           <p className="text-[9px] md:text-[10px] font-bold text-sahara-text-muted uppercase tracking-[0.15em] md:tracking-[0.2em] mb-1">
-            Time Distribution
+            时间分布
           </p>
           <h1 className="font-serif text-xl md:text-3xl text-sahara-text">
-            Your Weekly Timeline
+            每周时间线
           </h1>
         </div>
         <CalendarWeekNav

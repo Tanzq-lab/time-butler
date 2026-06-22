@@ -16,10 +16,10 @@ import { useTimerStore } from "@/features/timer/use-timer-store";
 import { m } from "framer-motion";
 
 const NAV_ITEMS = [
-  { path: "/", label: "Timer", icon: Timer },
-  { path: "/tasks", label: "Tasks", icon: CheckSquare },
-  { path: "/calendar", label: "Calendar", icon: Calendar },
-  { path: "/analytics", label: "Analytics", icon: BarChart2 },
+  { path: "/", label: "计时", icon: Timer },
+  { path: "/tasks", label: "任务", icon: CheckSquare },
+  { path: "/calendar", label: "日历", icon: Calendar },
+  { path: "/analytics", label: "分析", icon: BarChart2 },
 ] as const;
 
 interface SidebarProps {
@@ -68,15 +68,15 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
       >
         {isCollapsed ? (
           <div className="size-10 rounded-full border-2 border-sahara-primary flex items-center justify-center font-serif text-xl font-bold text-sahara-primary shadow-sm bg-sahara-surface">
-            K
+            时
           </div>
         ) : (
           <>
             <h1 className="font-serif text-2xl tracking-tight text-sahara-primary">
-              Kairos-Pomodoro
+              时间管家
             </h1>
             <p className="text-[10px] tracking-[0.2em] font-bold text-sahara-text-muted mt-1 uppercase whitespace-nowrap">
-              Stay Present
+              把时间交还给你
             </p>
           </>
         )}
@@ -135,8 +135,8 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
           title={
             isCollapsed
               ? isRunning
-                ? "SESSION ACTIVE"
-                : "START SESSION"
+                ? "专注进行中"
+                : "开始专注"
               : undefined
           }
           className={cn(
@@ -152,7 +152,7 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
             )}
           />
           {!isCollapsed && (
-            <span>{isRunning ? "SESSION ACTIVE" : "START SESSION"}</span>
+            <span>{isRunning ? "专注进行中" : "开始专注"}</span>
           )}
         </Button>
       </div>
@@ -162,7 +162,7 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
           variant="nav"
           intent="default"
           onClick={() => navigate("/onboarding")}
-          title={isCollapsed ? "HELP" : undefined}
+          title={isCollapsed ? "帮助" : undefined}
           className={cn(
             "rounded-none justify-start",
             isCollapsed ? "justify-center p-3" : "gap-4 px-4 py-3",
@@ -177,14 +177,14 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
             )}
           />
           {!isCollapsed && (
-            <span className="text-xs tracking-widest font-bold">HELP</span>
+            <span className="text-xs tracking-widest font-bold">帮助</span>
           )}
         </Button>
         <Button
           variant="nav"
           active={location.pathname === "/settings"}
           onClick={() => navigate("/settings")}
-          title={isCollapsed ? "SETTINGS" : undefined}
+          title={isCollapsed ? "设置" : undefined}
           className={cn(
             "justify-start",
             isCollapsed ? "justify-center p-3" : "gap-4 px-4 py-3",
@@ -203,7 +203,7 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
           />
           {!isCollapsed && (
             <span className="text-xs tracking-widest font-bold">
-              SETTINGS
+              设置
             </span>
           )}
         </Button>

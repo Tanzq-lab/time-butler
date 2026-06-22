@@ -17,10 +17,10 @@ export function ActiveTaskCard({ task, taskTimeToday }: ActiveTaskCardProps) {
         </div>
         <div className="max-w-xs">
           <p className="text-sm md:text-base font-black text-sahara-text-secondary tracking-tight">
-            No Active Focus
+            暂无专注任务
           </p>
           <p className="text-xs md:text-sm text-sahara-text-muted/60 mt-1 leading-relaxed">
-            Select a task from your list to start tracking your progress and stay focused.
+            从任务列表选择一个任务，开始记录进度并保持专注。
           </p>
         </div>
       </div>
@@ -52,12 +52,12 @@ export function ActiveTaskCard({ task, taskTimeToday }: ActiveTaskCardProps) {
             </h4>
             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
               <span className="text-[10px] md:text-xs font-black text-sahara-primary/80 tracking-widest uppercase bg-sahara-primary/5 px-2 py-0.5 rounded-md border border-sahara-primary/10">
-                {task.project || "General"}
+                {task.project || "通用"}
               </span>
               {taskTimeToday > 0 && (
                 <span className="inline-flex items-center gap-1.5 text-[10px] md:text-xs font-bold text-sahara-text-secondary bg-sahara-card/60 px-2 py-0.5 rounded-md border border-sahara-border/10">
                   <Clock className="size-3 text-sahara-primary" />
-                  {formatDuration(taskTimeToday)} today
+                  今日 {formatDuration(taskTimeToday)}
                 </span>
               )}
             </div>
@@ -68,10 +68,10 @@ export function ActiveTaskCard({ task, taskTimeToday }: ActiveTaskCardProps) {
         <div className="mt-4 md:mt-6">
           <div className="flex items-center justify-between mb-2 px-0.5">
             <span className="text-[10px] md:text-xs font-black text-sahara-text-muted uppercase tracking-widest">
-              Progress
+              进度
             </span>
             <span className="text-[11px] md:text-sm font-black text-sahara-text tabular-nums">
-              {task.completed_pomos} / {task.estimated_pomos} <span className="text-sahara-text-muted font-bold ml-1">Pomos</span>
+              {task.completed_pomos} / {task.estimated_pomos} <span className="text-sahara-text-muted font-bold ml-1">个番茄</span>
             </span>
           </div>
           <div className="h-2.5 md:h-3 bg-sahara-bg/60 rounded-full overflow-hidden border border-sahara-border/5">

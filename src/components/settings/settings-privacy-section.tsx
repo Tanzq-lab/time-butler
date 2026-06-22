@@ -27,17 +27,16 @@ export function SettingsPrivacySection() {
   return (
     <section>
       <h3 className="font-serif text-xl md:text-2xl text-sahara-text mb-6 md:mb-8">
-        Privacy & Data
+        隐私与数据
       </h3>
       <div className="bg-sahara-bg/50 border border-sahara-border/15 rounded-xl md:rounded-2xl p-4 md:p-6 space-y-4">
         <p className="text-sm text-sahara-text-secondary leading-relaxed">
-          All your data is stored locally on this device using SQLite. No data
-          is sent to any external server.
+          你的所有数据都会通过 SQLite 保存在本设备本地，不会发送到任何外部服务器。
         </p>
         <div className="pt-4 border-t border-sahara-border/20">
           {cleared ? (
             <p className="text-xs font-semibold text-green-600 uppercase tracking-wider">
-              All data cleared successfully. Restart the app to start fresh.
+              所有数据已清除。重启应用后即可重新开始。
             </p>
           ) : (
             <Button
@@ -49,7 +48,7 @@ export function SettingsPrivacySection() {
               onClick={handleClearAllData}
               className="gap-2 text-[11px]"
             >
-              {clearing ? "Clearing…" : "Clear All Data"}
+              {clearing ? "清除中…" : "清除所有数据"}
             </Button>
           )}
         </div>

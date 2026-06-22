@@ -71,17 +71,17 @@ pub fn setup_menubar_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Er
     let show_item = MenuItem::with_id(
         app,
         "menubar-show",
-        "Show Kairos-Pomodoro",
+        "显示时间管家",
         true,
         None::<&str>,
     )?;
     let toggle_item =
-        MenuItem::with_id(app, "menubar-toggle", "Pause / Resume", true, None::<&str>)?;
+        MenuItem::with_id(app, "menubar-toggle", "暂停 / 继续", true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
     let quit_item = MenuItem::with_id(
         app,
         "menubar-quit",
-        "Quit Kairos-Pomodoro",
+        "退出时间管家",
         true,
         None::<&str>,
     )?;
@@ -91,7 +91,7 @@ pub fn setup_menubar_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Er
     let tray = TrayIconBuilder::with_id("menubar-tray")
         .icon(TRAY_ICON)
         .menu(&menu)
-        .tooltip("Kairos-Pomodoro")
+        .tooltip("时间管家")
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "menubar-show" => {

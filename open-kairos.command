@@ -22,7 +22,7 @@ port_is_listening() {
 cleanup() {
   if [ "${OWNS_SERVER}" -eq 1 ]; then
     echo
-    echo "Cleaning up..."
+    echo "正在清理后台服务和临时文件..."
 
     local listener_pids
     listener_pids="$(lsof -tiTCP:"${PORT}" -sTCP:LISTEN 2>/dev/null || true)"
@@ -56,8 +56,8 @@ wait_until_ready() {
   done
 
   echo
-  echo "The local server did not become ready in time."
-  echo "You can try opening this URL manually: ${URL}"
+  echo "本地服务没有按时启动成功。"
+  echo "你可以稍后手动尝试打开：${URL}"
   return 1
 }
 
@@ -85,9 +85,9 @@ open_browser_and_wait() {
   browser_bin="$(find_chromium_browser || true)"
 
   if [ -n "${browser_bin}" ]; then
-    TEMP_PROFILE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/kairos-browser-profile.XXXXXX")"
-    echo "Opening Kairos in its own browser window."
-    echo "Close that window and I will stop the local server automatically."
+    TEMP_PROFILE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/time-butler-browser-profile.XXXXXX")"
+    echo "正在用独立浏览器窗口打开时间管家。"
+    echo "关闭这个窗口后，我会自动停止本地服务。"
     echo
     "${browser_bin}" \
       --app="${URL}" \
@@ -96,64 +96,64 @@ open_browser_and_wait() {
       --no-default-browser-check \
       >/dev/null 2>&1
   else
-    echo "No Chrome/Edge/Brave/Chromium browser was found for auto-wait mode."
-    echo "Opening your default browser instead."
-    echo "When you are done, come back here and press Enter to stop Kairos."
+    echo "没有找到 Chrome、Edge、Brave 或 Chromium，无法自动等待窗口关闭。"
+    echo "将改用你的默认浏览器打开。"
+    echo "用完后，请回到这个窗口按 Enter 停止时间管家。"
     echo
     open "${URL}"
-    read -r "?Press Enter after closing the page..."
+    read -r "?关闭页面后按 Enter 继续..."
   fi
 }
 
 install_with_npm_if_needed() {
   if ! has_command npm; then
-    echo "npm was not found. Please install Node.js first:"
+    echo "没有找到 npm。请先安装 Node.js："
     echo "https://nodejs.org/"
     return 1
   fi
 
   if [ ! -d "node_modules" ]; then
-    echo "Installing dependencies with npm..."
+    echo "正在用 npm 安装依赖..."
     npm install || return 1
   fi
 }
 
 install_with_bun_if_needed() {
   if [ ! -d "node_modules" ]; then
-    echo "Installing dependencies with Bun..."
+    echo "正在用 Bun 安装依赖..."
     bun install || return 1
   fi
 }
 
-echo "Starting Kairos-Pomodoro..."
+echo "正在启动时间管家..."
 echo
 
 if port_is_listening; then
-  echo "Kairos already seems to be running."
-  echo "Opening ${URL}"
-  echo "I did not start that server, so I will not stop it automatically."
+  echo "时间管家好像已经在运行了。"
+  echo "正在打开 ${URL}"
+  echo "这个服务不是本脚本启动的，所以关闭页面后不会自动停止它。"
   open "${URL}"
   exit 0
 fi
 
 if has_command bun && has_command cargo; then
   install_with_bun_if_needed || exit 1
-  echo "Launching the full Tauri desktop app..."
+  echo "正在启动完整的 Tauri 桌面版..."
   echo
   bun run tauri dev
 else
-  echo "Bun and/or Rust were not found, so I will open the browser preview."
-  echo "Tip: this preview uses in-memory test data. Install Bun + Rust for the full desktop app."
+  echo "没有找到 Bun 和/或 Rust，所以先打开浏览器预览版。"
+  echo "提示：预览版使用内存测试数据。安装 Bun + Rust 后可启动完整桌面版。"
   echo
   install_with_npm_if_needed || exit 1
-  DEV_LOG="$(mktemp "${TMPDIR:-/tmp}/kairos-vite.XXXXXX.log")"
+  DEV_LOG="$(mktemp "${TMPDIR:-/tmp}/time-butler-vite.XXXXXX.log")"
   E2E=true npm run dev >"${DEV_LOG}" 2>&1 &
   SERVER_PID="$!"
   OWNS_SERVER=1
 
   if ! wait_until_ready; then
     echo
-    echo "Vite log:"
+    echo "Vite 日志："
     cat "${DEV_LOG}"
     exit 1
   fi
@@ -162,4 +162,4 @@ else
 fi
 
 echo
-echo "Kairos has stopped."
+echo "时间管家已停止。"

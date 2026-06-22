@@ -40,7 +40,7 @@ export function RunningActions({
           className="gap-1.5 md:gap-2 text-[10px] md:text-xs"
         >
           <Pause className="size-3.5 md:w-4 md:h-4 fill-current" />
-          PAUSE
+          暂停
         </Button>
       ) : (
         <Button
@@ -52,7 +52,7 @@ export function RunningActions({
           className="gap-1.5 md:gap-2 text-[10px] md:text-xs"
         >
           <Play className="size-3.5 md:w-4 md:h-4 fill-current ml-0.5" />
-          RESUME
+          继续
         </Button>
       )}
 
@@ -67,7 +67,7 @@ export function RunningActions({
         className="gap-1 md:gap-1.5 text-[10px]"
       >
         <CheckCircle2 className="size-3.5 md:w-4 md:h-4" />
-        Finish
+        完成
       </Button>
 
       <Button
@@ -79,7 +79,7 @@ export function RunningActions({
         className="gap-1 md:gap-1.5 text-[10px]"
       >
         <XCircle className="size-3.5 md:w-4 md:h-4" />
-        Abandon
+        放弃
       </Button>
 
       <Separator />
@@ -89,7 +89,7 @@ export function RunningActions({
         size="icon"
         intent="default"
         shape="rounded-full"
-        aria-label="Reset"
+        aria-label="重置"
         onClick={reset}
         className="border-sahara-border/30 text-sahara-text-secondary p-2 md:p-3"
       >

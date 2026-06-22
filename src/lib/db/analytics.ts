@@ -66,9 +66,9 @@ export async function getWeeklyData(
     SELECT
       date(started_at) AS date,
       CASE CAST(strftime('%w', started_at) AS INTEGER)
-        WHEN 0 THEN 'Sun' WHEN 1 THEN 'Mon' WHEN 2 THEN 'Tue'
-        WHEN 3 THEN 'Wed' WHEN 4 THEN 'Thu' WHEN 5 THEN 'Fri'
-        ELSE 'Sat'
+        WHEN 0 THEN '周日' WHEN 1 THEN '周一' WHEN 2 THEN '周二'
+        WHEN 3 THEN '周三' WHEN 4 THEN '周四' WHEN 5 THEN '周五'
+        ELSE '周六'
       END AS day_name,
       COALESCE(SUM(duration_sec), 0) AS total_seconds,
       COUNT(*) AS session_count

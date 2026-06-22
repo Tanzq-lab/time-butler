@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Kairos-Pomodoro",
+  "productName": "时间管家",
   "version": "1.0.0",
   "identifier": "com.kairos.pomodoro.app",
   "build": {
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Kairos-Pomodoro",
+        "title": "时间管家",
         "width": 1280,
         "height": 720,
         "minWidth": 320,

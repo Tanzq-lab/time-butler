@@ -12,7 +12,7 @@ interface CalendarGridProps {
   hourHeight: number;
 }
 
-const DAY_LABELS_FULL = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+const DAY_LABELS_FULL = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
 
 const BASE_HOUR_HEIGHT = 64;
 
@@ -204,8 +204,8 @@ function CalendarMobileView({
         {sessions.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center opacity-30">
-              <p className="text-xs font-semibold text-sahara-text-muted uppercase tracking-wider">No sessions this day</p>
-              <p className="text-[11px] text-sahara-text-muted mt-1">Completed sessions will appear here</p>
+              <p className="text-xs font-semibold text-sahara-text-muted uppercase tracking-wider">这天还没有记录</p>
+              <p className="text-[11px] text-sahara-text-muted mt-1">完成后的记录会显示在这里</p>
             </div>
           </div>
         )}
@@ -284,8 +284,8 @@ function CalendarDesktopView({
         {sessions.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center opacity-30">
-              <p className="text-xs font-semibold text-sahara-text-muted uppercase tracking-wider">No sessions this week</p>
-              <p className="text-[11px] text-sahara-text-muted mt-1">Completed sessions will appear here</p>
+              <p className="text-xs font-semibold text-sahara-text-muted uppercase tracking-wider">本周还没有记录</p>
+              <p className="text-[11px] text-sahara-text-muted mt-1">完成后的记录会显示在这里</p>
             </div>
           </div>
         )}

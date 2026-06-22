@@ -7,22 +7,22 @@ import { Save } from "lucide-react";
 const DURATION_CONFIGS = [
   {
     key: "workMin" as const,
-    label: "Focus Duration",
-    desc: "Recommended length for deep work sessions.",
+    label: "专注时长",
+    desc: "建议用于深度工作的单轮时长。",
     max: 120,
     settingsKey: "workDuration" as const,
   },
   {
     key: "shortBreakMin" as const,
-    label: "Short Break",
-    desc: "Quick pause to refresh your mind.",
+    label: "短休息",
+    desc: "快速放松，让注意力恢复。",
     max: 30,
     settingsKey: "shortBreakDuration" as const,
   },
   {
     key: "longBreakMin" as const,
-    label: "Long Break",
-    desc: "Extended rest after 4 focus sessions.",
+    label: "长休息",
+    desc: "完成多轮专注后的较长恢复时间。",
     max: 60,
     settingsKey: "longBreakDuration" as const,
   },
@@ -85,7 +85,7 @@ export function SettingsFocusSection() {
     <section>
       <div className="flex items-center justify-between mb-6 md:mb-8">
         <h3 className="font-serif text-xl md:text-2xl text-sahara-text">
-          Focus Rhythm
+          专注节奏
         </h3>
         <Button
           variant="link"
@@ -96,7 +96,7 @@ export function SettingsFocusSection() {
         >
           <Save className="size-3.5 md:w-4 md:h-4" />
           <span className="text-[9px] md:text-[10px] font-bold tracking-widest uppercase hidden sm:inline">
-            Save Changes
+            保存修改
           </span>
         </Button>
       </div>
@@ -129,7 +129,7 @@ export function SettingsFocusSection() {
                 className="w-18 bg-sahara-card border border-sahara-border/20 rounded-xl px-3 md:px-4 py-2 text-center text-sm font-bold text-sahara-primary outline-none focus:border-sahara-primary/40 transition-colors"
               />
               <span className="text-[9px] md:text-[10px] font-bold text-sahara-text-muted uppercase tracking-widest">
-                Min
+                分钟
               </span>
             </div>
           </div>

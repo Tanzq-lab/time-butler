@@ -7,40 +7,40 @@ interface CalendarWeekStatsProps {
 }
 
 function formatHours(sec: number): string {
-  if (sec === 0) return "0h";
+  if (sec === 0) return "0 小时";
   const h = Math.floor(sec / 3600);
   const m = Math.round((sec % 3600) / 60);
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  return m > 0 ? `${h} 小时 ${m} 分钟` : `${h} 小时`;
 }
 
 export function CalendarWeekStats({ summary }: CalendarWeekStatsProps) {
   const stats = [
     {
       icon: Clock,
-      label: "Total Focus",
+      label: "专注总时长",
       value: formatHours(summary.total_seconds),
       color: "text-sahara-primary",
       bg: "bg-sahara-primary-light",
     },
     {
       icon: Target,
-      label: "Sessions",
-      value: `${summary.work_sessions} work · ${summary.break_sessions} break`,
+      label: "记录",
+      value: `${summary.work_sessions} 次专注 · ${summary.break_sessions} 次休息`,
       color: "text-sahara-text-secondary",
       bg: "bg-sahara-card",
     },
     {
       icon: Flame,
-      label: "Daily Avg",
+      label: "日均专注",
       value: formatHours(summary.avg_daily_seconds),
       color: "text-sahara-primary",
       bg: "bg-sahara-primary-light",
     },
     {
       icon: TrendingUp,
-      label: "Peak Day",
+      label: "高峰日",
       value: summary.peak_day
-        ? `${new Date(summary.peak_day + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} (${formatHours(summary.peak_day_seconds)})`
+        ? `${new Date(summary.peak_day + "T00:00:00").toLocaleDateString("zh-CN", { weekday: "short", month: "short", day: "numeric" })} (${formatHours(summary.peak_day_seconds)})`
         : "—",
       color: "text-emerald-600 dark:text-emerald-400",
       bg: "bg-emerald-50 dark:bg-emerald-950/30",

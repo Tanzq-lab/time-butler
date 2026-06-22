@@ -277,12 +277,12 @@ export function TimerDisplay({
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         {editable && !isComplete ? (
           <label className="group flex items-center justify-center">
-            <span className="sr-only">Set timer duration</span>
+            <span className="sr-only">设置计时时长</span>
             <input
               type="text"
               inputMode="numeric"
               pattern="[0-9:]{0,2}(:[0-9]{0,2})?"
-              aria-label="Set timer duration"
+              aria-label="设置计时时长"
               value={displayedInputValue}
               onChange={(event) => {
                 const nextRawInput = sanitizeTimeInput(event.target.value);
@@ -346,12 +346,12 @@ export function TimerDisplay({
         )}
         <p className="text-[10px] tracking-[0.3em] font-bold text-sahara-text-muted mt-1 md:mt-2 uppercase">
           {isComplete
-            ? "Overtime"
+            ? "超时中"
             : phase === "work"
-              ? "Focus Remaining"
+              ? "专注剩余"
               : phase === "short_break"
-                ? "Short Break"
-                : "Long Break"}
+                ? "短休息"
+                : "长休息"}
         </p>
       </div>
     </div>

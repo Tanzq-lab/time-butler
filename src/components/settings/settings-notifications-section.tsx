@@ -38,7 +38,7 @@ export function SettingsNotifications({
     try {
       await sendNotification(
         "session-complete",
-        "This is a test notification!",
+        "这是一条测试通知。",
       );
     } finally {
       setTimeout(() => setTesting(false), 2000);
@@ -59,7 +59,7 @@ export function SettingsNotifications({
   return (
     <section>
       <h3 className="font-serif text-xl md:text-2xl text-sahara-text mb-6 md:mb-8">
-        Notifications & Sounds
+        通知与声音
       </h3>
 
       <div className="bg-sahara-bg/50 border border-sahara-border/15 rounded-xl md:rounded-2xl p-4 md:p-5 mb-6">
@@ -68,10 +68,10 @@ export function SettingsNotifications({
             <Bell className="size-4 md:w-5 md:h-5 text-sahara-primary shrink-0" />
             <div>
               <h4 className="font-semibold text-sahara-text-secondary text-sm">
-                System Notifications
+                系统通知
               </h4>
               <p className="text-[10px] md:text-[11px] text-sahara-text-muted mt-0.5">
-                macOS desktop notifications when timer ends
+                计时结束时发送 macOS 桌面通知
               </p>
             </div>
           </div>
@@ -79,29 +79,29 @@ export function SettingsNotifications({
             {checking && (
               <span className="inline-flex items-center gap-1.5 text-[10px] md:text-[11px] font-bold text-sahara-primary uppercase tracking-wider">
                 <Loader2 className="size-3 md:w-3.5 md:h-3.5 animate-spin" />
-                Requesting…
+                请求中…
               </span>
             )}
             {!checking && status === "granted" && (
               <span className="inline-flex items-center gap-1.5 text-[10px] md:text-[11px] font-bold text-green-600 uppercase tracking-wider">
                 <CheckCircle2 className="size-3 md:w-3.5 md:h-3.5" />
-                Enabled
+                已开启
               </span>
             )}
             {!checking && status === "denied" && (
               <span className="inline-flex items-center gap-1.5 text-[10px] md:text-[11px] font-bold text-red-500 uppercase tracking-wider">
                 <XCircle className="size-3 md:w-3.5 md:h-3.5" />
-                Disabled
+                已关闭
               </span>
             )}
             {!checking && status === "unknown" && (
               <span className="text-[10px] md:text-[11px] font-bold text-sahara-text-muted uppercase tracking-wider">
-                Not checked
+                未检查
               </span>
             )}
             {!checking && status === "unavailable" && (
               <span className="inline-flex items-center gap-1.5 text-[10px] md:text-[11px] font-bold text-amber-600 uppercase tracking-wider">
-                Browser Mode
+                浏览器模式
               </span>
             )}
           </div>
@@ -109,18 +109,17 @@ export function SettingsNotifications({
 
         {error && status !== "unavailable" && (
           <div className="mb-3 px-3 py-2 rounded-lg bg-red-50 border border-red-200/50 text-red-600 text-[10px] md:text-[11px]">
-            Error: {error}
+            错误：{error}
           </div>
         )}
 
         {status === "unavailable" && (
           <div className="mb-3 px-3 md:px-4 py-2.5 md:py-3 rounded-xl bg-amber-50 border border-amber-200/40 text-amber-700 text-[10px] md:text-[11px] leading-relaxed">
-            Notifications require the Tauri desktop app. You&apos;re currently
-            running in browser dev mode. Run{" "}
+            通知功能需要 Tauri 桌面应用。你现在运行的是浏览器开发模式。请运行{" "}
             <code className="font-mono bg-amber-100 px-1.5 py-0.5 rounded text-[9px] md:text-[10px]">
               npm run tauri dev
             </code>{" "}
-            to enable native macOS notifications.
+            以启用原生 macOS 通知。
           </div>
         )}
 
@@ -139,7 +138,7 @@ export function SettingsNotifications({
               ) : (
                 <Bell className="size-3 md:w-3.5 md:h-3.5" />
               )}
-              {checking ? "Requesting…" : "Enable Notifications"}
+              {checking ? "请求中…" : "开启通知"}
             </Button>
           )}
 
@@ -155,7 +154,7 @@ export function SettingsNotifications({
             )}
           >
             <Volume2 className="size-3 md:w-3.5 md:h-3.5" />
-            {testing ? "Sent!" : "Test Notification"}
+            {testing ? "已发送！" : "测试通知"}
           </Button>
 
           {status === "denied" && !checking && (
@@ -167,18 +166,17 @@ export function SettingsNotifications({
               className="gap-1.5 text-[10px] md:text-[11px] font-medium"
             >
               <ExternalLink className="size-2.5 md:w-3 md:h-3" />
-              Open Settings
+              打开设置
             </Button>
           )}
         </div>
 
         {status === "denied" && !checking && (
           <p className="mt-3 text-[10px] md:text-[11px] text-sahara-text-muted leading-relaxed">
-            Kairos-Pomodoro needs permission to show notifications. Click{" "}
-            <strong>"Enable Notifications"</strong> above to trigger the macOS
-            permission dialog, or open{" "}
-            <strong>System Preferences → Notifications</strong> manually and
-            find <em>Kairos-Pomodoro</em> in the list.
+            时间管家需要通知权限才能提醒你。点击上方
+            <strong>“开启通知”</strong> 触发 macOS 权限弹窗，或者手动打开
+            <strong>系统设置 → 通知</strong>，在列表里找到
+            <em>时间管家</em>。
           </p>
         )}
       </div>
@@ -187,10 +185,10 @@ export function SettingsNotifications({
         <div className="flex items-center justify-between py-2">
           <div>
             <span className="font-bold text-sahara-text-secondary text-sm block">
-              End of session chime
+              结束提示音
             </span>
             <span className="text-[11px] text-sahara-text-muted mt-0.5 block">
-              Play a sound when timer completes
+              计时完成时播放提示音
             </span>
           </div>
           <Switch

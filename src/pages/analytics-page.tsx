@@ -27,10 +27,10 @@ export function AnalyticsPage() {
         <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-8 md:mb-12">
           <div>
             <p className="text-[10px] font-bold text-sahara-text-muted uppercase tracking-[0.2em] mb-1">
-              Performance Overview
+              表现概览
             </p>
             <h1 className="font-serif text-2xl md:text-4xl text-sahara-text">
-              Your Focus Insights
+              专注洞察
             </h1>
           </div>
           <div className="flex gap-2 md:gap-4 self-start sm:self-auto">
@@ -42,14 +42,14 @@ export function AnalyticsPage() {
               onClick={handleExportPdf}
               disabled={exporting}
               className="gap-1.5 px-4 shadow-lg shadow-sahara-primary/20 hover:shadow-xl hover:shadow-sahara-primary/30 text-[10px] sm:text-xs font-bold tracking-widest uppercase transition-all"
-              title="Export analytics as PDF"
+              title="导出分析 PDF"
             >
               {exporting ? (
                 <Loader2 className="size-3.5 animate-spin" />
               ) : (
                 <Download className="size-3.5" />
               )}
-              {exporting ? "EXPORTING…" : "EXPORT PDF"}
+              {exporting ? "导出中…" : "导出 PDF"}
             </Button>
           </div>
         </header>

@@ -7,9 +7,9 @@ export function formatSeconds(totalSeconds: number): string {
 }
 
 const PHASE_CONFIG = {
-  work:        { color: "text-sahara-primary",       bg: "bg-sahara-primary", label: "Focus" },
-  short_break: { color: "text-sahara-text-secondary", bg: "bg-sahara-card",   label: "Short Break" },
-  long_break:  { color: "text-sahara-text-muted",     bg: "bg-sahara-card",   label: "Long Break" },
+  work:        { color: "text-sahara-primary",       bg: "bg-sahara-primary", label: "专注" },
+  short_break: { color: "text-sahara-text-secondary", bg: "bg-sahara-card",   label: "短休息" },
+  long_break:  { color: "text-sahara-text-muted",     bg: "bg-sahara-card",   label: "长休息" },
 } as const;
 
 export function getPhaseColor(phase: TimerPhase): string {
@@ -25,9 +25,7 @@ export function getPhaseLabel(phase: TimerPhase): string {
 }
 
 export function formatTimeAmPm(date: Date): string {
-  let h = date.getHours();
+  const h = date.getHours();
   const m = date.getMinutes();
-  const ampm = h >= 12 ? "PM" : "AM";
-  h = h % 12 || 12;
-  return `${h}:${m.toString().padStart(2, "0")}${ampm}`;
+  return `${String(h).padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 }

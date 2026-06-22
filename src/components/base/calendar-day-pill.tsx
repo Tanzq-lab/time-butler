@@ -8,7 +8,7 @@ interface CalendarDayPillProps {
   onClick: () => void;
 }
 
-const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
+const DAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
 
 export function CalendarDayPill({
   date,

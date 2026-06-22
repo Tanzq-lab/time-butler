@@ -15,9 +15,9 @@ interface MoodOption {
 }
 
 const MOOD_OPTIONS: MoodOption[] = [
-  { id: "distracted", emoji: "😔", label: "Distracted" },
-  { id: "neutral", emoji: "😊", label: "Neutral" },
-  { id: "focused", emoji: "🤩", label: "Focused" },
+  { id: "distracted", emoji: "😔", label: "分心" },
+  { id: "neutral", emoji: "😊", label: "平稳" },
+  { id: "focused", emoji: "🤩", label: "专注" },
 ];
 
 interface FinishSessionModalProps {
@@ -73,10 +73,10 @@ export function FinishSessionModal({
         {/* Header */}
         <div className="text-center space-y-1.5">
           <p className="text-[11px] font-bold text-sahara-text-muted uppercase tracking-[0.2em]">
-            Let&apos;s pause and reflect.
+            停一下，做个小复盘。
           </p>
           <h2 className="font-serif text-2xl text-sahara-text font-semibold leading-snug">
-            What have you learned in this Session?
+            这次专注有什么收获？
           </h2>
         </div>
 
@@ -125,7 +125,7 @@ export function FinishSessionModal({
           {/* Category */}
           <div className="flex items-center py-3.5">
             <span className="w-24 shrink-0 text-[11px] font-bold text-sahara-text-muted uppercase tracking-wider">
-              Category
+              分类
             </span>
             {category ? (
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-sahara-border/20 bg-sahara-surface">
@@ -142,7 +142,7 @@ export function FinishSessionModal({
               </div>
             ) : (
               <span className="text-sm text-sahara-text-muted italic">
-                No category
+                未分类
               </span>
             )}
           </div>
@@ -150,20 +150,20 @@ export function FinishSessionModal({
           {/* Intent */}
           <div className="flex items-center py-3.5">
             <span className="w-24 shrink-0 text-[11px] font-bold text-sahara-text-muted uppercase tracking-wider">
-              Intent
+              意图
             </span>
             <span className="text-sm text-sahara-text-secondary">
               {category?.name || "—"}
             </span>
           </div>
 
-          {/* Focus Duration */}
+          {/* 专注时长 */}
           <div className="flex items-center py-3.5">
             <span className="w-24 shrink-0 text-[11px] font-bold text-sahara-text-muted uppercase tracking-wider">
-              Focus
+              专注
             </span>
             <span className="text-sm font-medium text-sahara-text tabular-nums">
-              {durationMinutes}min
+              {durationMinutes} 分钟
             </span>
             <ArrowRight className="size-3.5 text-sahara-text-muted ml-auto opacity-40" />
           </div>
@@ -183,7 +183,7 @@ export function FinishSessionModal({
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Write down your learning or distraction in this session..."
+            placeholder="写下这次的收获、卡点或分心原因..."
             rows={3}
             className="w-full px-4 py-3 bg-sahara-bg/40 border border-sahara-border/20 rounded-xl text-sm text-sahara-text placeholder:text-sahara-text-muted/50 focus:outline-none focus:border-sahara-primary/50 focus:ring-2 focus:ring-sahara-primary/10 transition-all resize-none leading-relaxed"
           />
@@ -197,7 +197,7 @@ export function FinishSessionModal({
           shape="rounded-2xl"
           onClick={handleSubmit}
         >
-          Submit Session
+          提交记录
         </Button>
       </div>
     </ModalOverlay>

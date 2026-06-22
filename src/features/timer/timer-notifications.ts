@@ -1,31 +1,37 @@
 import type { TimerPhase } from "@/features/timer/timer-types";
 import { sendNotification, playChime } from "@/lib/notifications";
 
+function getPhaseLabel(phase: TimerPhase): string {
+  if (phase === "work") return "专注";
+  if (phase === "short_break") return "短休息";
+  return "长休息";
+}
+
 export function notifyPhaseComplete(
   phase: TimerPhase,
   durationMin: number,
 ) {
   playChime();
 
-  const phaseLabel = phase === "work" ? "focus" : phase.replace("_", " ");
+  const phaseLabel = getPhaseLabel(phase);
   const isWorkPhase = phase === "work";
 
   sendNotification(
     isWorkPhase ? "focus-complete" : "break-over",
-    `Your ${durationMin}m ${phaseLabel} is complete. You're now in overtime.`,
+    `${durationMin} 分钟${phaseLabel}已完成，现在进入超时计时。`,
   );
 }
 
 export function notifySessionComplete() {
   sendNotification(
     "session-complete",
-    "Great work! Your focus session has been recorded.",
+    "做得好！这次专注已经记录下来。",
   );
 }
 
 export function notifySkipped(phase: TimerPhase) {
   sendNotification(
     phase === "work" ? ("session-complete" as const) : ("break-over" as const),
-    `Your ${phase.replace("_", " ")} has ended.`,
+    `${getPhaseLabel(phase)}已结束。`,
   );
 }

@@ -131,10 +131,10 @@ export async function initDb(): Promise<void> {
     await database.execute(`
       INSERT INTO presets (name, work_duration, short_break_duration, long_break_duration, pomos_before_long_break)
       VALUES 
-        ('Classic Pomodoro', 1500, 300, 900, 4),
-        ('Deep Work', 3600, 600, 1800, 3),
-        ('Flow State', 5400, 900, 3600, 2),
-        ('Quick Sprints', 900, 180, 600, 4)
+        ('经典番茄钟', 1500, 300, 900, 4),
+        ('深度工作', 3600, 600, 1800, 3),
+        ('心流模式', 5400, 900, 3600, 2),
+        ('快速冲刺', 900, 180, 600, 4)
     `);
   }
 }

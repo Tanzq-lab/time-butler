@@ -63,41 +63,41 @@ describe("getPhaseBg", () => {
 
 describe("getPhaseLabel", () => {
   it("returns correct label for work", () => {
-    expect(getPhaseLabel("work")).toBe("Focus");
+    expect(getPhaseLabel("work")).toBe("专注");
   });
 
   it("returns correct label for short_break", () => {
-    expect(getPhaseLabel("short_break")).toBe("Short Break");
+    expect(getPhaseLabel("short_break")).toBe("短休息");
   });
 
   it("returns correct label for long_break", () => {
-    expect(getPhaseLabel("long_break")).toBe("Long Break");
+    expect(getPhaseLabel("long_break")).toBe("长休息");
   });
 });
 
 describe("formatTimeAmPm", () => {
   it("formats morning time", () => {
     const date = new Date(2026, 0, 1, 9, 30);
-    expect(formatTimeAmPm(date)).toBe("9:30AM");
+    expect(formatTimeAmPm(date)).toBe("09:30");
   });
 
   it("formats afternoon time", () => {
     const date = new Date(2026, 0, 1, 14, 5);
-    expect(formatTimeAmPm(date)).toBe("2:05PM");
+    expect(formatTimeAmPm(date)).toBe("14:05");
   });
 
   it("formats midnight", () => {
     const date = new Date(2026, 0, 1, 0, 0);
-    expect(formatTimeAmPm(date)).toBe("12:00AM");
+    expect(formatTimeAmPm(date)).toBe("00:00");
   });
 
   it("formats noon", () => {
     const date = new Date(2026, 0, 1, 12, 0);
-    expect(formatTimeAmPm(date)).toBe("12:00PM");
+    expect(formatTimeAmPm(date)).toBe("12:00");
   });
 
   it("pads single-digit minutes", () => {
     const date = new Date(2026, 0, 1, 3, 5);
-    expect(formatTimeAmPm(date)).toBe("3:05AM");
+    expect(formatTimeAmPm(date)).toBe("03:05");
   });
 });

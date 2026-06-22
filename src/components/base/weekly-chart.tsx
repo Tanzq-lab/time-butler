@@ -17,7 +17,7 @@ interface WeeklyChartProps {
   data: WeekPoint[];
 }
 
-const DAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_ORDER = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
 
 function CustomTooltip({
   active,
@@ -40,19 +40,19 @@ function CustomTooltip({
     return (
       <div className="bg-sahara-bg border border-sahara-border/30 rounded-lg px-3 py-2 shadow-lg">
         <p className="text-[11px] font-semibold text-sahara-text">{label}</p>
-        <p className="text-[10px] text-sahara-text-muted">No sessions</p>
+        <p className="text-[10px] text-sahara-text-muted">没有记录</p>
       </div>
     );
 
   const h = Math.floor(min / 60);
   const m = Math.round(min % 60);
-  const timeStr = h > 0 ? `${h}h ${m}m` : `${m}m`;
+  const timeStr = h > 0 ? `${h}小时 ${m}分钟` : `${m}分钟`;
 
   return (
     <div className="bg-sahara-bg border border-sahara-border/30 rounded-lg px-3 py-2 shadow-lg">
       <p className="text-[11px] font-semibold text-sahara-text">{label}</p>
       <p className="text-[10px] text-sahara-primary font-bold tabular-nums">
-        {timeStr} focused
+        专注 {timeStr}
       </p>
     </div>
   );

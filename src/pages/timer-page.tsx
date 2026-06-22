@@ -40,7 +40,7 @@ export function TimerPage() {
                 variant="h3"
                 className="mb-3 md:mb-4 font-serif text-xl md:text-2xl"
               >
-                Today's Focus
+                今日专注
               </Text>
               <TodayFocus />
               <div className="mt-8">

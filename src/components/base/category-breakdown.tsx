@@ -6,16 +6,32 @@ interface CategoryBreakdownProps {
   breakdowns: CategoryBreakdown[];
 }
 
-export function CategoryBreakdown({ breakdowns }: CategoryBreakdownProps) {
-  if (breakdowns.length === 0) return null;
+function isValidBreakdown(item: CategoryBreakdown): boolean {
+  return (
+    Number.isFinite(item.total_seconds) &&
+    item.total_seconds > 0 &&
+    item.session_count > 0
+  );
+}
 
-  const maxSeconds = Math.max(...breakdowns.map((b) => b.total_seconds), 1);
+export function hasCategoryBreakdownData(
+  breakdowns: CategoryBreakdown[],
+): boolean {
+  return breakdowns.some(isValidBreakdown);
+}
+
+export function CategoryBreakdown({ breakdowns }: CategoryBreakdownProps) {
+  const validBreakdowns = breakdowns.filter(isValidBreakdown);
+
+  if (validBreakdowns.length === 0) return null;
+
+  const maxSeconds = Math.max(...validBreakdowns.map((b) => b.total_seconds), 1);
 
   return (
     <div className="space-y-6 md:space-y-7">
-      {breakdowns.map((item) => {
+      {validBreakdowns.map((item) => {
         const percentage = Math.round((item.total_seconds / maxSeconds) * 100);
-        const label = item.category_name || item.intention || "Uncategorized";
+        const label = item.category_name || item.intention || "未分类";
         const color = item.category_color || "#94a3b8";
 
         return (
@@ -38,7 +54,7 @@ export function CategoryBreakdown({ breakdowns }: CategoryBreakdownProps) {
                   {formatTotalTime(item.total_seconds)}
                 </span>
                 <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-md bg-sahara-card/80 text-[10px] font-bold text-sahara-text-muted uppercase tracking-wider border border-sahara-border/10">
-                  {item.session_count} {item.session_count === 1 ? "Session" : "Sessions"}
+                  {item.session_count} 条记录
                 </span>
               </div>
             </div>

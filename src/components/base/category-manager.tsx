@@ -107,10 +107,10 @@ export function CategoryManager({
         <div className="flex items-center justify-between px-6 py-5 border-b border-sahara-border/20">
           <h2 className="font-serif text-xl text-sahara-text">
             {ui.isAddingNew
-              ? "New Category"
+              ? "新建分类"
               : ui.editingId
-                ? "Edit Category"
-                : "Categories"}
+                ? "编辑分类"
+                : "分类"}
           </h2>
           <Button
             variant="ghost"
@@ -129,7 +129,7 @@ export function CategoryManager({
           <div className="px-6 py-5 space-y-4">
             <input
               type="text"
-              placeholder="Category name..."
+              placeholder="分类名称..."
               value={ui.newName}
               onChange={(e) => dispatch({ type: "SET_NEW_NAME", name: e.target.value })}
               onKeyDown={(e) => e.key === "Enter" && handleAddNew()}
@@ -142,7 +142,7 @@ export function CategoryManager({
                 fullWidth
                 onClick={() => dispatch({ type: "CANCEL_ADD" })}
               >
-                Cancel
+                取消
               </Button>
               <Button
                 variant="solid"
@@ -153,7 +153,7 @@ export function CategoryManager({
                 disabled={!ui.newName.trim()}
                 className="gap-2"
               >
-                <Plus className="size-4" /> Create Category
+                <Plus className="size-4" /> 创建分类
               </Button>
             </div>
           </div>
@@ -163,7 +163,7 @@ export function CategoryManager({
             <div className="px-6 py-4 max-h-72 overflow-y-auto">
               {categories.length === 0 && (
                 <p className="text-center text-sm text-sahara-text-muted py-6">
-                  No categories yet
+                  还没有分类
                 </p>
               )}
               {categories.map((category) => (
@@ -209,19 +209,19 @@ export function CategoryManager({
                         {ui.deleteConfirmId === category.id ? (
                           <div className="flex items-center gap-1.5 bg-red-50 dark:bg-red-950/30 px-2 py-1 rounded-lg">
                             <span className="text-sm font-semibold text-red-600 dark:text-red-400 whitespace-nowrap">
-                              Delete?
+                              删除？
                             </span>
                             <button
                               onClick={() => handleDelete(category.id)}
                               className="text-sm cursor-pointer font-bold text-white px-1.5 py-0.5 rounded bg-red-600 hover:bg-red-700 transition-colors"
                             >
-                              Confirm
+                              确认
                             </button>
                             <button
                               onClick={() => dispatch({ type: "CANCEL_DELETE" })}
                               className="text-sm cursor-pointer font-medium text-sahara-text-muted hover:text-sahara-text px-1.5 py-0.5 rounded hover:bg-sahara-border/20 transition-colors"
                             >
-                              Cancel
+                              取消
                             </button>
                           </div>
                         ) : (
@@ -263,7 +263,7 @@ export function CategoryManager({
                 className="gap-2 bg-green-500/90 hover:bg-green-500"
               >
                 <Plus className="size-4" />
-                ADD NEW CATEGORY
+                添加新分类
               </Button>
             </div>
           </>
