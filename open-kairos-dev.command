@@ -40,12 +40,12 @@ install_with_npm_if_needed() {
   fi
 }
 
-echo "正在启动时间管家桌面版..."
+echo "正在启动时间管家开发热更新版..."
 echo
 
 if ! has_command cargo; then
-  echo "没有找到 Rust / cargo，无法启动桌面版。"
-  echo "这个项目现在只保留一个桌面版本，不再打开浏览器预览版。"
+  echo "没有找到 Rust / cargo，无法启动开发热更新版。"
+  echo "这个项目现在以 Tauri 开发版作为日常使用入口，不再使用打包 App。"
   echo "请先安装 Rust：https://www.rust-lang.org/tools/install"
   exit 1
 fi
@@ -59,4 +59,4 @@ install_with_npm_if_needed || exit 1
 npm run tauri dev
 
 echo
-echo "时间管家已停止。"
+echo "时间管家开发热更新版已停止。"
