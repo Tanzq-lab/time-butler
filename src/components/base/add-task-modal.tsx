@@ -4,10 +4,9 @@ import {
   useEffectEvent,
   useCallback,
   useMemo,
-  useState,
 } from "react";
 import type React from "react";
-import { Check, Edit3, Plus, Tag, X } from "lucide-react";
+import { Edit3, Plus, Tag, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Task } from "@/features/tasks/task-types";
 import type { Category } from "@/lib/db/types";
@@ -25,7 +24,6 @@ interface AddTaskModalProps {
   open: boolean;
   onClose: () => void;
   onSubmit: (data: AddTaskData) => void | Promise<void>;
-  onCreateCategory?: (name: string) => Promise<Category>;
   editTask?: Task | null;
   categories: Category[];
 }
@@ -84,7 +82,6 @@ export function AddTaskModal({
   open,
   onClose,
   onSubmit,
-  onCreateCategory,
   editTask,
   categories,
 }: AddTaskModalProps) {
@@ -93,10 +90,6 @@ export function AddTaskModal({
     formReducer,
     initialStateForTask(editTask),
   );
-  const [isAddingCategory, setIsAddingCategory] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState("");
-  const [categoryError, setCategoryError] = useState<string | null>(null);
-  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
 
   const onCloseEvent = useEffectEvent(() => {
     onClose();
@@ -105,10 +98,6 @@ export function AddTaskModal({
   useEffect(() => {
     if (!open) return;
     dispatch({ type: "SET_ALL", payload: initialStateForTask(editTask) });
-    setIsAddingCategory(false);
-    setNewCategoryName("");
-    setCategoryError(null);
-    setIsCreatingCategory(false);
   }, [open, editTask]);
 
   useEffect(() => {
@@ -131,41 +120,6 @@ export function AddTaskModal({
     () => categories.find((c) => c.id === form.categoryId) ?? null,
     [categories, form.categoryId],
   );
-
-  const handleCancelNewCategory = () => {
-    setIsAddingCategory(false);
-    setNewCategoryName("");
-    setCategoryError(null);
-  };
-
-  const handleCreateCategory = async () => {
-    const name = newCategoryName.trim();
-    if (!name) return;
-
-    const existing = categories.find(
-      (category) => category.name.trim().toLowerCase() === name.toLowerCase(),
-    );
-    if (existing) {
-      dispatch({ type: "SET_FIELD", field: "categoryId", value: existing.id });
-      handleCancelNewCategory();
-      return;
-    }
-
-    if (!onCreateCategory) return;
-
-    setIsCreatingCategory(true);
-    setCategoryError(null);
-    try {
-      const category = await onCreateCategory(name);
-      dispatch({ type: "SET_FIELD", field: "categoryId", value: category.id });
-      handleCancelNewCategory();
-    } catch (err) {
-      console.error("[AddTaskModal] Failed to create category:", err);
-      setCategoryError("分类创建失败，可能已存在");
-    } finally {
-      setIsCreatingCategory(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -332,84 +286,7 @@ export function AddTaskModal({
                   </option>
                 ))}
               </select>
-              {onCreateCategory && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  intent="sahara"
-                  size="icon"
-                  shape="rounded-xl"
-                  aria-label="新增分类"
-                  title="新增分类"
-                  onClick={() => {
-                    setIsAddingCategory(true);
-                    setCategoryError(null);
-                  }}
-                  className="h-11 w-11 shrink-0"
-                >
-                  <Plus className="size-4" />
-                </Button>
-              )}
             </div>
-            {isAddingCategory && onCreateCategory && (
-              <div className="mt-2 space-y-2">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={newCategoryName}
-                    onChange={(e) => {
-                      setNewCategoryName(e.target.value);
-                      setCategoryError(null);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        void handleCreateCategory();
-                      }
-                      if (e.key === "Escape") {
-                        e.preventDefault();
-                        handleCancelNewCategory();
-                      }
-                    }}
-                    placeholder="输入新分类名称"
-                    autoFocus
-                    className="min-w-0 flex-1 px-4 py-2.5 bg-sahara-bg/40 border border-sahara-border/20 rounded-xl text-sm text-sahara-text placeholder:text-sahara-text-muted/50 focus:outline-none focus:border-sahara-primary/50 focus:ring-2 focus:ring-sahara-primary/10 transition-all"
-                  />
-                  <Button
-                    type="button"
-                    variant="solid"
-                    intent="green"
-                    size="icon"
-                    shape="rounded-xl"
-                    aria-label="创建分类"
-                    title="创建分类"
-                    disabled={!newCategoryName.trim() || isCreatingCategory}
-                    onClick={() => void handleCreateCategory()}
-                    className="h-10 w-10 shrink-0"
-                  >
-                    <Check className="size-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    intent="default"
-                    size="icon"
-                    shape="rounded-xl"
-                    aria-label="取消新增分类"
-                    title="取消新增分类"
-                    onClick={handleCancelNewCategory}
-                    className="h-10 w-10 shrink-0"
-                  >
-                    <X className="size-4" />
-                  </Button>
-                </div>
-                {categoryError && (
-                  <p className="text-xs font-medium text-red-500">
-                    {categoryError}
-                  </p>
-                )}
-              </div>
-            )}
             {matchedCategory && (
               <div className="flex items-center gap-2 mt-2">
                 <span

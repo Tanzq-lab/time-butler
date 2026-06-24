@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { m, AnimatePresence } from "framer-motion";
 import { useTimerStore } from "@/features/timer/use-timer-store";
 import { TimerDisplay } from "@/components/base/timer-display";
@@ -42,20 +42,54 @@ export function TimerControls() {
   const adjustDuration = useTimerStore((s) => s.adjustDuration);
   const finishSession = useTimerStore((s) => s.finishSession);
   const abandonSession = useTimerStore((s) => s.abandonSession);
+  const pendingFocusReview = useTimerStore((s) => s.pendingFocusReview);
+  const submitPendingFocusReview = useTimerStore(
+    (s) => s.submitPendingFocusReview,
+  );
+  const dismissPendingFocusReview = useTimerStore(
+    (s) => s.dismissPendingFocusReview,
+  );
   const setSelectedCategory = useTimerStore((s) => s.setSelectedCategory);
   const setDurationForCurrentPhase = useTimerStore(
     (s) => s.setDurationForCurrentPhase,
   );
 
   const [showFinishModal, setShowFinishModal] = useState(false);
+  const [finishModalMode, setFinishModalMode] = useState<
+    "manual" | "pending-review"
+  >("manual");
+
+  useEffect(() => {
+    if (!pendingFocusReview?.ready) return;
+    setFinishModalMode("pending-review");
+    setShowFinishModal(true);
+  }, [pendingFocusReview?.ready, pendingFocusReview?.sessionId]);
 
   const handleFinishWithReflection = async (data: {
     mood: SessionMood;
     notes: string;
   }) => {
-    await finishSession(data.mood, data.notes);
+    if (finishModalMode === "pending-review") {
+      await submitPendingFocusReview(data.mood, data.notes);
+    } else {
+      await finishSession(data.mood, data.notes);
+    }
     setShowFinishModal(false);
+    setFinishModalMode("manual");
   };
+
+  const handleCloseFinishModal = () => {
+    if (finishModalMode === "pending-review") {
+      dismissPendingFocusReview();
+    }
+    setShowFinishModal(false);
+    setFinishModalMode("manual");
+  };
+
+  const finishModalDurationMinutes =
+    finishModalMode === "pending-review" && pendingFocusReview
+      ? Math.round(pendingFocusReview.durationSec / 60)
+      : durationMinutes;
 
   return (
     <m.div
@@ -187,6 +221,7 @@ export function TimerControls() {
             status={status}
             isFullscreenFocus={isFullscreenFocus}
             onFinish={() => {
+              setFinishModalMode("manual");
               setShowFinishModal(true);
             }}
             onAbandon={() => abandonSession()}
@@ -196,10 +231,10 @@ export function TimerControls() {
 
       <FinishSessionModal
         open={showFinishModal}
-        onClose={() => setShowFinishModal(false)}
+        onClose={handleCloseFinishModal}
         onSubmit={handleFinishWithReflection}
         category={selectedCategory}
-        durationMinutes={durationMinutes}
+        durationMinutes={finishModalDurationMinutes}
       />
     </m.div>
   );

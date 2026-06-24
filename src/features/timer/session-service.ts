@@ -1,6 +1,7 @@
 import {
   startSession as dbStartSession,
   finishSession as dbFinishSession,
+  updateSessionReflection as dbUpdateSessionReflection,
   abandonSession as dbAbandonSession,
   addSession,
 } from "@/lib/db";
@@ -23,6 +24,14 @@ export const SessionService = {
     completed = true,
   ): Promise<void> {
     await dbFinishSession(sessionId, durationSec, mood, notes, completed);
+  },
+
+  async updateReflection(
+    sessionId: number,
+    mood?: string,
+    notes?: string,
+  ): Promise<void> {
+    await dbUpdateSessionReflection(sessionId, mood, notes);
   },
 
   async abandon(sessionId: number): Promise<void> {

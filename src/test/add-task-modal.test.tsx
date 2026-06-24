@@ -6,7 +6,7 @@ import type { Category } from "@/lib/db/types";
 const categories: Category[] = [
   {
     id: 1,
-    name: "工作",
+    name: "工作流优化",
     color: "#009a9a",
     created_at: "2026-06-22T00:00:00",
   },
@@ -55,46 +55,21 @@ describe("AddTaskModal", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("creates a category inline and selects it for the task", async () => {
+  it("uses only categories passed from the data layer", () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     const onClose = vi.fn();
-    const onCreateCategory = vi.fn().mockResolvedValue({
-      id: 2,
-      name: "阅读",
-      color: "#6b9080",
-      created_at: "2026-06-22T00:00:00",
-    });
 
     render(
       <AddTaskModal
         open
         onClose={onClose}
         onSubmit={onSubmit}
-        onCreateCategory={onCreateCategory}
         categories={categories}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "新增分类" }));
-    fireEvent.change(screen.getByPlaceholderText("输入新分类名称"), {
-      target: { value: "阅读" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "创建分类" }));
-
-    await waitFor(() => expect(onCreateCategory).toHaveBeenCalledWith("阅读"));
-
-    fireEvent.change(screen.getByLabelText("任务名称"), {
-      target: { value: "读产品文档" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: /创建任务/ }));
-
-    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
-    expect(onSubmit).toHaveBeenCalledWith({
-      name: "读产品文档",
-      estimatedPomos: 4,
-      project: "",
-      priority: "",
-      categoryId: 2,
-    });
+    expect(screen.getByRole("option", { name: "工作流优化" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "新增分类" })).toBeNull();
+    expect(screen.queryByPlaceholderText("输入新分类名称")).toBeNull();
   });
 });

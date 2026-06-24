@@ -36,6 +36,7 @@ vi.mock("@/lib/db", () => ({
   addSession: vi.fn().mockResolvedValue(1),
   startSession: vi.fn().mockResolvedValue(1),
   finishSession: vi.fn().mockResolvedValue(undefined),
+  updateSessionReflection: vi.fn().mockResolvedValue(undefined),
   abandonSession: vi.fn().mockResolvedValue(undefined),
   incrementTaskPomos: vi.fn().mockResolvedValue(undefined),
   getSessionsByDateRange: vi.fn().mockResolvedValue([]),
@@ -72,6 +73,7 @@ beforeEach(() => {
     currentSessionId: null,
     selectedCategory: null,
     deadlineAtMs: null,
+    pendingFocusReview: null,
     durations: {
       work: DEFAULT_WORK_SEC,
       short: DEFAULT_SHORT_BREAK_SEC,
@@ -328,6 +330,11 @@ describe("useTimerStore", () => {
       expect(state.phase).toBe("short_break");
       expect(state.status).toBe("idle");
       expect(state.currentSessionId).toBeNull();
+      expect(state.pendingFocusReview).toEqual({
+        sessionId: 1,
+        durationSec: DEFAULT_WORK_SEC,
+        ready: false,
+      });
     });
 
     it("settles an overdue running timer when the worker was throttled", async () => {
@@ -358,6 +365,63 @@ describe("useTimerStore", () => {
       expect(state.status).toBe("idle");
       expect(state.currentSessionId).toBeNull();
       expect(state.deadlineAtMs).toBeNull();
+    });
+
+    it("marks the focus review ready after a natural break completion", async () => {
+      useTimerStore.setState({ activeTaskId: 42 });
+      await useTimerStore.getState().start();
+
+      mockWorker.onmessage?.({
+        data: { type: "done", remaining: 0 },
+      } as MessageEvent);
+
+      await vi.waitFor(() =>
+        expect(useTimerStore.getState().pendingFocusReview).toEqual({
+          sessionId: 1,
+          durationSec: DEFAULT_WORK_SEC,
+          ready: false,
+        }),
+      );
+
+      await useTimerStore.getState().start();
+      mockWorker.onmessage?.({
+        data: { type: "done", remaining: 0 },
+      } as MessageEvent);
+
+      await vi.waitFor(() =>
+        expect(useTimerStore.getState().pendingFocusReview).toEqual({
+          sessionId: 1,
+          durationSec: DEFAULT_WORK_SEC,
+          ready: true,
+        }),
+      );
+      const state = useTimerStore.getState();
+      expect(state.phase).toBe("work");
+      expect(state.status).toBe("idle");
+    });
+
+    it("saves pending focus review without changing session timing", async () => {
+      useTimerStore.setState({
+        pendingFocusReview: {
+          sessionId: 12,
+          durationSec: DEFAULT_WORK_SEC,
+          ready: true,
+        },
+      });
+
+      await useTimerStore
+        .getState()
+        .submitPendingFocusReview("focused", "状态不错，推进顺畅。");
+
+      const { updateSessionReflection, finishSession: dbFinish } =
+        await import("@/lib/db");
+      expect(updateSessionReflection).toHaveBeenCalledWith(
+        12,
+        "focused",
+        "状态不错，推进顺畅。",
+      );
+      expect(dbFinish).not.toHaveBeenCalled();
+      expect(useTimerStore.getState().pendingFocusReview).toBeNull();
     });
 
     it("auto-starts break after natural work completion when the setting is enabled", async () => {

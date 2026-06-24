@@ -41,6 +41,7 @@ interface TimerStore {
   selectedCategory: Category | null;
   durations: TimerDurations;
   deadlineAtMs: number | null;
+  pendingFocusReview: PendingFocusReview | null;
 
   start: (duration?: number) => void;
   pause: () => void;
@@ -57,8 +58,16 @@ interface TimerStore {
   abandonSession: () => Promise<void>;
   setSelectedCategory: (category: Category | null) => void;
   confirmStartNextPhase: (mood?: string, notes?: string) => Promise<void>;
+  submitPendingFocusReview: (mood?: string, notes?: string) => Promise<void>;
+  dismissPendingFocusReview: () => void;
   addFiveMinutes: () => void;
   endWithoutBreak: () => Promise<void>;
+}
+
+interface PendingFocusReview {
+  sessionId: number;
+  durationSec: number;
+  ready: boolean;
 }
 
 type PersistedTimerState = Pick<
@@ -73,6 +82,7 @@ type PersistedTimerState = Pick<
   | "selectedCategory"
   | "durations"
   | "deadlineAtMs"
+  | "pendingFocusReview"
 > & {
   savedAt: number;
 };
@@ -185,6 +195,7 @@ function persistTimerState(state: TimerStore): void {
     selectedCategory: state.selectedCategory,
     durations: state.durations,
     deadlineAtMs: state.deadlineAtMs,
+    pendingFocusReview: state.pendingFocusReview,
     savedAt: Date.now(),
   };
 
@@ -237,6 +248,12 @@ export const useTimerStore = create<TimerStore>((set, get) => {
       const newPomos = phase === "work" ? completedPomos + 1 : completedPomos;
       const next = getNextPhase(phase, newPomos, durations);
       const settings = useSettingsStore.getState().settings;
+      const pendingFocusReview =
+        phase === "work" && currentSessionId
+          ? { sessionId: currentSessionId, durationSec: totalSeconds, ready: false }
+          : phase !== "work" && state.pendingFocusReview
+            ? { ...state.pendingFocusReview, ready: true }
+            : state.pendingFocusReview;
 
       set({
         phase: next.phase,
@@ -246,6 +263,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         completedPomos: newPomos,
         currentSessionId: null,
         deadlineAtMs: null,
+        pendingFocusReview,
       });
 
       if (phase === "work" && settings.autoStartBreaks) {
@@ -283,6 +301,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
     currentSessionId: null,
     selectedCategory: null,
     deadlineAtMs: null,
+    pendingFocusReview: null,
     durations: {
       work: DEFAULT_WORK_SEC,
       short: DEFAULT_SHORT_BREAK_SEC,
@@ -540,6 +559,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         currentSessionId: null,
         completedPomos: state.completedPomos,
         deadlineAtMs: null,
+        pendingFocusReview: state.pendingFocusReview,
       });
     },
 
@@ -593,6 +613,22 @@ export const useTimerStore = create<TimerStore>((set, get) => {
       });
 
       get().start(next.duration);
+    },
+
+    submitPendingFocusReview: async (mood?: string, notes?: string) => {
+      const pendingFocusReview = get().pendingFocusReview;
+      if (!pendingFocusReview) return;
+
+      await SessionService.updateReflection(
+        pendingFocusReview.sessionId,
+        mood,
+        notes,
+      );
+      set({ pendingFocusReview: null });
+    },
+
+    dismissPendingFocusReview: () => {
+      set({ pendingFocusReview: null });
     },
 
     addFiveMinutes: () => {

@@ -98,7 +98,6 @@ export function TasksList() {
 
   const categories = useCategoriesStore((s) => s.categories);
   const loadCategories = useCategoriesStore((s) => s.loadCategories);
-  const addCategory = useCategoriesStore((s) => s.addCategory);
 
   useEffect(() => {
     loadCategories();
@@ -247,7 +246,6 @@ export function TasksList() {
         open={showAddModal}
         onClose={() => dispatch({ type: "CLOSE_ADD_MODAL" })}
         onSubmit={taskToEdit ? handleEditTask : handleAddTask}
-        onCreateCategory={addCategory}
         editTask={taskToEdit}
         categories={categories}
       />

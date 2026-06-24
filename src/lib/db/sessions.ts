@@ -66,6 +66,23 @@ export async function finishSession(
   }
 }
 
+export async function updateSessionReflection(
+  sessionId: number,
+  mood?: string,
+  notes?: string,
+): Promise<void> {
+  const database = await getDb();
+  await database.execute(
+    `
+    UPDATE sessions
+    SET mood = $2,
+        notes = $3
+    WHERE id = $1 AND phase = 'work' AND completed = 1
+    `,
+    [sessionId, mood ?? null, notes ?? null],
+  );
+}
+
 export async function abandonSession(sessionId: number): Promise<void> {
   const database = await getDb();
   await database.execute(

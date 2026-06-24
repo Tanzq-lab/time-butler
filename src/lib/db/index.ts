@@ -15,6 +15,7 @@ export {
   addSession,
   startSession,
   finishSession,
+  updateSessionReflection,
   abandonSession,
   getSessions,
   getTodaySessions,

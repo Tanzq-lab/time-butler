@@ -43,6 +43,10 @@ export async function updateCategory(
 export async function deleteCategory(id: number): Promise<void> {
   const database = await getDb();
   await database.execute(
+    "UPDATE tasks SET category_id = NULL WHERE category_id = $1",
+    [id],
+  );
+  await database.execute(
     "UPDATE sessions SET category_id = NULL WHERE category_id = $1",
     [id],
   );

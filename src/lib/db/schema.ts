@@ -1,5 +1,6 @@
 import Database from "@tauri-apps/plugin-sql";
 import { DEFAULT_CATEGORY_COLOR } from "@/lib/constants";
+import { seedDefaultTaskCategories } from "./default-categories";
 
 const DB_NAME = "sqlite:Kairos-Pomodoro.db";
 
@@ -105,9 +106,10 @@ export async function initDb(): Promise<void> {
       "ALTER TABLE tasks ADD COLUMN completed_at TEXT",
       "ALTER TABLE tasks ADD COLUMN completion_review TEXT",
     ],
+    5: [],
   };
 
-  const targetVersion = 4;
+  const targetVersion = 5;
 
   for (let v = currentVersion + 1; v <= targetVersion; v++) {
     const statements = migrations[v];
@@ -121,6 +123,9 @@ export async function initDb(): Promise<void> {
           console.warn(`[DB] Migration v${v} warning:`, msg);
         }
       }
+    }
+    if (v === 5) {
+      await seedDefaultTaskCategories(database);
     }
     await database.execute(
       "INSERT OR REPLACE INTO _schema_meta (key, value) VALUES ('version', $1)",
