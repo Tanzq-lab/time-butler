@@ -13,7 +13,7 @@ export class TimerEngine {
     this.callbacks = cb;
   }
 
-  start(seconds: number) {
+  start(seconds: number, deadlineAtMs?: number) {
     this.terminate();
 
     const worker = createTimerWorker();
@@ -22,7 +22,7 @@ export class TimerEngine {
       if (type === "tick") this.callbacks?.onTick(remaining);
       if (type === "done") this.callbacks?.onDone();
     };
-    worker.postMessage({ command: "start", seconds });
+    worker.postMessage({ command: "start", seconds, deadlineAtMs });
     this.worker = worker;
   }
 
@@ -30,8 +30,8 @@ export class TimerEngine {
     this.worker?.postMessage({ command: "pause" });
   }
 
-  resume() {
-    this.worker?.postMessage({ command: "resume" });
+  resume(seconds?: number, deadlineAtMs?: number) {
+    this.worker?.postMessage({ command: "resume", seconds, deadlineAtMs });
   }
 
   addTime(seconds: number) {

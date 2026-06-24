@@ -1,16 +1,17 @@
 import { Clock, CheckCircle2, Circle, Tag } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { WeekSession } from "@/lib/db";
-import { formatTimeAmPm } from "@/lib/time";
+import { formatTimeAmPm, parseLocalDateTime } from "@/lib/time";
 
 interface CalendarSessionBlockProps {
   session: WeekSession;
   topPx: number;
   heightPx: number;
+  compact?: boolean;
 }
 
 function getTimeRange(session: WeekSession): string {
-  const start = new Date(session.started_at);
+  const start = parseLocalDateTime(session.started_at);
   const end = new Date(start.getTime() + session.duration_sec * 1000);
   return `${formatTimeAmPm(start)} – ${formatTimeAmPm(end)}`;
 }
@@ -26,26 +27,77 @@ export function CalendarSessionBlock({
   session,
   topPx,
   heightPx,
+  compact = false,
 }: CalendarSessionBlockProps) {
   const isWork = session.phase === "work";
-  const isBreak = session.phase === "break";
+  const isBreak = !isWork;
 
   const title = session.task_name || session.intention || "";
   const showDescription =
     !isWork && session.intention && session.intention !== title;
   const timeRange = getTimeRange(session);
+  const phaseLabel =
+    isWork ? "专注" : session.phase === "long_break" ? "长休息" : "短休息";
+  const isMicro = heightPx < 22;
 
   const catColor = session.category_color || undefined;
 
   const bgColor = isWork && catColor ? catColor : undefined;
   const borderColor = isWork && catColor ? hexToRgba(catColor, 0.6) : undefined;
 
+  if (compact) {
+    return (
+      <div
+        className={cn(
+          "absolute left-1 right-1 md:left-1.5 md:right-1.5 shadow-sm border cursor-pointer z-10 overflow-hidden group transition-shadow hover:shadow-md",
+          isMicro
+            ? "rounded-[4px]"
+            : "rounded-md md:rounded-lg px-1.5 md:px-2 py-0.5",
+          isWork
+            ? "bg-sahara-primary text-white border-sahara-primary/40"
+            : "bg-sahara-card text-sahara-text border-sahara-border",
+        )}
+        style={{
+          top: topPx,
+          height: heightPx,
+          ...(bgColor && { backgroundColor: bgColor }),
+          ...(borderColor && { borderColor }),
+        }}
+        title={`${phaseLabel}${title ? ` · ${title}` : ""} · ${timeRange}`}
+        aria-label={`${phaseLabel}${title ? ` ${title}` : ""} ${timeRange}`}
+      >
+        {!isMicro && (
+          <div className="flex h-full min-w-0 items-center gap-1.5">
+            <span
+              className={cn(
+                "shrink-0 text-[10px] font-bold leading-none",
+                isWork ? "text-white" : "text-sahara-text",
+              )}
+            >
+              {phaseLabel}
+            </span>
+            {title && (
+              <span
+                className={cn(
+                  "min-w-0 truncate text-[10px] font-medium leading-none",
+                  isWork ? "text-white/90" : "text-sahara-text-muted",
+                )}
+              >
+                {title}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
         "absolute left-1 right-1 md:left-1.5 md:right-1.5 rounded-lg md:rounded-xl px-2.5 py-1.5 md:px-3 md:py-2.5 shadow-sm border cursor-pointer z-10 overflow-hidden group transition-shadow hover:shadow-md flex flex-col",
         isWork
-          ? "text-white"
+          ? "bg-sahara-primary text-white border-sahara-primary/40"
           : "bg-sahara-card text-sahara-text border-sahara-border",
       )}
       style={{
@@ -62,7 +114,7 @@ export function CalendarSessionBlock({
           isWork ? "text-white" : "text-sahara-text",
         )}
       >
-        {isWork ? "专注" : "休息"}
+        {phaseLabel}
       </div>
 
       {/* Title / Task Name */}

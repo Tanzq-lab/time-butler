@@ -24,6 +24,10 @@ export function getPhaseLabel(phase: TimerPhase): string {
   return PHASE_CONFIG[phase].label;
 }
 
+export function parseLocalDateTime(value: string): Date {
+  return new Date(value.includes("T") ? value : value.replace(" ", "T"));
+}
+
 export function formatTimeAmPm(date: Date): string {
   const h = date.getHours();
   const m = date.getMinutes();

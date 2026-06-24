@@ -10,6 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "data:init": "node scripts/private-data.mjs init",
+    "data:backup": "node scripts/private-data.mjs backup",
     "tauri": "tauri"
   },
   "dependencies": {

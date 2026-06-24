@@ -5,6 +5,7 @@ import {
   getPhaseBg,
   getPhaseLabel,
   formatTimeAmPm,
+  parseLocalDateTime,
 } from "@/lib/time";
 
 describe("formatSeconds", () => {
@@ -99,5 +100,17 @@ describe("formatTimeAmPm", () => {
   it("pads single-digit minutes", () => {
     const date = new Date(2026, 0, 1, 3, 5);
     expect(formatTimeAmPm(date)).toBe("03:05");
+  });
+});
+
+describe("parseLocalDateTime", () => {
+  it("parses SQLite local datetime strings", () => {
+    const date = parseLocalDateTime("2026-06-23 09:03:37");
+    expect(formatTimeAmPm(date)).toBe("09:03");
+  });
+
+  it("keeps ISO datetime strings supported", () => {
+    const date = parseLocalDateTime("2026-06-23T14:05:00");
+    expect(formatTimeAmPm(date)).toBe("14:05");
   });
 });

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { listen } from "@tauri-apps/api/event";
 import type { TimerPhase, TimerStatus } from "@/features/timer/timer-types";
 import { TimerEngine } from "@/features/timer/timer-engine";
 import { SessionService } from "@/features/timer/session-service";
@@ -23,6 +24,11 @@ import {
 } from "@/features/timer/timer-notifications";
 import { useSettingsStore } from "@/features/settings/use-settings-store";
 import { playFocusMusic, stopFocusMusic } from "@/features/timer/focus-music";
+import {
+  invokeTimerCancelDeadline,
+  invokeTimerScheduleDeadline,
+  isTauri,
+} from "@/lib/tauri";
 
 interface TimerStore {
   phase: TimerPhase;
@@ -34,10 +40,12 @@ interface TimerStore {
   currentSessionId: number | null;
   selectedCategory: Category | null;
   durations: TimerDurations;
+  deadlineAtMs: number | null;
 
   start: (duration?: number) => void;
   pause: () => void;
   resume: () => void;
+  syncWithClock: () => void;
   skip: () => void;
   reset: () => void;
   setPhase: (phase: TimerPhase) => void;
@@ -64,16 +72,64 @@ type PersistedTimerState = Pick<
   | "currentSessionId"
   | "selectedCategory"
   | "durations"
+  | "deadlineAtMs"
 > & {
   savedAt: number;
 };
 
 const TIMER_STORAGE_KEY = "time-butler:timer-state:v1";
+const TIMER_DEADLINE_REACHED_EVENT = "timer:deadline-reached";
 
 const engine = new TimerEngine();
+let settleInFlight = false;
+let nativeDeadlineListenerStarted = false;
+let clockSyncListenersInstalled = false;
 
 function canUseStorage(): boolean {
   return typeof window !== "undefined" && !!window.localStorage;
+}
+
+function computeRemainingFromDeadline(deadlineAtMs: number): number {
+  return Math.max(0, Math.ceil((deadlineAtMs - Date.now()) / 1000));
+}
+
+function getAccurateSecondsRemaining(
+  state: Pick<TimerStore, "status" | "secondsRemaining" | "deadlineAtMs">,
+): number {
+  if (state.status !== "running" || !state.deadlineAtMs) {
+    return state.secondsRemaining;
+  }
+
+  return computeRemainingFromDeadline(state.deadlineAtMs);
+}
+
+function getElapsedSeconds(
+  state: Pick<
+    TimerStore,
+    "totalSeconds" | "status" | "secondsRemaining" | "deadlineAtMs"
+  >,
+): number {
+  const remaining = getAccurateSecondsRemaining(state);
+  return Math.min(state.totalSeconds, Math.max(0, state.totalSeconds - remaining));
+}
+
+function getDeadlineFromSaved(saved: PersistedTimerState): number {
+  if (saved.deadlineAtMs) return saved.deadlineAtMs;
+  return saved.savedAt + saved.secondsRemaining * 1000;
+}
+
+function scheduleNativeDeadline(deadlineAtMs: number | null): void {
+  if (!deadlineAtMs || !isTauri()) return;
+  invokeTimerScheduleDeadline(deadlineAtMs).catch((err) => {
+    console.warn("[TimerStore] Failed to schedule native timer deadline:", err);
+  });
+}
+
+function cancelNativeDeadline(): void {
+  if (!isTauri()) return;
+  invokeTimerCancelDeadline().catch((err) => {
+    console.warn("[TimerStore] Failed to cancel native timer deadline:", err);
+  });
 }
 
 function loadPersistedTimerState(): Partial<TimerStore> {
@@ -84,28 +140,15 @@ function loadPersistedTimerState(): Partial<TimerStore> {
     if (!raw) return {};
 
     const saved = JSON.parse(raw) as PersistedTimerState;
-    const elapsed = Math.max(0, Math.floor((Date.now() - saved.savedAt) / 1000));
 
     if (saved.status === "running") {
-      const remaining = saved.secondsRemaining - elapsed;
-      if (remaining <= 0) {
-        const completedPomos =
-          saved.phase === "work" ? saved.completedPomos + 1 : saved.completedPomos;
-        const next = getNextPhase(saved.phase, completedPomos, saved.durations);
-        return {
-          ...saved,
-          phase: next.phase,
-          status: "idle",
-          secondsRemaining: next.duration,
-          totalSeconds: next.duration,
-          completedPomos,
-          currentSessionId: null,
-        };
-      }
+      const deadlineAtMs = getDeadlineFromSaved(saved);
+      const remaining = computeRemainingFromDeadline(deadlineAtMs);
 
       return {
         ...saved,
         secondsRemaining: remaining,
+        deadlineAtMs,
       };
     }
 
@@ -117,10 +160,11 @@ function loadPersistedTimerState(): Partial<TimerStore> {
         secondsRemaining: duration,
         totalSeconds: duration,
         currentSessionId: null,
+        deadlineAtMs: null,
       };
     }
 
-    return saved;
+    return { ...saved, deadlineAtMs: null };
   } catch (err) {
     console.warn("[TimerStore] Failed to restore timer state:", err);
     return {};
@@ -140,6 +184,7 @@ function persistTimerState(state: TimerStore): void {
     currentSessionId: state.currentSessionId,
     selectedCategory: state.selectedCategory,
     durations: state.durations,
+    deadlineAtMs: state.deadlineAtMs,
     savedAt: Date.now(),
   };
 
@@ -162,7 +207,12 @@ export const useTimerStore = create<TimerStore>((set, get) => {
   const persistedTimerState = loadPersistedTimerState();
 
   async function settleCompletedPhase() {
+    if (settleInFlight) return;
+
     const state = get();
+    if (state.status !== "running") return;
+
+    settleInFlight = true;
     const {
       currentSessionId,
       activeTaskId,
@@ -171,32 +221,38 @@ export const useTimerStore = create<TimerStore>((set, get) => {
       completedPomos,
       durations,
     } = state;
-    const durationMin = Math.round(state.totalSeconds / 60);
-    notifyPhaseComplete(state.phase, durationMin);
+    try {
+      const durationMin = Math.round(state.totalSeconds / 60);
+      notifyPhaseComplete(state.phase, durationMin);
 
-    engine.terminate();
-    stopFocusMusicForActiveWork(state);
+      engine.terminate();
+      cancelNativeDeadline();
+      stopFocusMusicForActiveWork(state);
 
-    if (currentSessionId) {
-      await SessionService.finish(currentSessionId, totalSeconds, undefined, undefined, true);
-      recordPomoCompletion(phase, activeTaskId);
-    }
+      if (currentSessionId) {
+        await SessionService.finish(currentSessionId, totalSeconds, undefined, undefined, true);
+        recordPomoCompletion(phase, activeTaskId);
+      }
 
-    const newPomos = phase === "work" ? completedPomos + 1 : completedPomos;
-    const next = getNextPhase(phase, newPomos, durations);
-    const settings = useSettingsStore.getState().settings;
+      const newPomos = phase === "work" ? completedPomos + 1 : completedPomos;
+      const next = getNextPhase(phase, newPomos, durations);
+      const settings = useSettingsStore.getState().settings;
 
-    set({
-      phase: next.phase,
-      status: "idle",
-      secondsRemaining: next.duration,
-      totalSeconds: next.duration,
-      completedPomos: newPomos,
-      currentSessionId: null,
-    });
+      set({
+        phase: next.phase,
+        status: "idle",
+        secondsRemaining: next.duration,
+        totalSeconds: next.duration,
+        completedPomos: newPomos,
+        currentSessionId: null,
+        deadlineAtMs: null,
+      });
 
-    if (phase === "work" && settings.autoStartBreaks) {
-      void get().start(next.duration);
+      if (phase === "work" && settings.autoStartBreaks) {
+        void get().start(next.duration);
+      }
+    } finally {
+      settleInFlight = false;
     }
   }
 
@@ -205,7 +261,15 @@ export const useTimerStore = create<TimerStore>((set, get) => {
   }
 
   engine.setCallbacks({
-    onTick: (remaining) => set({ secondsRemaining: remaining }),
+    onTick: (remaining) => {
+      if (remaining <= 0) {
+        set({ secondsRemaining: 0 });
+        void settleCompletedPhase();
+        return;
+      }
+
+      set({ secondsRemaining: remaining });
+    },
     onDone: onTimerDone,
   });
 
@@ -218,6 +282,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
     activeTaskId: null,
     currentSessionId: null,
     selectedCategory: null,
+    deadlineAtMs: null,
     durations: {
       work: DEFAULT_WORK_SEC,
       short: DEFAULT_SHORT_BREAK_SEC,
@@ -241,7 +306,9 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         state.selectedCategory?.name,
       );
 
-      engine.start(secs);
+      const deadlineAtMs = Date.now() + secs * 1000;
+      engine.start(secs, deadlineAtMs);
+      scheduleNativeDeadline(deadlineAtMs);
 
       set({
         phase: resolvedPhase,
@@ -249,6 +316,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         secondsRemaining: secs,
         totalSeconds: secs,
         currentSessionId: sessionId,
+        deadlineAtMs,
       });
 
       if (resolvedPhase === "work") {
@@ -257,19 +325,54 @@ export const useTimerStore = create<TimerStore>((set, get) => {
     },
 
     pause: () => {
+      const state = get();
+      const secondsRemaining = getAccurateSecondsRemaining(state);
       engine.pause();
-      set({ status: "paused" });
+      cancelNativeDeadline();
+      set({ status: "paused", secondsRemaining, deadlineAtMs: null });
     },
 
     resume: () => {
-      engine.resume();
-      set({ status: "running" });
+      const state = get();
+      const secondsRemaining = Math.max(0, state.secondsRemaining);
+
+      if (secondsRemaining <= 0) {
+        set({ status: "running", secondsRemaining: 0 });
+        void settleCompletedPhase();
+        return;
+      }
+
+      const deadlineAtMs = Date.now() + secondsRemaining * 1000;
+      if (engine.isRunning()) {
+        engine.resume(secondsRemaining, deadlineAtMs);
+      } else {
+        engine.start(secondsRemaining, deadlineAtMs);
+      }
+      scheduleNativeDeadline(deadlineAtMs);
+      set({ status: "running", secondsRemaining, deadlineAtMs });
+    },
+
+    syncWithClock: () => {
+      const state = get();
+      if (state.status !== "running") return;
+
+      const secondsRemaining = getAccurateSecondsRemaining(state);
+      if (secondsRemaining <= 0) {
+        set({ secondsRemaining: 0 });
+        void settleCompletedPhase();
+        return;
+      }
+
+      if (secondsRemaining !== state.secondsRemaining) {
+        set({ secondsRemaining });
+      }
     },
 
     skip: () => {
       const state = get();
-      const { phase, secondsRemaining, totalSeconds, activeTaskId, completedPomos } = state;
+      const { phase, totalSeconds, activeTaskId, completedPomos } = state;
 
+      const secondsRemaining = getAccurateSecondsRemaining(state);
       const completed = secondsRemaining <= 0;
       const elapsed = Math.max(0, totalSeconds - secondsRemaining);
       SessionService.recordSkip(activeTaskId, phase, elapsed, completed);
@@ -280,6 +383,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
       }
 
       engine.terminate();
+      cancelNativeDeadline();
       stopFocusMusicForActiveWork(state);
 
       const newPomos = phase === "work" && completed ? completedPomos + 1 : completedPomos;
@@ -291,6 +395,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         secondsRemaining: next.duration,
         totalSeconds: next.duration,
         completedPomos: newPomos,
+        deadlineAtMs: null,
       });
 
       if (phase === "work" && completed) {
@@ -301,17 +406,30 @@ export const useTimerStore = create<TimerStore>((set, get) => {
     reset: () => {
       const state = get();
       engine.terminate();
+      cancelNativeDeadline();
       stopFocusMusicForActiveWork(state);
       const duration = getPhaseDuration(state.phase, state.durations);
-      set({ status: "idle", secondsRemaining: duration, totalSeconds: duration });
+      set({
+        status: "idle",
+        secondsRemaining: duration,
+        totalSeconds: duration,
+        deadlineAtMs: null,
+      });
     },
 
     setPhase: (phase: TimerPhase) => {
       const state = get();
       engine.terminate();
+      cancelNativeDeadline();
       stopFocusMusicForActiveWork(state);
       const duration = getPhaseDuration(phase, state.durations);
-      set({ phase, status: "idle", secondsRemaining: duration, totalSeconds: duration });
+      set({
+        phase,
+        status: "idle",
+        secondsRemaining: duration,
+        totalSeconds: duration,
+        deadlineAtMs: null,
+      });
     },
 
     setActiveTask: async (taskId: number | null) => {
@@ -339,7 +457,12 @@ export const useTimerStore = create<TimerStore>((set, get) => {
       const { phase, status } = get();
       if (status === "idle") {
         const dur = getPhaseDuration(phase, durations);
-        set({ durations, secondsRemaining: dur, totalSeconds: dur });
+        set({
+          durations,
+          secondsRemaining: dur,
+          totalSeconds: dur,
+          deadlineAtMs: null,
+        });
       } else {
         set({ durations });
       }
@@ -351,7 +474,12 @@ export const useTimerStore = create<TimerStore>((set, get) => {
       const nextDuration = Math.max(1, Math.floor(seconds));
       const key = getPhaseDurationKey(phase);
       const nextDurations = { ...durations, [key]: nextDuration };
-      set({ durations: nextDurations, secondsRemaining: nextDuration, totalSeconds: nextDuration });
+      set({
+        durations: nextDurations,
+        secondsRemaining: nextDuration,
+        totalSeconds: nextDuration,
+        deadlineAtMs: null,
+      });
     },
 
     adjustDuration: (minutes: number) => {
@@ -363,27 +491,43 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         const currentDuration = durations[key];
         const newDuration = Math.max(60, currentDuration + deltaSec);
         const newDurations = { ...durations, [key]: newDuration };
-        set({ durations: newDurations, secondsRemaining: newDuration, totalSeconds: newDuration });
-      } else {
-        set((s) => {
-          const newTotal = Math.max(60, s.totalSeconds + deltaSec);
-          const newRemaining = Math.max(0, s.secondsRemaining + deltaSec);
-          return { totalSeconds: newTotal, secondsRemaining: newRemaining };
+        set({
+          durations: newDurations,
+          secondsRemaining: newDuration,
+          totalSeconds: newDuration,
+          deadlineAtMs: null,
         });
+      } else {
+        const state = get();
+        const currentRemaining = getAccurateSecondsRemaining(state);
+        const newTotal = Math.max(60, state.totalSeconds + deltaSec);
+        const newRemaining = Math.max(0, currentRemaining + deltaSec);
+        const deadlineAtMs =
+          status === "running" && newRemaining > 0
+            ? Date.now() + newRemaining * 1000
+            : null;
+
+        set({ totalSeconds: newTotal, secondsRemaining: newRemaining, deadlineAtMs });
         if (status === "running") {
           engine.addTime(deltaSec);
+          if (newRemaining <= 0) {
+            void settleCompletedPhase();
+          } else {
+            scheduleNativeDeadline(deadlineAtMs);
+          }
         }
       }
     },
 
     finishSession: async (mood?: string, notes?: string) => {
       const state = get();
-      const { currentSessionId, totalSeconds, secondsRemaining } = state;
+      const { currentSessionId } = state;
       engine.terminate();
+      cancelNativeDeadline();
       stopFocusMusicForActiveWork(state);
 
       if (currentSessionId) {
-        const elapsed = Math.max(0, totalSeconds - secondsRemaining);
+        const elapsed = getElapsedSeconds(state);
         await SessionService.finish(currentSessionId, elapsed, mood, notes, false);
       }
 
@@ -395,12 +539,14 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         totalSeconds: duration,
         currentSessionId: null,
         completedPomos: state.completedPomos,
+        deadlineAtMs: null,
       });
     },
 
     abandonSession: async () => {
       const state = get();
       engine.terminate();
+      cancelNativeDeadline();
       stopFocusMusicForActiveWork(state);
 
       if (state.currentSessionId) {
@@ -413,6 +559,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         secondsRemaining: duration,
         totalSeconds: duration,
         currentSessionId: null,
+        deadlineAtMs: null,
       });
     },
 
@@ -424,6 +571,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
       const state = get();
       const { currentSessionId, activeTaskId, phase, totalSeconds } = state;
       engine.terminate();
+      cancelNativeDeadline();
       stopFocusMusicForActiveWork(state);
 
       if (currentSessionId) {
@@ -441,6 +589,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         totalSeconds: next.duration,
         completedPomos: newPomos,
         currentSessionId: null,
+        deadlineAtMs: null,
       });
 
       get().start(next.duration);
@@ -448,17 +597,25 @@ export const useTimerStore = create<TimerStore>((set, get) => {
 
     addFiveMinutes: () => {
       const addedSec = 5 * 60;
+      const state = get();
+      const secondsRemaining = getAccurateSecondsRemaining(state) + addedSec;
+      const deadlineAtMs =
+        state.status === "running" ? Date.now() + secondsRemaining * 1000 : null;
+
       engine.addTime(addedSec);
-      set((s) => ({
-        totalSeconds: s.totalSeconds + addedSec,
-        secondsRemaining: s.secondsRemaining + addedSec,
-      }));
+      if (deadlineAtMs) scheduleNativeDeadline(deadlineAtMs);
+      set({
+        totalSeconds: state.totalSeconds + addedSec,
+        secondsRemaining,
+        deadlineAtMs,
+      });
     },
 
     endWithoutBreak: async () => {
       const state = get();
       const { currentSessionId, activeTaskId, phase, totalSeconds } = state;
       engine.terminate();
+      cancelNativeDeadline();
       stopFocusMusicForActiveWork(state);
 
       if (currentSessionId) {
@@ -474,17 +631,63 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         totalSeconds: duration,
         currentSessionId: null,
         completedPomos: get().completedPomos + (phase === "work" ? 1 : 0),
+        deadlineAtMs: null,
       });
     },
   };
 });
 
+function startNativeDeadlineListener(): void {
+  if (nativeDeadlineListenerStarted || !isTauri()) return;
+
+  nativeDeadlineListenerStarted = true;
+  listen<{ token: number; deadlineAtMs: number }>(
+    TIMER_DEADLINE_REACHED_EVENT,
+    () => {
+      useTimerStore.getState().syncWithClock();
+    },
+  ).catch((err) => {
+    nativeDeadlineListenerStarted = false;
+    console.warn("[TimerStore] Failed to listen for native timer deadline:", err);
+  });
+}
+
+function installClockSyncListeners(): void {
+  if (clockSyncListenersInstalled || typeof window === "undefined") return;
+
+  clockSyncListenersInstalled = true;
+  const sync = () => useTimerStore.getState().syncWithClock();
+
+  window.addEventListener("focus", sync);
+  window.addEventListener("online", sync);
+
+  if (typeof document !== "undefined") {
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") sync();
+    });
+  }
+}
+
 useTimerStore.subscribe((state) => persistTimerState(state));
 
 queueMicrotask(() => {
+  startNativeDeadlineListener();
+  installClockSyncListeners();
+
   const state = useTimerStore.getState();
   if (state.status === "running") {
-    engine.start(state.secondsRemaining);
+    const secondsRemaining = getAccurateSecondsRemaining(state);
+    const deadlineAtMs = state.deadlineAtMs ?? Date.now() + secondsRemaining * 1000;
+
+    if (secondsRemaining <= 0) {
+      useTimerStore.setState({ secondsRemaining: 0, deadlineAtMs });
+      useTimerStore.getState().syncWithClock();
+      return;
+    }
+
+    useTimerStore.setState({ secondsRemaining, deadlineAtMs });
+    engine.start(secondsRemaining, deadlineAtMs);
+    scheduleNativeDeadline(deadlineAtMs);
   } else if ((state.status as string) === "focus_complete") {
     const duration = getPhaseDuration(state.phase, state.durations);
     useTimerStore.setState({
@@ -492,6 +695,7 @@ queueMicrotask(() => {
       secondsRemaining: duration,
       totalSeconds: duration,
       currentSessionId: null,
+      deadlineAtMs: null,
     });
   }
 });

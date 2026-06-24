@@ -1,6 +1,7 @@
 mod commands;
 
-use commands::menubar::{MenubarState, setup_menubar_tray};
+use commands::menubar::{setup_menubar_tray, MenubarState};
+use commands::timer::NativeTimerState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -29,8 +30,11 @@ pub fn run() {
             commands::pomodoro_estimation::read_pomodoro_estimation_memo,
             commands::pomodoro_estimation::append_pomodoro_estimation_log,
             commands::pomodoro_estimation::read_pomodoro_estimation_log,
+            commands::timer::timer_schedule_deadline,
+            commands::timer::timer_cancel_deadline,
         ])
         .manage(MenubarState::new())
+        .manage(NativeTimerState::new())
         .setup(|app| {
             setup_menubar_tray(app)?;
             Ok(())

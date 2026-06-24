@@ -71,6 +71,7 @@ beforeEach(() => {
     activeTaskId: null,
     currentSessionId: null,
     selectedCategory: null,
+    deadlineAtMs: null,
     durations: {
       work: DEFAULT_WORK_SEC,
       short: DEFAULT_SHORT_BREAK_SEC,
@@ -90,6 +91,7 @@ describe("useTimerStore", () => {
       expect(state.completedPomos).toBe(0);
       expect(state.activeTaskId).toBeNull();
       expect(state.currentSessionId).toBeNull();
+      expect(state.deadlineAtMs).toBeNull();
     });
   });
 
@@ -288,8 +290,14 @@ describe("useTimerStore", () => {
       useTimerStore.getState().pause();
       useTimerStore.getState().resume();
 
-      expect(mockWorker.postMessage).toHaveBeenCalledWith({ command: "resume" });
+      expect(mockWorker.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          command: "resume",
+          seconds: DEFAULT_WORK_SEC,
+        }),
+      );
       expect(useTimerStore.getState().status).toBe("running");
+      expect(useTimerStore.getState().deadlineAtMs).toEqual(expect.any(Number));
     });
   });
 
@@ -320,6 +328,36 @@ describe("useTimerStore", () => {
       expect(state.phase).toBe("short_break");
       expect(state.status).toBe("idle");
       expect(state.currentSessionId).toBeNull();
+    });
+
+    it("settles an overdue running timer when the worker was throttled", async () => {
+      useTimerStore.setState({ activeTaskId: 42 });
+      await useTimerStore.getState().start();
+
+      useTimerStore.setState({
+        secondsRemaining: DEFAULT_WORK_SEC,
+        deadlineAtMs: Date.now() - 1000,
+      });
+      useTimerStore.getState().syncWithClock();
+
+      const { finishSession: dbFinish, incrementTaskPomos } = await import("@/lib/db");
+      await vi.waitFor(() =>
+        expect(dbFinish).toHaveBeenCalledWith(
+          1,
+          DEFAULT_WORK_SEC,
+          undefined,
+          undefined,
+          true,
+        ),
+      );
+      expect(incrementTaskPomos).toHaveBeenCalledWith(42);
+
+      const state = useTimerStore.getState();
+      expect(state.secondsRemaining).toBe(DEFAULT_SHORT_BREAK_SEC);
+      expect(state.phase).toBe("short_break");
+      expect(state.status).toBe("idle");
+      expect(state.currentSessionId).toBeNull();
+      expect(state.deadlineAtMs).toBeNull();
     });
 
     it("auto-starts break after natural work completion when the setting is enabled", async () => {
@@ -370,7 +408,10 @@ describe("useTimerStore", () => {
   describe("skip", () => {
     it("records completed session and transitions to break when work is done", async () => {
       await useTimerStore.getState().start();
-      useTimerStore.setState({ secondsRemaining: 0 });
+      useTimerStore.setState({
+        secondsRemaining: 0,
+        deadlineAtMs: Date.now() - 1000,
+      });
 
       useTimerStore.getState().skip();
 
@@ -389,7 +430,10 @@ describe("useTimerStore", () => {
 
     it("records incomplete session when skipping mid-session", async () => {
       await useTimerStore.getState().start();
-      useTimerStore.setState({ secondsRemaining: 500 });
+      useTimerStore.setState({
+        secondsRemaining: 500,
+        deadlineAtMs: Date.now() + 500 * 1000,
+      });
 
       useTimerStore.getState().skip();
 
@@ -409,7 +453,10 @@ describe("useTimerStore", () => {
     it("increments task pomos when work completed with active task", async () => {
       useTimerStore.setState({ activeTaskId: 42 });
       await useTimerStore.getState().start();
-      useTimerStore.setState({ secondsRemaining: 0 });
+      useTimerStore.setState({
+        secondsRemaining: 0,
+        deadlineAtMs: Date.now() - 1000,
+      });
 
       useTimerStore.getState().skip();
 
@@ -419,7 +466,10 @@ describe("useTimerStore", () => {
 
     it("sends notification when session completed", async () => {
       await useTimerStore.getState().start();
-      useTimerStore.setState({ secondsRemaining: 0 });
+      useTimerStore.setState({
+        secondsRemaining: 0,
+        deadlineAtMs: Date.now() - 1000,
+      });
 
       useTimerStore.getState().skip();
 
@@ -430,7 +480,10 @@ describe("useTimerStore", () => {
     it("transitions to long break after POMOS_BEFORE_LONG_BREAK completed pomos", async () => {
       useTimerStore.setState({ completedPomos: POMOS_BEFORE_LONG_BREAK - 1 });
       await useTimerStore.getState().start();
-      useTimerStore.setState({ secondsRemaining: 0 });
+      useTimerStore.setState({
+        secondsRemaining: 0,
+        deadlineAtMs: Date.now() - 1000,
+      });
 
       useTimerStore.getState().skip();
 
@@ -467,7 +520,10 @@ describe("useTimerStore", () => {
     it("finishes early as incomplete, does not increment pomos, and resets to work idle", async () => {
       useTimerStore.setState({ activeTaskId: 10 });
       await useTimerStore.getState().start();
-      useTimerStore.setState({ secondsRemaining: DEFAULT_WORK_SEC - 300 });
+      useTimerStore.setState({
+        secondsRemaining: DEFAULT_WORK_SEC - 300,
+        deadlineAtMs: Date.now() + (DEFAULT_WORK_SEC - 300) * 1000,
+      });
 
       await useTimerStore.getState().finishSession("great", "Good session");
 

@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/cn";
 import type { WeekSession } from "@/lib/db";
+import { formatTimeAmPm, parseLocalDateTime } from "@/lib/time";
 import { CalendarSessionBlock } from "./calendar-session-block";
 import { CalendarDayPill } from "./calendar-day-pill";
 
@@ -14,7 +15,7 @@ interface CalendarGridProps {
 
 const DAY_LABELS_FULL = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
 
-const BASE_HOUR_HEIGHT = 64;
+const MIN_LABELED_IDLE_GAP_MINUTES = 15;
 
 function isToday(date: Date): boolean {
   const today = new Date();
@@ -34,7 +35,7 @@ function buildSessionsByDay(
 ): Map<string, WeekSession[]> {
   const map = new Map<string, WeekSession[]>();
   for (const s of sessions) {
-    const key = toDateString(new Date(s.started_at));
+    const key = toDateString(parseLocalDateTime(s.started_at));
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(s);
   }
@@ -45,82 +46,137 @@ interface PositionedSession {
   session: WeekSession;
   topPx: number;
   heightPx: number;
+  compact: boolean;
+}
+
+interface IdleGap {
+  id: string;
+  start: Date;
+  end: Date;
+  topPx: number;
+  heightPx: number;
+  durationMin: number;
 }
 
 interface DayLayout {
   positioned: PositionedSession[];
+  idleGaps: IdleGap[];
   hourTopPx: number[];
   totalHeight: number;
 }
 
-function computeDayLayout(
+function getMinutesSinceMidnight(date: Date): number {
+  return date.getHours() * 60 + date.getMinutes() + date.getSeconds() / 60;
+}
+
+function formatGapDuration(durationMin: number): string {
+  const rounded = Math.round(durationMin);
+  if (rounded < 60) return `${rounded}分钟`;
+  const hours = Math.floor(rounded / 60);
+  const minutes = rounded % 60;
+  return minutes > 0 ? `${hours}小时${minutes}分钟` : `${hours}小时`;
+}
+
+function CalendarIdleGap({ gap }: { gap: IdleGap }) {
+  const label = `空闲 ${formatGapDuration(gap.durationMin)}`;
+  const timeRange = `${formatTimeAmPm(gap.start)} - ${formatTimeAmPm(gap.end)}`;
+
+  return (
+    <div
+      className="absolute left-1 right-1 md:left-1.5 md:right-1.5 z-0 pointer-events-none overflow-hidden border-y border-dashed border-sahara-border/30 bg-sahara-bg/35 text-sahara-text-muted"
+      style={{ top: gap.topPx, height: gap.heightPx }}
+      title={`${label} ${timeRange}`}
+      aria-label={`${label} ${timeRange}`}
+    >
+      {gap.heightPx >= 18 && (
+        <div className="flex h-full items-center justify-center px-2">
+          <span className="truncate text-[10px] font-medium tabular-nums">
+            {label}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function computeDayLayout(
   daySessions: WeekSession[],
   startHour: number,
   endHour: number,
+  hourHeight: number,
 ): DayLayout {
+  const hourCount = endHour - startHour + 1;
+  const totalVisibleMinutes = hourCount * 60;
+  const totalHeight = hourCount * hourHeight;
   const sorted = daySessions.toSorted(
     (a, b) =>
-      new Date(a.started_at).getTime() - new Date(b.started_at).getTime(),
+      parseLocalDateTime(a.started_at).getTime() -
+      parseLocalDateTime(b.started_at).getTime(),
   );
 
   const positioned: PositionedSession[] = [];
+  const idleGaps: IdleGap[] = [];
+  let previousEndMin: number | null = null;
+  let previousEndTime: Date | null = null;
 
   for (const session of sorted) {
-    const startTime = new Date(session.started_at);
-    const durationMin = Math.ceil(session.duration_sec / 60);
-    const startMin =
-      (startTime.getHours() - startHour) * 60 + startTime.getMinutes();
+    if (session.duration_sec <= 0) continue;
 
-    let topPx = Math.max((startMin / 60) * BASE_HOUR_HEIGHT, 0);
+    const startTime = parseLocalDateTime(session.started_at);
+    const endTime = new Date(startTime.getTime() + session.duration_sec * 1000);
+    const startMin = getMinutesSinceMidnight(startTime) - startHour * 60;
+    const endMin = startMin + session.duration_sec / 60;
+    const visibleStartMin = Math.max(startMin, 0);
+    const visibleEndMin = Math.min(endMin, totalVisibleMinutes);
 
-    for (const existing of positioned) {
-      const existingEnd = existing.topPx + existing.heightPx;
-      if (topPx < existingEnd) {
-        topPx = existingEnd + 4;
+    if (visibleEndMin <= 0 || visibleStartMin >= totalVisibleMinutes) {
+      continue;
+    }
+
+    if (visibleEndMin <= visibleStartMin) {
+      continue;
+    }
+
+    if (previousEndMin !== null && previousEndTime !== null) {
+      const gapMin = visibleStartMin - previousEndMin;
+      if (gapMin >= MIN_LABELED_IDLE_GAP_MINUTES) {
+        idleGaps.push({
+          id: `${previousEndTime.toISOString()}-${startTime.toISOString()}`,
+          start: previousEndTime,
+          end: startTime,
+          topPx: (previousEndMin / 60) * hourHeight,
+          heightPx: (gapMin / 60) * hourHeight,
+          durationMin: gapMin,
+        });
       }
     }
 
-    const heightPx = Math.max((durationMin / 60) * BASE_HOUR_HEIGHT, 100);
+    const topPx = (visibleStartMin / 60) * hourHeight;
+    const heightPx = ((visibleEndMin - visibleStartMin) / 60) * hourHeight;
 
-    positioned.push({ session, topPx, heightPx });
+    positioned.push({
+      session,
+      topPx,
+      heightPx,
+      compact: heightPx < 48,
+    });
+
+    if (previousEndMin === null || visibleEndMin > previousEndMin) {
+      previousEndMin = visibleEndMin;
+      previousEndTime = endTime;
+    }
   }
 
-  const hourCount = endHour - startHour + 1;
-  const hourTopPx: number[] = [0];
-
-  for (let h = 0; h < hourCount; h++) {
-    const hourStartMin = h * 60;
-    const hourEndMin = (h + 1) * 60;
-
-    const lastInHour = positioned
-      .filter((p) => {
-        const s = p.session;
-        const sStart = new Date(s.started_at);
-        const sStartMin =
-          (sStart.getHours() - startHour) * 60 + sStart.getMinutes();
-        return sStartMin >= hourStartMin && sStartMin < hourEndMin;
-      })
-      .pop();
-
-    const expandedHeight = lastInHour
-      ? Math.max(
-          lastInHour.topPx + lastInHour.heightPx - hourTopPx[h],
-          BASE_HOUR_HEIGHT,
-        )
-      : BASE_HOUR_HEIGHT;
-
-    hourTopPx.push(hourTopPx[hourTopPx.length - 1] + expandedHeight);
-  }
-
-  const totalContentBottom =
-    positioned.length > 0
-      ? Math.max(...positioned.map((p) => p.topPx + p.heightPx))
-      : 0;
+  const hourTopPx = Array.from(
+    { length: hourCount + 1 },
+    (_, idx) => idx * hourHeight,
+  );
 
   return {
     positioned,
+    idleGaps,
     hourTopPx,
-    totalHeight: Math.max(totalContentBottom, hourTopPx[hourCount]),
+    totalHeight,
   };
 }
 
@@ -163,7 +219,6 @@ function CalendarMobileView({
             {hours.map((hour, hIdx) => {
               const maxH = Math.max(
                 layout.hourTopPx[hIdx + 1] - layout.hourTopPx[hIdx],
-                BASE_HOUR_HEIGHT,
               );
               return (
                 <div
@@ -188,8 +243,12 @@ function CalendarMobileView({
               />
             ))}
 
-            {layout.positioned.map(({ session, topPx, heightPx }) => (
-              <CalendarSessionBlock key={session.id} session={session} topPx={topPx} heightPx={heightPx} />
+            {layout.idleGaps.map((gap) => (
+              <CalendarIdleGap key={gap.id} gap={gap} />
+            ))}
+
+            {layout.positioned.map(({ session, topPx, heightPx, compact }) => (
+              <CalendarSessionBlock key={session.id} session={session} topPx={topPx} heightPx={heightPx} compact={compact} />
             ))}
 
             {currentTimePos !== null && today && (
@@ -250,7 +309,9 @@ function CalendarDesktopView({
         <div className="grid" style={{ gridTemplateColumns: `64px repeat(${weekDays.length}, 1fr)`, minHeight: desktopGridTotalHeight }}>
           <div className="border-r border-sahara-border/20 bg-sahara-bg/30 relative shrink-0 w-16">
             {hours.map((hour, hIdx) => {
-              const maxH = Math.max(...allDayLayouts.map((l) => l.hourTopPx[hIdx + 1] - l.hourTopPx[hIdx]), BASE_HOUR_HEIGHT);
+              const maxH = Math.max(
+                ...allDayLayouts.map((l) => l.hourTopPx[hIdx + 1] - l.hourTopPx[hIdx]),
+              );
               return (
                 <div key={hour} className="pr-3 text-right border-b border-sahara-border/15" style={{ height: maxH }}>
                   <span className="text-[11px] font-medium text-sahara-text-muted tabular-nums leading-none inline-block mt-2">{formatHour(hour)}</span>
@@ -263,12 +324,15 @@ function CalendarDesktopView({
             const layout = allDayLayouts[idx];
             const today = isToday(day);
             return (
-              <div key={day.toDateString()} className={cn("relative border-r last:border-r-0 border-sahara-border/15", today && "bg-sahara-primary-light/30")} style={{ minHeight: layout.totalHeight }}>
+              <div key={day.toDateString()} className={cn("relative border-r last:border-r-0 border-sahara-border/15", today && "bg-sahara-primary-light/30")} style={{ minHeight: desktopGridTotalHeight }}>
                 {hours.map((_, hIdx) => (
                   <div key={hIdx} className="border-b border-sahara-border/10" style={{ height: layout.hourTopPx[hIdx + 1] - layout.hourTopPx[hIdx] }} />
                 ))}
-                {layout.positioned.map(({ session, topPx, heightPx }) => (
-                  <CalendarSessionBlock key={session.id} session={session} topPx={topPx} heightPx={heightPx} />
+                {layout.idleGaps.map((gap) => (
+                  <CalendarIdleGap key={gap.id} gap={gap} />
+                ))}
+                {layout.positioned.map(({ session, topPx, heightPx, compact }) => (
+                  <CalendarSessionBlock key={session.id} session={session} topPx={topPx} heightPx={heightPx} compact={compact} />
                 ))}
                 {currentTimePos !== null && idx === todayIdx && (
                   <div className="absolute left-0 right-0 z-30 pointer-events-none flex items-center" style={{ top: currentTimePos }}>
@@ -299,6 +363,7 @@ export function CalendarGrid({
   weekDays,
   startHour,
   endHour,
+  hourHeight,
 }: CalendarGridProps) {
   const hours = Array.from(
     { length: endHour - startHour + 1 },
@@ -338,19 +403,20 @@ export function CalendarGrid({
           sessionsByDay.get(toDateString(day)) ?? [],
           startHour,
           endHour,
+          hourHeight,
         ),
       ),
-    [sessionsByDay, weekDays, startHour, endHour],
+    [sessionsByDay, weekDays, startHour, endHour, hourHeight],
   );
 
   function getCurrentTimePosition(): number | null {
-    const currentMinutes = nowRef.current.getHours() * 60 + nowRef.current.getMinutes();
+    const currentMinutes = getMinutesSinceMidnight(nowRef.current);
     const startMinutes = startHour * 60;
     if (currentMinutes < startMinutes || currentMinutes > (endHour + 1) * 60)
       return null;
 
     const offsetMin = currentMinutes - startMinutes;
-    return (offsetMin / 60) * BASE_HOUR_HEIGHT;
+    return (offsetMin / 60) * hourHeight;
   }
 
   const currentTimePos = getCurrentTimePosition();

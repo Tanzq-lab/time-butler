@@ -24,17 +24,21 @@ const workerCode = `
   self.onmessage = (e) => {
     if (e.data.command === "start") {
       remaining = e.data.seconds;
-      targetEndTime = Date.now() + remaining * 1000;
+      targetEndTime = e.data.deadlineAtMs ?? Date.now() + remaining * 1000;
       startCountdown();
     }
 
     if (e.data.command === "pause") {
+      remaining = computeRemaining();
       clearInterval(interval);
       interval = null;
     }
 
     if (e.data.command === "resume") {
-      targetEndTime = Date.now() + remaining * 1000;
+      if (typeof e.data.seconds === "number") {
+        remaining = e.data.seconds;
+      }
+      targetEndTime = e.data.deadlineAtMs ?? Date.now() + remaining * 1000;
       startCountdown();
     }
 
