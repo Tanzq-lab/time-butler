@@ -16,12 +16,11 @@ const appSupportDir = path.join(
   "Application Support",
   "com.timebutler.desktop",
 );
-const runtimeDb = path.resolve(
-  process.env.TIME_BUTLER_DB ?? path.join(appSupportDir, "Kairos-Pomodoro.db"),
-);
 const sourceLog = path.join(repoRoot, "data", "pomodoro-estimation-log.jsonl");
 const targetDb = path.join(dataRoot, "Kairos-Pomodoro.db");
 const targetLog = path.join(dataRoot, "data", "pomodoro-estimation-log.jsonl");
+const legacyAppSupportDb = path.join(appSupportDir, "Kairos-Pomodoro.db");
+const runtimeDb = path.resolve(process.env.TIME_BUTLER_DB ?? targetDb);
 
 function usage() {
   console.log(`Usage: node scripts/private-data.mjs <init|backup>
@@ -29,6 +28,7 @@ function usage() {
 Defaults:
   data root: ${dataRoot}
   runtime DB: ${runtimeDb}
+  legacy AppData DB: ${legacyAppSupportDb}
 
 Overrides:
   TIME_BUTLER_DATA_DIR=/path/to/time-butler-data
@@ -147,13 +147,17 @@ function backupData() {
     throw new Error(`Runtime database does not exist: ${runtimeDb}`);
   }
 
-  const previousBackup = backupExistingPrivateDb();
-  if (previousBackup) {
-    console.log(`Saved previous private DB snapshot: ${previousBackup}`);
-  }
+  if (path.resolve(runtimeDb) === path.resolve(targetDb)) {
+    console.log(`Runtime DB already uses private data root: ${targetDb}`);
+  } else {
+    const previousBackup = backupExistingPrivateDb();
+    if (previousBackup) {
+      console.log(`Saved previous private DB snapshot: ${previousBackup}`);
+    }
 
-  runSqliteBackup(runtimeDb, targetDb);
-  console.log(`Backed up runtime DB to: ${targetDb}`);
+    runSqliteBackup(runtimeDb, targetDb);
+    console.log(`Backed up runtime DB to: ${targetDb}`);
+  }
 
   mergeEstimationLog();
 }

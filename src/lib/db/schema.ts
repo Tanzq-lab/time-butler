@@ -1,18 +1,28 @@
 import Database from "@tauri-apps/plugin-sql";
 import { DEFAULT_CATEGORY_COLOR } from "@/lib/constants";
 import { seedDefaultTaskCategories } from "./default-categories";
+import { invoke, isTauri } from "@/lib/tauri";
 
-const DB_NAME = "sqlite:Kairos-Pomodoro.db";
+const FALLBACK_DB_NAME = "sqlite:Kairos-Pomodoro.db";
 
 let db: Database | null = null;
+let dbName: string | null = null;
 
-export function getDbName(): string {
-  return DB_NAME;
+export async function getDbName(): Promise<string> {
+  if (dbName) return dbName;
+
+  if (!isTauri()) {
+    dbName = FALLBACK_DB_NAME;
+    return dbName;
+  }
+
+  dbName = await invoke<string>("private_database_url");
+  return dbName;
 }
 
 export async function getDb(): Promise<Database> {
   if (!db) {
-    db = await Database.load(DB_NAME);
+    db = await Database.load(await getDbName());
   }
   return db;
 }
@@ -107,9 +117,18 @@ export async function initDb(): Promise<void> {
       "ALTER TABLE tasks ADD COLUMN completion_review TEXT",
     ],
     5: [],
+    6: [
+      `CREATE TABLE IF NOT EXISTS notes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL DEFAULT '',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`,
+    ],
   };
 
-  const targetVersion = 5;
+  const targetVersion = 6;
 
   for (let v = currentVersion + 1; v <= targetVersion; v++) {
     const statements = migrations[v];

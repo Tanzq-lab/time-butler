@@ -88,6 +88,9 @@ function parseCreateDefaults(sql: string): Map<string, unknown> {
       if (val === "0") defaults.set(colName, 0);
       else if (val === "1") defaults.set(colName, 1);
       else if (/^\d+$/.test(val)) defaults.set(colName, Number(val));
+      else if (val.toUpperCase() === "CURRENT_TIMESTAMP") {
+        defaults.set(colName, new Date().toISOString());
+      }
       else if (
         val.startsWith("'") &&
         val.endsWith("'") &&

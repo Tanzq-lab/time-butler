@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   Timer,
   CheckSquare,
+  FileText,
   BarChart2,
   Settings,
   Calendar,
@@ -12,6 +13,7 @@ import { cn } from "@/lib/cn";
 const NAV_ITEMS = [
   { path: "/", label: "计时", icon: Timer },
   { path: "/tasks", label: "任务", icon: CheckSquare },
+  { path: "/notes", label: "记录", icon: FileText },
   { path: "/calendar", label: "日历", icon: Calendar },
   { path: "/analytics", label: "分析", icon: BarChart2 },
 ] as const;

@@ -17,8 +17,10 @@ function applyTheme(mode: ThemeMode): void {
 
   if (resolved === "dark") {
     root.classList.add("dark");
+    root.setAttribute("data-color-mode", "dark");
   } else {
     root.classList.remove("dark");
+    root.setAttribute("data-color-mode", "light");
   }
 }
 

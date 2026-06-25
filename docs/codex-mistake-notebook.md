@@ -52,7 +52,7 @@
 - 只要两者不一致，就要求写复盘原因。
 - `actualPomos > estimatedPomos`：记录为什么晚点做完。
 - `actualPomos < estimatedPomos`：记录为什么提前做完。
-- 复盘原因要写入 `data/pomodoro-estimation-log.jsonl` 的 completion 事件，作为后续预估参考。
+- 复盘原因要写入 `../time-butler-data/data/pomodoro-estimation-log.jsonl` 的 completion 事件，作为后续预估参考。
 
 ## 2026-06-22：不要混淆番茄到点和任务完成
 

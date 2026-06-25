@@ -12,7 +12,7 @@ Before creating or changing any task, Codex must:
 4. Estimate pomodoros for the task.
 5. Separate `project` from `category`: project is the task's product/domain, category is the actual work type.
 6. If the estimate is greater than 4 pomodoros, warn the user and suggest subtasks before adding it as one task.
-7. After adding a task, append an estimation event to `data/pomodoro-estimation-log.jsonl`.
+7. After adding a task, append an estimation event to `../time-butler-data/data/pomodoro-estimation-log.jsonl`.
 
 Do not skip pomodoro estimation. Do not silently add tasks estimated above 4 pomodoros as normal tasks.
 Do not use broad domains like "工作", "投资", or "个人事务" as categories when a more useful work-type label is available.
@@ -22,14 +22,14 @@ Do not use broad domains like "工作", "投资", or "个人事务" as categorie
 This is a personal-use app. Keep one runtime/data path unless the user explicitly asks otherwise:
 
 - Use the Tauri desktop app as the only real app surface.
-- Use `sqlite:Kairos-Pomodoro.db` as the single task database.
+- Use `../time-butler-data/Kairos-Pomodoro.db` as the single task database.
 - Do not introduce separate dev/prod task databases or browser-preview task data.
 
 ## Running App Safety
 
 Assume the user may be actively timing when they ask for task/data updates.
 
-- For pure task/session/category data changes, update the SQLite database and `data/pomodoro-estimation-log.jsonl` only.
+- For pure task/session/category data changes, update the SQLite database and `../time-butler-data/data/pomodoro-estimation-log.jsonl` only.
 - Do not edit app source files for a pure data update.
 - Do not run commands that restart the dev server for a pure data update.
 - If a requested fix requires source/config changes while the app may be open, warn the user that the app can refresh and preserve timer state before proceeding.

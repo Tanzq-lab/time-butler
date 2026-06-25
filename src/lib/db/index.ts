@@ -1,6 +1,6 @@
 export { initDb } from "./schema";
 export { getDb } from "./schema";
-export type { Session, Category, CategoryBreakdown, DayData, WeekSession, WeekSummary, MoodStat, SessionNoteEntry, CompletedTaskEntry } from "./types";
+export type { Session, Category, CategoryBreakdown, DayData, WeekSession, WeekSummary, MoodStat, SessionNoteEntry, CompletedTaskEntry, Note } from "./types";
 export {
   getTasks,
   addTask,
@@ -43,3 +43,4 @@ export {
 } from "./analytics";
 export { getPresets, addPreset, updatePreset, deletePreset } from "./presets";
 export type { TimerPreset } from "./presets";
+export { getNotes, addNote, updateNote, deleteNote } from "./notes";

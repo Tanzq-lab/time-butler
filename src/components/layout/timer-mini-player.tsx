@@ -3,8 +3,10 @@ import {
   Pause,
   SkipForward,
   Maximize2,
+  Minimize2,
   Hash,
 } from "lucide-react";
+import { useState } from "react";
 import { useTimerStore } from "@/features/timer/use-timer-store";
 import { useTaskStore } from "@/features/tasks/use-task-store";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -14,6 +16,7 @@ import { formatDuration } from "@/lib/session-utils";
 export function TimerMiniPlayer() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [isMinimized, setIsMinimized] = useState(false);
 
   const {
     phase,
@@ -46,13 +49,65 @@ export function TimerMiniPlayer() {
   const phaseLabel = phase === "work" ? "专注" : "休息";
   const accentColor = selectedCategory?.color || "var(--color-sahara-primary)";
 
+  if (isMinimized) {
+    return (
+      <div className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <div className="bg-sahara-surface/85 backdrop-blur-2xl border border-sahara-border/20 rounded-full pl-3 pr-2 py-2 shadow-2xl shadow-black/20 flex items-center gap-2">
+          <button
+            onClick={() => navigate("/")}
+            className="flex items-center gap-2 min-w-0 px-1 py-1 rounded-full hover:bg-sahara-card transition-colors"
+            title="回到计时页"
+            aria-label="回到计时页"
+          >
+            <span
+              className="size-2.5 rounded-full shrink-0"
+              style={{ backgroundColor: accentColor }}
+            />
+            <span className="text-sm font-black tabular-nums text-sahara-text">
+              {formatDuration(secondsRemaining)}
+            </span>
+          </button>
+
+          {status === "running" ? (
+            <button
+              onClick={pause}
+              className="size-8 rounded-full bg-sahara-surface border border-sahara-border/10 flex items-center justify-center text-sahara-text hover:bg-sahara-card transition-colors shadow-sm"
+              title="暂停"
+              aria-label="暂停"
+            >
+              <Pause className="size-4" fill="currentColor" />
+            </button>
+          ) : (
+            <button
+              onClick={resume}
+              className="size-8 rounded-full bg-sahara-primary flex items-center justify-center text-white hover:brightness-110 transition-all shadow-lg shadow-sahara-primary/20"
+              title="继续"
+              aria-label="继续"
+            >
+              <Play className="size-4 ml-0.5" fill="currentColor" />
+            </button>
+          )}
+
+          <button
+            onClick={() => setIsMinimized(false)}
+            className="size-8 rounded-full bg-sahara-surface border border-sahara-border/10 flex items-center justify-center text-sahara-text-muted hover:text-sahara-text hover:bg-sahara-card transition-colors"
+            title="展开计时横条"
+            aria-label="展开计时横条"
+          >
+            <Maximize2 className="size-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="bg-sahara-surface/80 backdrop-blur-2xl border border-sahara-border/20 rounded-2xl p-3 md:p-4 shadow-2xl shadow-black/20 flex items-center gap-4 md:gap-6">
+      <div className="bg-sahara-surface/80 backdrop-blur-2xl border border-sahara-border/20 rounded-2xl p-2.5 md:p-4 shadow-2xl shadow-black/20 flex items-center gap-2.5 md:gap-6">
         {/* Progress & Exit */}
         <button
           onClick={() => navigate("/")}
-          className="group relative size-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
+          className="group relative size-11 md:w-14 md:h-14 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
         >
           <div
             className="absolute inset-0 bg-sahara-card opacity-40"
@@ -92,11 +147,11 @@ export function TimerMiniPlayer() {
         </div>
 
         {/* Timer & Controls */}
-        <div className="flex items-center gap-3 md:gap-5 shrink-0">
+        <div className="flex items-center gap-2 md:gap-5 shrink-0">
           <div className="text-right tabular-nums">
             <p
               className={cn(
-                "text-lg md:text-xl font-black tracking-tight",
+                "text-base md:text-xl font-black tracking-tight",
                 "text-sahara-text",
               )}
             >
@@ -104,18 +159,18 @@ export function TimerMiniPlayer() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 md:gap-2">
             {status === "running" ? (
               <button
                 onClick={pause}
-                className="size-10 md:w-11 md:h-11 rounded-full bg-sahara-surface border border-sahara-border/10 flex items-center justify-center text-sahara-text hover:bg-sahara-card transition-colors shadow-sm"
+                className="size-9 md:w-11 md:h-11 rounded-full bg-sahara-surface border border-sahara-border/10 flex items-center justify-center text-sahara-text hover:bg-sahara-card transition-colors shadow-sm"
               >
                 <Pause className="size-5" fill="currentColor" />
               </button>
             ) : (
               <button
                 onClick={resume}
-                className="size-10 md:w-11 md:h-11 rounded-full bg-sahara-primary flex items-center justify-center text-white hover:brightness-110 transition-all shadow-lg shadow-sahara-primary/20 scale-105"
+                className="size-9 md:w-11 md:h-11 rounded-full bg-sahara-primary flex items-center justify-center text-white hover:brightness-110 transition-all shadow-lg shadow-sahara-primary/20 scale-105"
               >
                 <Play className="size-5 ml-0.5" fill="currentColor" />
               </button>
@@ -123,13 +178,23 @@ export function TimerMiniPlayer() {
 
             <button
               onClick={skip}
-              className="size-10 md:w-11 md:h-11 rounded-full bg-sahara-surface border border-sahara-border/10 flex items-center justify-center text-sahara-text-muted hover:text-sahara-text hover:bg-sahara-card transition-colors"
+              className="size-9 md:w-11 md:h-11 rounded-full bg-sahara-surface border border-sahara-border/10 flex items-center justify-center text-sahara-text-muted hover:text-sahara-text hover:bg-sahara-card transition-colors"
               title="跳过当前阶段"
+              aria-label="跳过当前阶段"
             >
               <SkipForward
                 className="size-4 md:w-5 md:h-5"
                 fill="currentColor"
               />
+            </button>
+
+            <button
+              onClick={() => setIsMinimized(true)}
+              className="size-9 md:w-11 md:h-11 rounded-full bg-sahara-surface border border-sahara-border/10 flex items-center justify-center text-sahara-text-muted hover:text-sahara-text hover:bg-sahara-card transition-colors"
+              title="缩小计时横条"
+              aria-label="缩小计时横条"
+            >
+              <Minimize2 className="size-4 md:w-5 md:h-5" />
             </button>
           </div>
         </div>

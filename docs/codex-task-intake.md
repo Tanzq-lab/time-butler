@@ -9,7 +9,7 @@ Codex 每次帮用户添加任务时，必须遵守下面流程：
 3. 解析任务名、项目、优先级、分类、番茄数。
 4. 判断是否超过 4 个番茄。
 5. 如果超过 4 个番茄，必须建议拆分。
-6. 添加任务后，写入 `data/pomodoro-estimation-log.jsonl`。
+6. 添加任务后，写入 `../time-butler-data/data/pomodoro-estimation-log.jsonl`。
 7. 不要跳过番茄预估。
 8. 不要把超过 4 个番茄的大任务静默加入任务清单。
 9. 如果任务由 Codex 直接写入 SQLite，还必须确认 UI 可见性或说明刷新方式。
@@ -53,11 +53,11 @@ Codex 每次帮用户添加任务时，必须遵守下面流程：
 - `delta`
 - `lesson`
 
-如果同类任务多次低估，需要根据 `data/pomodoro-estimation-log.jsonl` 的偏差记录更新 `docs/pomodoro-estimation-memo.md`。
+如果同类任务多次低估，需要根据 `../time-butler-data/data/pomodoro-estimation-log.jsonl` 的偏差记录更新 `docs/pomodoro-estimation-memo.md`。
 
 ## UI 可见性验收
 
-当 Codex 不通过 UI 表单，而是直接写入 `Kairos-Pomodoro.db` 时，必须在最终回复前完成：
+当 Codex 不通过 UI 表单，而是直接写入 `../time-butler-data/Kairos-Pomodoro.db` 时，必须在最终回复前完成：
 
 1. 查询 SQLite，确认任务行存在且未归档。
 2. 判断任务属于 `进行中`、`稍后提醒` 还是 `已完成`。

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import {
   Timer,
   CheckSquare,
+  FileText,
   BarChart2,
   Settings,
   Calendar,
@@ -18,6 +19,7 @@ import { m } from "framer-motion";
 const NAV_ITEMS = [
   { path: "/", label: "计时", icon: Timer },
   { path: "/tasks", label: "任务", icon: CheckSquare },
+  { path: "/notes", label: "记录", icon: FileText },
   { path: "/calendar", label: "日历", icon: Calendar },
   { path: "/analytics", label: "分析", icon: BarChart2 },
 ] as const;

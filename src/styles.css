@@ -86,6 +86,128 @@ input[type="range"]::-webkit-slider-thumb {
   cursor: pointer;
 }
 
+.notes-markdown-editor {
+  --color-canvas-default: var(--color-sahara-surface);
+  --color-canvas-subtle: var(--color-sahara-card);
+  --color-border-default: color-mix(in srgb, var(--color-sahara-border) 55%, transparent);
+  --color-border-muted: color-mix(in srgb, var(--color-sahara-border) 35%, transparent);
+  --color-fg-default: var(--color-sahara-text);
+  --color-fg-muted: var(--color-sahara-text-muted);
+  --color-accent-fg: var(--color-sahara-primary);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.notes-markdown-editor .w-md-editor {
+  height: 100% !important;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-sahara-text);
+  box-shadow: none;
+}
+
+.notes-markdown-editor .w-md-editor-toolbar {
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 42px;
+  padding: 6px 24px;
+  border-bottom-color: color-mix(in srgb, var(--color-sahara-border) 35%, transparent);
+  background: color-mix(in srgb, var(--color-sahara-card) 45%, transparent);
+}
+
+.notes-markdown-editor .w-md-editor-toolbar li > button {
+  color: var(--color-sahara-text-secondary);
+}
+
+.notes-markdown-editor .w-md-editor-toolbar li > button:hover,
+.notes-markdown-editor .w-md-editor-toolbar li > button:focus {
+  color: var(--color-sahara-primary);
+  background: var(--color-sahara-primary-light);
+}
+
+.notes-markdown-editor .w-md-editor-content,
+.notes-markdown-editor .w-md-editor-area,
+.notes-markdown-editor .w-md-editor-input,
+.notes-markdown-editor .w-md-editor-text,
+.notes-markdown-editor .w-md-editor-preview {
+  min-height: 0;
+}
+
+.notes-markdown-editor .w-md-editor-content {
+  flex: 1 1 auto;
+  height: auto !important;
+  overflow: hidden;
+}
+
+.notes-markdown-editor .w-md-editor-input,
+.notes-markdown-editor .w-md-editor-area {
+  height: 100%;
+}
+
+.notes-markdown-editor .w-md-editor-area {
+  border-radius: 0;
+}
+
+.notes-markdown-editor .w-md-editor-text-input,
+.notes-markdown-editor .w-md-editor-text-pre > code {
+  color: var(--color-sahara-text) !important;
+  font-size: 16px !important;
+  line-height: 1.8 !important;
+  font-family: var(--font-sans) !important;
+}
+
+.notes-markdown-editor .w-md-editor-text {
+  min-height: 100%;
+  padding: 24px 32px !important;
+}
+
+.notes-markdown-editor .w-md-editor-text-input {
+  min-height: 100%;
+  overflow: auto !important;
+}
+
+.notes-markdown-editor .wmde-markdown {
+  min-height: 100%;
+  padding: 24px 32px !important;
+  background: transparent;
+  color: var(--color-sahara-text);
+  font-family: var(--font-sans);
+}
+
+.notes-markdown-editor .wmde-markdown h1,
+.notes-markdown-editor .wmde-markdown h2,
+.notes-markdown-editor .wmde-markdown h3 {
+  color: var(--color-sahara-text);
+  font-family: var(--font-serif);
+}
+
+.notes-markdown-editor .wmde-markdown blockquote {
+  color: var(--color-sahara-text-secondary);
+  border-left-color: var(--color-sahara-primary);
+}
+
+.notes-markdown-editor .wmde-markdown code,
+.notes-markdown-editor .wmde-markdown pre {
+  background: var(--color-sahara-card);
+}
+
+@media (max-width: 640px) {
+  .notes-markdown-editor .w-md-editor-toolbar {
+    padding-inline: 12px;
+  }
+
+  .notes-markdown-editor .w-md-editor-text,
+  .notes-markdown-editor .wmde-markdown {
+    padding: 20px 16px !important;
+  }
+}
+
 @keyframes animate-in {
   from {
     opacity: var(--tw-enter-opacity, 1);

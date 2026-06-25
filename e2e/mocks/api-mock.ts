@@ -1,5 +1,7 @@
 // Mock for @tauri-apps/api/core — all exports are no-ops in browser tests
 export async function invoke(_cmd: string, _args?: Record<string, unknown>) {
+  if (_cmd === "private_database_url") return "sqlite:Kairos-Pomodoro.db";
+  if (_cmd === "private_data_root_path") return "/tmp/time-butler-data";
   return null;
 }
 

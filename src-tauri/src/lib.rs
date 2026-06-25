@@ -30,6 +30,8 @@ pub fn run() {
             commands::pomodoro_estimation::read_pomodoro_estimation_memo,
             commands::pomodoro_estimation::append_pomodoro_estimation_log,
             commands::pomodoro_estimation::read_pomodoro_estimation_log,
+            commands::private_data::private_database_url,
+            commands::private_data::private_data_root_path,
             commands::timer::timer_schedule_deadline,
             commands::timer::timer_cancel_deadline,
         ])
