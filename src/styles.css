@@ -116,13 +116,43 @@ input[type="range"]::-webkit-slider-thumb {
   flex: 0 0 auto;
   height: auto;
   min-height: 42px;
+  max-width: 100%;
+  gap: 4px 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
   padding: 6px 24px;
   border-bottom-color: color-mix(in srgb, var(--color-sahara-border) 35%, transparent);
   background: color-mix(in srgb, var(--color-sahara-card) 45%, transparent);
 }
 
+.notes-markdown-editor .w-md-editor-toolbar > ul {
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+}
+
+.notes-markdown-editor .w-md-editor-toolbar > ul:last-child {
+  flex: 0 1 auto;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+.notes-markdown-editor .w-md-editor-toolbar li {
+  flex: 0 0 auto;
+}
+
 .notes-markdown-editor .w-md-editor-toolbar li > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   color: var(--color-sahara-text-secondary);
+  overflow: hidden;
 }
 
 .notes-markdown-editor .w-md-editor-toolbar li > button:hover,
@@ -200,6 +230,13 @@ input[type="range"]::-webkit-slider-thumb {
 @media (max-width: 640px) {
   .notes-markdown-editor .w-md-editor-toolbar {
     padding-inline: 12px;
+  }
+
+  .notes-markdown-editor .w-md-editor-toolbar > ul,
+  .notes-markdown-editor .w-md-editor-toolbar > ul:last-child {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+    margin-left: 0;
   }
 
   .notes-markdown-editor .w-md-editor-text,

@@ -10,13 +10,14 @@ import { useNavigate } from "react-router-dom";
 import {
   CalendarDays,
   CheckCircle2,
-  ChevronRight,
   Circle,
   Clock3,
   FileText,
   FolderTree,
   Loader2,
   Milestone,
+  PanelLeftClose,
+  PanelLeftOpen,
   Pencil,
   Plus,
   Save,
@@ -107,33 +108,46 @@ interface PageTreeButtonProps {
   page: TimePage;
   active: boolean;
   depth: number;
+  collapsed?: boolean;
   onClick: () => void;
 }
 
-function PageTreeButton({ page, active, depth, onClick }: PageTreeButtonProps) {
+function PageTreeButton({
+  page,
+  active,
+  depth,
+  collapsed = false,
+  onClick,
+}: PageTreeButtonProps) {
   return (
     <button
       type="button"
       onClick={onClick}
+      title={collapsed ? `${page.title} · ${formatPageType(page.type)}` : undefined}
       className={cn(
-        "w-full flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm transition-colors",
+        "w-full flex items-center gap-2 rounded-xl text-left text-sm transition-colors",
+        collapsed ? "justify-start px-2 py-2 text-xs" : "px-3 py-2",
         active
           ? "bg-sahara-primary-light text-sahara-primary font-bold"
           : "text-sahara-text-secondary hover:bg-sahara-card hover:text-sahara-text",
       )}
-      style={{ paddingLeft: `${12 + depth * 18}px` }}
+      style={collapsed ? undefined : { paddingLeft: `${12 + depth * 18}px` }}
     >
-      {page.type === "overview" ? (
-        <FolderTree className="size-4 shrink-0" />
-      ) : page.type === "day" ? (
-        <FileText className="size-4 shrink-0" />
-      ) : (
-        <CalendarDays className="size-4 shrink-0" />
+      {!collapsed && (
+        page.type === "overview" ? (
+          <FolderTree className="size-4 shrink-0" />
+        ) : page.type === "day" ? (
+          <FileText className="size-4 shrink-0" />
+        ) : (
+          <CalendarDays className="size-4 shrink-0" />
+        )
       )}
       <span className="min-w-0 flex-1 truncate">{page.title}</span>
-      <span className="text-[10px] text-sahara-text-muted shrink-0">
-        {formatPageType(page.type)}
-      </span>
+      {!collapsed && (
+        <span className="text-[10px] text-sahara-text-muted shrink-0">
+          {formatPageType(page.type)}
+        </span>
+      )}
     </button>
   );
 }
@@ -540,22 +554,21 @@ function MarkdownSection({
 }: MarkdownSectionProps) {
   return (
     <section className="min-h-[30rem] overflow-hidden rounded-3xl border border-sahara-border/20 bg-sahara-surface shadow-sm shadow-sahara-primary/5">
-      <div className="border-b border-sahara-border/20 px-5 py-4 md:px-7">
-        <div className="flex items-center justify-between gap-3">
-          <div>
+      <div className="border-b border-sahara-border/20 px-4 py-3 md:px-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-sahara-text-muted">
               Markdown
             </p>
-            <h2 className="font-serif text-2xl text-sahara-text">自由记录区</h2>
+            <h2 className="truncate text-lg font-bold text-sahara-text">
+              {activePage.title}
+            </h2>
           </div>
           <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-sahara-text-muted">
             <Save className="size-3.5" />
             <span>{saveLabel}</span>
           </div>
         </div>
-        <p className="mt-1 text-xs text-sahara-text-muted">
-          当前页面：{activePage.title}
-        </p>
       </div>
       <div className="h-[32rem] notes-markdown-editor">
         <Suspense
@@ -607,6 +620,7 @@ export function TimePlanningWorkspace() {
   const [draftPageId, setDraftPageId] = useState<number | null>(null);
   const [draftContent, setDraftContent] = useState("");
   const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [isPageTreeCollapsed, setIsPageTreeCollapsed] = useState(false);
 
   const activePage = useMemo(
     () => pages.find((page) => page.id === activePageId) ?? null,
@@ -826,46 +840,78 @@ export function TimePlanningWorkspace() {
 
   return (
     <div className="flex min-h-[calc(100vh-8rem)] flex-col">
-      <div className="mb-6 md:mb-8">
-        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-sahara-text-muted">
-          记录
-        </p>
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h1 className="font-serif text-3xl text-sahara-text md:text-5xl">
-              时间计划工作台
-            </h1>
-            <p className="mt-2 text-sm text-sahara-text-muted">
-              总览 → 年 → 月 → 周 → 日。日页面新增任务，周页面自动汇总完成。
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {overviewPageId && (
-              <Button variant="outline" intent="default" size="sm" shape="rounded-full" onClick={() => void handleSelectPage(overviewPageId)}>
-                总览
-              </Button>
-            )}
-            {dayPageId && (
-              <Button variant="solid" intent="sahara" size="sm" shape="rounded-full" onClick={() => void handleSelectPage(dayPageId)}>
-                进入今天
-              </Button>
-            )}
-            {weekPageId && (
-              <Button variant="outline" intent="sahara" size="sm" shape="rounded-full" onClick={() => void handleSelectPage(weekPageId)}>
-                本周
-              </Button>
-            )}
-          </div>
+      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-sahara-text-muted">
+            记录
+          </p>
+          <h1 className="mt-1 truncate text-base font-bold text-sahara-text md:text-lg">
+            时间计划工作台
+          </h1>
+        </div>
+        <div className="flex flex-wrap gap-2 md:justify-end">
+          {overviewPageId && (
+            <Button variant="outline" intent="default" size="sm" shape="rounded-full" onClick={() => void handleSelectPage(overviewPageId)}>
+              总览
+            </Button>
+          )}
+          {dayPageId && (
+            <Button variant="solid" intent="sahara" size="sm" shape="rounded-full" onClick={() => void handleSelectPage(dayPageId)}>
+              进入今天
+            </Button>
+          )}
+          {weekPageId && (
+            <Button variant="outline" intent="sahara" size="sm" shape="rounded-full" onClick={() => void handleSelectPage(weekPageId)}>
+              本周
+            </Button>
+          )}
         </div>
       </div>
 
-      <div className="grid flex-1 gap-5 lg:grid-cols-[20rem_1fr]">
-        <aside className="min-h-64 rounded-3xl border border-sahara-border/20 bg-sahara-surface p-3 shadow-sm shadow-sahara-primary/5 lg:min-h-0">
-          <div className="mb-3 flex items-center gap-2 px-2 pt-2">
-            <FolderTree className="size-4 text-sahara-primary" />
-            <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-sahara-text-muted">
-              页面树
-            </h2>
+      <div
+        className={cn(
+          "grid flex-1 gap-5",
+          isPageTreeCollapsed
+            ? "lg:grid-cols-[10rem_minmax(0,1fr)]"
+            : "lg:grid-cols-[20rem_minmax(0,1fr)]",
+        )}
+      >
+        <aside
+          className={cn(
+            "min-h-64 rounded-3xl border border-sahara-border/20 bg-sahara-surface shadow-sm shadow-sahara-primary/5 transition-all lg:min-h-0",
+            isPageTreeCollapsed ? "p-2" : "p-3",
+          )}
+        >
+          <div
+            className={cn(
+              "mb-3 flex items-center gap-2 pt-2",
+              isPageTreeCollapsed ? "justify-center px-0" : "px-2",
+            )}
+          >
+            {!isPageTreeCollapsed && (
+              <>
+                <FolderTree className="size-4 text-sahara-primary" />
+                <h2 className="min-w-0 flex-1 text-xs font-bold uppercase tracking-[0.2em] text-sahara-text-muted">
+                  页面树
+                </h2>
+              </>
+            )}
+            <Button
+              variant="ghost"
+              intent="default"
+              size="icon-sm"
+              shape="rounded-full"
+              onClick={() => setIsPageTreeCollapsed((collapsed) => !collapsed)}
+              title={isPageTreeCollapsed ? "展开页面树" : "收起页面树"}
+              aria-label={isPageTreeCollapsed ? "展开页面树" : "收起页面树"}
+              className={cn(!isPageTreeCollapsed && "ml-auto")}
+            >
+              {isPageTreeCollapsed ? (
+                <PanelLeftOpen className="size-4" />
+              ) : (
+                <PanelLeftClose className="size-4" />
+              )}
+            </Button>
           </div>
           <div className="space-y-1">
             {pageTree.map((page, index) => (
@@ -874,51 +920,40 @@ export function TimePlanningWorkspace() {
                 page={page}
                 active={page.id === activePage.id}
                 depth={index}
+                collapsed={isPageTreeCollapsed}
                 onClick={() => void handleSelectPage(page.id)}
               />
             ))}
           </div>
 
-          <div className="mt-5 rounded-2xl bg-sahara-card/50 p-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-sahara-text-muted">
-              当前链路
-            </p>
-            <div className="mt-3 space-y-2 text-sm text-sahara-text-secondary">
-              <div className="flex items-center justify-between gap-2">
-                <span>今年</span>
-                <span className="font-bold text-sahara-text">{workspaceKeys.year}</span>
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <span>本月</span>
-                <span className="font-bold text-sahara-text">{workspaceKeys.month}</span>
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <span>本周</span>
-                <span className="font-bold text-sahara-text">{workspaceKeys.week}</span>
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <span>今天</span>
-                <span className="font-bold text-sahara-text">{workspaceKeys.day}</span>
+          {!isPageTreeCollapsed && (
+            <div className="mt-5 rounded-2xl bg-sahara-card/50 p-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-sahara-text-muted">
+                当前链路
+              </p>
+              <div className="mt-3 space-y-2 text-sm text-sahara-text-secondary">
+                <div className="flex items-center justify-between gap-2">
+                  <span>今年</span>
+                  <span className="font-bold text-sahara-text">{workspaceKeys.year}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span>本月</span>
+                  <span className="font-bold text-sahara-text">{workspaceKeys.month}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span>本周</span>
+                  <span className="font-bold text-sahara-text">{workspaceKeys.week}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span>今天</span>
+                  <span className="font-bold text-sahara-text">{workspaceKeys.day}</span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </aside>
 
-        <main className="min-w-0 space-y-5">
-          <section className="rounded-3xl border border-sahara-border/20 bg-sahara-surface px-5 py-5 shadow-sm shadow-sahara-primary/5 md:px-7 md:py-6">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-sahara-text-muted">
-                  {formatPageType(activePage.type)}页面
-                </p>
-                <h2 className="mt-1 truncate font-serif text-3xl text-sahara-text md:text-4xl">
-                  {activePage.title}
-                </h2>
-              </div>
-              <ChevronRight className="mt-3 size-5 shrink-0 text-sahara-border" />
-            </div>
-          </section>
-
+        <main className="min-w-0 max-w-full space-y-4 overflow-hidden">
           {activePage.type === "overview" && (
             <section className="grid gap-4 md:grid-cols-3">
               <button
@@ -1032,20 +1067,6 @@ export function TimePlanningWorkspace() {
                 </section>
               )}
             </>
-          )}
-
-          {(activePage.type === "year" || activePage.type === "month") && (
-            <section className="rounded-3xl border border-sahara-border/20 bg-sahara-card/35 p-5 md:p-6">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-sahara-text-muted">
-                Planning Level
-              </p>
-              <h2 className="mt-1 font-serif text-2xl text-sahara-text">
-                {activePage.type === "year" ? "年度方向" : "月度计划"}
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-sahara-text-muted">
-                这一层主要用于计划和复盘，不直接新增任务。任务统一在日页面新增，再由周页面自动汇总。
-              </p>
-            </section>
           )}
 
           <MarkdownSection
