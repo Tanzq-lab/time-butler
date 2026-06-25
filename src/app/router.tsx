@@ -3,7 +3,7 @@ import { Outlet, Navigate } from "react-router-dom";
 import { HashRouter, Routes, Route } from "react-router-dom";
 import { TimerPage } from "@/pages/timer-page";
 import { TasksPage } from "@/pages/tasks-page";
-import { NotesPage } from "@/pages/notes-page";
+import { TimePlanningPage } from "@/pages/time-planning-page";
 import { CalendarPage } from "@/pages/calendar-page";
 import { AnalyticsPage } from "@/pages/analytics-page";
 import { SettingsPage } from "@/pages/settings-page";
@@ -44,7 +44,7 @@ export function Router() {
         <Route element={<OnboardingGuard />}>
           <Route path="/" element={<TimerPage />} />
           <Route path="/tasks" element={<TasksPage />} />
-          <Route path="/notes" element={<NotesPage />} />
+          <Route path="/notes" element={<TimePlanningPage />} />
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/settings" element={<SettingsPage />} />

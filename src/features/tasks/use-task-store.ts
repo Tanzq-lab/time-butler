@@ -28,6 +28,7 @@ interface TaskStore {
     priority?: string,
     categoryId?: number | null,
     scheduledFor?: string | null,
+    weekPlanItemId?: number | null,
   ) => Promise<void>;
   updateTask: (
     id: number,
@@ -37,6 +38,7 @@ interface TaskStore {
     priority?: string | null,
     categoryId?: number | null,
     scheduledFor?: string | null,
+    weekPlanItemId?: number | null,
   ) => Promise<void>;
   deleteTask: (id: number) => Promise<void>;
   archiveTask: (id: number) => Promise<void>;
@@ -85,6 +87,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
     priority,
     categoryId,
     scheduledFor,
+    weekPlanItemId,
   ) => {
     try {
       const id = await dbAddTask(
@@ -94,6 +97,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
         priority,
         categoryId,
         scheduledFor,
+        weekPlanItemId,
       );
       const newTask: Task = {
         id,
@@ -104,6 +108,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
         priority: priority as Task["priority"] | undefined,
         category_id: categoryId ?? null,
         scheduled_for: scheduledFor ?? null,
+        week_plan_item_id: weekPlanItemId ?? null,
         completed_at: null,
         completion_review: null,
         created_at: new Date().toISOString(),
@@ -127,6 +132,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
     priority,
     categoryId,
     scheduledFor,
+    weekPlanItemId,
   ) => {
     try {
       await dbUpdateTask(
@@ -137,6 +143,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
         priority,
         categoryId,
         scheduledFor,
+        weekPlanItemId,
       );
       set((state) => ({
         tasks: state.tasks.map((t) => {
@@ -156,6 +163,9 @@ export const useTaskStore = create<TaskStore>((set) => ({
             }),
             ...(scheduledFor !== undefined && {
               scheduled_for: scheduledFor ?? null,
+            }),
+            ...(weekPlanItemId !== undefined && {
+              week_plan_item_id: weekPlanItemId ?? null,
             }),
           };
         }),

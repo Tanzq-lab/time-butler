@@ -81,6 +81,29 @@ export interface SessionNoteEntry {
   task_name: string | null;
 }
 
+export type TimePageType = "overview" | "year" | "month" | "week" | "day";
+
+export interface TimePage {
+  id: number;
+  type: TimePageType;
+  title: string;
+  date_key: string;
+  parent_id: number | null;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WeekPlanItem {
+  id: number;
+  week_page_id: number;
+  title: string;
+  sort_order: number;
+  archived: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface CompletedTaskEntry {
   task_id: number;
   task_name: string;
@@ -90,12 +113,4 @@ export interface CompletedTaskEntry {
   session_count: number;
   completed_pomos: number;
   estimated_pomos: number;
-}
-
-export interface Note {
-  id: number;
-  title: string;
-  content: string;
-  created_at: string;
-  updated_at: string;
 }

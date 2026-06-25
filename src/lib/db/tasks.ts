@@ -10,6 +10,7 @@ export async function getTasks(): Promise<
     completed_pomos: number;
     category_id: number | null;
     scheduled_for: string | null;
+    week_plan_item_id: number | null;
     completed_at: string | null;
     completion_review: string | null;
     created_at: string;
@@ -27,6 +28,7 @@ export async function getTasks(): Promise<
       completed_pomos: number;
       category_id: number | null;
       scheduled_for: string | null;
+      week_plan_item_id: number | null;
       completed_at: string | null;
       completion_review: string | null;
       created_at: string;
@@ -42,10 +44,11 @@ export async function addTask(
   priority?: string,
   categoryId?: number | null,
   scheduledFor?: string | null,
+  weekPlanItemId?: number | null,
 ): Promise<number> {
   const database = await getDb();
   const result = await database.execute(
-    "INSERT INTO tasks (name, estimated_pomos, project, priority, category_id, scheduled_for) VALUES ($1, $2, $3, $4, $5, $6)",
+    "INSERT INTO tasks (name, estimated_pomos, project, priority, category_id, scheduled_for, week_plan_item_id) VALUES ($1, $2, $3, $4, $5, $6, $7)",
     [
       name,
       estimatedPomos,
@@ -53,6 +56,7 @@ export async function addTask(
       priority ?? null,
       categoryId ?? null,
       scheduledFor ?? null,
+      weekPlanItemId ?? null,
     ],
   );
   return result.lastInsertId as number;
@@ -77,6 +81,7 @@ export async function updateTask(
   priority?: string | null,
   categoryId?: number | null,
   scheduledFor?: string | null,
+  weekPlanItemId?: number | null,
 ): Promise<void> {
   const database = await getDb();
   const fields: string[] = [];
@@ -106,6 +111,10 @@ export async function updateTask(
   if (scheduledFor !== undefined) {
     fields.push(`scheduled_for = $${paramIndex++}`);
     values.push(scheduledFor ?? null);
+  }
+  if (weekPlanItemId !== undefined) {
+    fields.push(`week_plan_item_id = $${paramIndex++}`);
+    values.push(weekPlanItemId ?? null);
   }
 
   if (fields.length === 0) return;

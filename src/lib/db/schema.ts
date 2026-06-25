@@ -117,18 +117,42 @@ export async function initDb(): Promise<void> {
       "ALTER TABLE tasks ADD COLUMN completion_review TEXT",
     ],
     5: [],
-    6: [
-      `CREATE TABLE IF NOT EXISTS notes (
+    7: [
+      `CREATE TABLE IF NOT EXISTS time_pages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type TEXT NOT NULL,
         title TEXT NOT NULL,
+        date_key TEXT NOT NULL UNIQUE,
+        parent_id INTEGER,
         content TEXT NOT NULL DEFAULT '',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (parent_id) REFERENCES time_pages(id)
       )`,
+      `CREATE TABLE IF NOT EXISTS week_plan_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        week_page_id INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        archived INTEGER NOT NULL DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (week_page_id) REFERENCES time_pages(id)
+      )`,
+      `CREATE TABLE IF NOT EXISTS task_activity_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL,
+        action TEXT NOT NULL,
+        from_value TEXT,
+        to_value TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (task_id) REFERENCES tasks(id)
+      )`,
+      "ALTER TABLE tasks ADD COLUMN week_plan_item_id INTEGER",
     ],
   };
 
-  const targetVersion = 6;
+  const targetVersion = 7;
 
   for (let v = currentVersion + 1; v <= targetVersion; v++) {
     const statements = migrations[v];
