@@ -3,6 +3,7 @@ import { FileText } from "lucide-react";
 import { getSessionNotes, type SessionNoteEntry } from "@/lib/db";
 import { formatDuration } from "@/lib/session-utils";
 import { formatTimeAmPm } from "@/lib/time";
+import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
 
 const MOOD_EMOJI: Record<string, string> = {
   distracted: "😔",
@@ -103,9 +104,11 @@ export function SessionNotes({ startDate, endDate }: SessionNotesProps) {
                 </span>
               </div>
 
-              <p className="text-[17px] text-sahara-text-secondary leading-relaxed mb-2">
-                {entry.notes}
-              </p>
+              <MarkdownRenderer
+                content={entry.notes}
+                variant="compact"
+                className="mb-2 text-[15px] md:text-[16px]"
+              />
 
               <div className="flex items-center justify-between">
                 <span className="text-xs md:text-base text-sahara-text-muted font-medium">

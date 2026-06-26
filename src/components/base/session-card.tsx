@@ -1,6 +1,7 @@
 import { CheckCircle2 } from "lucide-react";
 import type { Session } from "@/lib/session-utils";
 import { formatTime, formatDuration } from "@/lib/session-utils";
+import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
 
 interface SessionCardProps {
   session: Session;
@@ -27,10 +28,6 @@ function getAccentColor(session: Session): string {
 }
 
 export function SessionCard({ session }: SessionCardProps) {
-  const firstNoteLine = session.notes
-    ? session.notes.split("\n")[0].trim()
-    : null;
-
   const accentColor = getAccentColor(session);
   const tagLabel = session.intention || session.category_name;
 
@@ -95,10 +92,14 @@ export function SessionCard({ session }: SessionCardProps) {
               )}
             </div>
 
-            {firstNoteLine && (
-              <p className="text-xs md:text-sm text-sahara-text-muted mt-1.5 truncate max-w-48 md:max-w-72 border-l-2 border-sahara-border/30 pl-2">
-                {firstNoteLine}
-              </p>
+            {session.notes && (
+              <div className="mt-1.5 max-h-12 max-w-48 overflow-hidden border-l-2 border-sahara-border/30 pl-2 md:max-w-72">
+                <MarkdownRenderer
+                  content={session.notes}
+                  variant="compact"
+                  className="text-xs md:text-sm"
+                />
+              </div>
             )}
           </div>
         </div>

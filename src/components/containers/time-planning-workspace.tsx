@@ -21,10 +21,10 @@ import {
   Pencil,
   Plus,
   Save,
-  Send,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
 import { cn } from "@/lib/cn";
 import type { TimePage, WeekPlanItem } from "@/lib/db";
 import { addTaskActivityLog } from "@/lib/db";
@@ -45,7 +45,20 @@ type TaskGroup = {
   tasks: Task[];
 };
 
+type PageTreeItem = {
+  page: TimePage;
+  depth: number;
+};
+
 const OTHER_GROUP_TITLE = "临时任务 / 其他";
+
+const PAGE_TYPE_ORDER: Record<TimePage["type"], number> = {
+  overview: 0,
+  year: 1,
+  month: 2,
+  week: 3,
+  day: 4,
+};
 
 function dateKeyFromValue(value?: string | null): string | null {
   if (!value) return null;
@@ -55,11 +68,6 @@ function dateKeyFromValue(value?: string | null): string | null {
 function isDateInRange(dateKey: string | null, start: string, end: string): boolean {
   if (!dateKey) return false;
   return dateKey >= start && dateKey <= end;
-}
-
-function formatShortDate(dateKey: string): string {
-  const [year, month, day] = dateKey.split("-");
-  return `${Number(month)}/${Number(day)} · ${year}`;
 }
 
 function formatPageType(type: TimePage["type"]): string {
@@ -75,6 +83,54 @@ function formatPageType(type: TimePage["type"]): string {
     case "day":
       return "日";
   }
+}
+
+function compareTimePages(a: TimePage, b: TimePage): number {
+  const typeDiff = PAGE_TYPE_ORDER[a.type] - PAGE_TYPE_ORDER[b.type];
+  if (typeDiff !== 0) return typeDiff;
+  return b.date_key.localeCompare(a.date_key);
+}
+
+function buildPageTree(pages: TimePage[], overviewPageId: number | null): PageTreeItem[] {
+  const childrenByParent = new Map<number | null, TimePage[]>();
+  for (const page of pages) {
+    const parentId = page.parent_id ?? null;
+    const siblings = childrenByParent.get(parentId) ?? [];
+    siblings.push(page);
+    childrenByParent.set(parentId, siblings);
+  }
+
+  for (const siblings of childrenByParent.values()) {
+    siblings.sort(compareTimePages);
+  }
+
+  const roots = overviewPageId
+    ? pages.filter((page) => page.id === overviewPageId)
+    : childrenByParent.get(null) ?? [];
+  const items: PageTreeItem[] = [];
+  const visited = new Set<number>();
+
+  const visit = (page: TimePage, depth: number) => {
+    if (visited.has(page.id)) return;
+    visited.add(page.id);
+    items.push({ page, depth });
+
+    for (const child of childrenByParent.get(page.id) ?? []) {
+      visit(child, depth + 1);
+    }
+  };
+
+  for (const page of roots) {
+    visit(page, 0);
+  }
+
+  for (const page of [...pages].sort(compareTimePages)) {
+    if (!visited.has(page.id)) {
+      visit(page, 0);
+    }
+  }
+
+  return items;
 }
 
 function buildTaskGroups(tasks: Task[], weekPlanItems: WeekPlanItem[]): TaskGroup[] {
@@ -221,6 +277,15 @@ function TaskCard({
             </span>
             {task.scheduled_for && <span>{dateKeyFromValue(task.scheduled_for)}</span>}
           </div>
+          {done && task.completion_review && (
+            <div className="mt-3 max-h-24 overflow-hidden rounded-xl border border-sahara-border/10 bg-sahara-card/45 px-3 py-2">
+              <MarkdownRenderer
+                content={task.completion_review}
+                variant="compact"
+                className="text-xs md:text-sm"
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -426,117 +491,6 @@ function WeekPlanEditor({
   );
 }
 
-interface DayTaskCreatorProps {
-  dayKey: string;
-  weekPlanItems: WeekPlanItem[];
-  onAddTask: (
-    name: string,
-    estimatedPomos: number,
-    project: string,
-    weekPlanItemId: number | null,
-  ) => Promise<void>;
-}
-
-function DayTaskCreator({ dayKey, weekPlanItems, onAddTask }: DayTaskCreatorProps) {
-  const [name, setName] = useState("");
-  const [estimatedPomos, setEstimatedPomos] = useState(1);
-  const [project, setProject] = useState("");
-  const [weekPlanItemId, setWeekPlanItemId] = useState<string>("other");
-
-  useEffect(() => {
-    setWeekPlanItemId((current) => {
-      if (current !== "other" && weekPlanItems.some((item) => String(item.id) === current)) {
-        return current;
-      }
-      return weekPlanItems[0] ? String(weekPlanItems[0].id) : "other";
-    });
-  }, [weekPlanItems]);
-
-  const handleAdd = async () => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    if (estimatedPomos > 4) {
-      const confirmed = window.confirm("这个任务预计超过 4 个番茄，建议拆分。仍然作为一个任务添加吗？");
-      if (!confirmed) return;
-    }
-    await onAddTask(
-      trimmed,
-      estimatedPomos,
-      project.trim(),
-      weekPlanItemId === "other" ? null : Number(weekPlanItemId),
-    );
-    setName("");
-    setEstimatedPomos(1);
-  };
-
-  return (
-    <section className="rounded-3xl border border-sahara-border/20 bg-sahara-card/35 p-5 md:p-6">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-sahara-text-muted">
-            Daily Task
-          </p>
-          <h2 className="font-serif text-2xl text-sahara-text">今日任务</h2>
-          <p className="mt-1 text-xs text-sahara-text-muted">
-            新任务会进入 {formatShortDate(dayKey)}，并默认挂到本周计划。
-          </p>
-        </div>
-      </div>
-
-      <div className="grid gap-3 lg:grid-cols-[1fr_8rem_10rem_12rem_auto]">
-        <input
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") void handleAdd();
-          }}
-          placeholder="输入今天要做的任务"
-          className="min-w-0 rounded-2xl border border-sahara-border/20 bg-sahara-surface px-4 py-3 text-sm text-sahara-text outline-none transition-all placeholder:text-sahara-text-muted/50 focus:border-sahara-primary/40 focus:ring-2 focus:ring-sahara-primary/10"
-        />
-        <input
-          type="number"
-          min={1}
-          max={100}
-          value={estimatedPomos}
-          onChange={(event) => setEstimatedPomos(Math.max(1, Number(event.target.value) || 1))}
-          className="rounded-2xl border border-sahara-border/20 bg-sahara-surface px-4 py-3 text-sm text-sahara-text outline-none transition-all focus:border-sahara-primary/40 focus:ring-2 focus:ring-sahara-primary/10"
-          aria-label="预计番茄数"
-          title="预计番茄数"
-        />
-        <input
-          value={project}
-          onChange={(event) => setProject(event.target.value)}
-          placeholder="项目，可选"
-          className="rounded-2xl border border-sahara-border/20 bg-sahara-surface px-4 py-3 text-sm text-sahara-text outline-none transition-all placeholder:text-sahara-text-muted/50 focus:border-sahara-primary/40 focus:ring-2 focus:ring-sahara-primary/10"
-        />
-        <select
-          value={weekPlanItemId}
-          onChange={(event) => setWeekPlanItemId(event.target.value)}
-          className="rounded-2xl border border-sahara-border/20 bg-sahara-surface px-4 py-3 text-sm text-sahara-text outline-none transition-all focus:border-sahara-primary/40 focus:ring-2 focus:ring-sahara-primary/10"
-        >
-          {weekPlanItems.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.title}
-            </option>
-          ))}
-          <option value="other">{OTHER_GROUP_TITLE}</option>
-        </select>
-        <Button
-          variant="solid"
-          intent="sahara"
-          size="sm"
-          shape="rounded-full"
-          onClick={() => void handleAdd()}
-          className="gap-1.5"
-        >
-          <Plus className="size-4" />
-          添加
-        </Button>
-      </div>
-    </section>
-  );
-}
-
 interface MarkdownSectionProps {
   activePage: TimePage;
   draftContent: string;
@@ -553,24 +507,19 @@ function MarkdownSection({
   onBlur,
 }: MarkdownSectionProps) {
   return (
-    <section className="min-h-[30rem] overflow-hidden rounded-3xl border border-sahara-border/20 bg-sahara-surface shadow-sm shadow-sahara-primary/5">
-      <div className="border-b border-sahara-border/20 px-4 py-3 md:px-5">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-sahara-text-muted">
-              Markdown
-            </p>
-            <h2 className="truncate text-lg font-bold text-sahara-text">
-              {activePage.title}
-            </h2>
-          </div>
-          <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-sahara-text-muted">
+    <section className="flex h-[calc(100vh-14rem)] min-h-[30rem] flex-1 flex-col overflow-hidden rounded-2xl bg-sahara-surface">
+      <div className="shrink-0 px-5 pt-5 md:px-8 md:pt-7">
+        <div className="mx-auto flex max-w-3xl items-start justify-between gap-3">
+          <h2 className="min-w-0 flex-1 truncate text-2xl font-bold text-sahara-text md:text-3xl">
+            {activePage.title}
+          </h2>
+          <div className="mt-2 flex shrink-0 items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-sahara-text-muted">
             <Save className="size-3.5" />
             <span>{saveLabel}</span>
           </div>
         </div>
       </div>
-      <div className="h-[32rem] notes-markdown-editor">
+      <div className="min-h-0 flex-1 notes-markdown-editor notes-markdown-editor--notion">
         <Suspense
           fallback={
             <div className="flex h-full items-center justify-center text-sahara-text-muted">
@@ -596,8 +545,6 @@ export function TimePlanningWorkspace() {
   const activePageId = useTimePageStore((state) => state.activePageId);
   const workspaceKeys = useTimePageStore((state) => state.workspaceKeys);
   const overviewPageId = useTimePageStore((state) => state.overviewPageId);
-  const yearPageId = useTimePageStore((state) => state.yearPageId);
-  const monthPageId = useTimePageStore((state) => state.monthPageId);
   const weekPageId = useTimePageStore((state) => state.weekPageId);
   const dayPageId = useTimePageStore((state) => state.dayPageId);
   const loading = useTimePageStore((state) => state.loading);
@@ -611,7 +558,6 @@ export function TimePlanningWorkspace() {
 
   const tasks = useTaskStore((state) => state.tasks);
   const loadTasks = useTaskStore((state) => state.loadTasks);
-  const addTask = useTaskStore((state) => state.addTask);
   const updateTask = useTaskStore((state) => state.updateTask);
   const deleteTask = useTaskStore((state) => state.deleteTask);
   const completeTask = useTaskStore((state) => state.completeTask);
@@ -628,15 +574,8 @@ export function TimePlanningWorkspace() {
   );
 
   const pageTree = useMemo(() => {
-    const byId = new Map(pages.map((page) => [page.id, page]));
-    const orderedIds = [overviewPageId, yearPageId, monthPageId, weekPageId, dayPageId]
-      .filter((id): id is number => typeof id === "number")
-      .filter((id, index, ids) => ids.indexOf(id) === index);
-
-    return orderedIds
-      .map((id) => byId.get(id))
-      .filter((page): page is TimePage => Boolean(page));
-  }, [dayPageId, monthPageId, overviewPageId, pages, weekPageId, yearPageId]);
+    return buildPageTree(pages, overviewPageId);
+  }, [overviewPageId, pages]);
 
   const currentDayTasks = useMemo(
     () =>
@@ -646,26 +585,6 @@ export function TimePlanningWorkspace() {
           dateKeyFromValue(task.scheduled_for) === workspaceKeys.day,
       ),
     [tasks, workspaceKeys.day],
-  );
-
-  const overdueTasks = useMemo(
-    () =>
-      tasks.filter((task) => {
-        if (isTaskDone(task)) return false;
-        const taskDate = dateKeyFromValue(task.scheduled_for);
-        return !taskDate || taskDate < workspaceKeys.day;
-      }),
-    [tasks, workspaceKeys.day],
-  );
-
-  const activeDayKey = activePage?.type === "day" ? activePage.date_key : workspaceKeys.day;
-  const activeDayTasks = useMemo(
-    () =>
-      tasks.filter(
-        (task) =>
-          !isTaskDone(task) && dateKeyFromValue(task.scheduled_for) === activeDayKey,
-      ),
-    [activeDayKey, tasks],
   );
 
   const weekRange = useMemo(() => {
@@ -691,14 +610,6 @@ export function TimePlanningWorkspace() {
     [tasks, weekRange.end, weekRange.start],
   );
 
-  const activeDayGroups = useMemo(
-    () => buildTaskGroups(activeDayTasks, weekPlanItems),
-    [activeDayTasks, weekPlanItems],
-  );
-  const overdueGroups = useMemo(
-    () => buildTaskGroups(overdueTasks, weekPlanItems),
-    [overdueTasks, weekPlanItems],
-  );
   const completedWeekGroups = useMemo(
     () => buildTaskGroups(completedWeekTasks, weekPlanItems),
     [completedWeekTasks, weekPlanItems],
@@ -742,23 +653,6 @@ export function TimePlanningWorkspace() {
   const handleSelectPage = async (pageId: number) => {
     await persistDraft();
     selectPage(pageId);
-  };
-
-  const handleAddTask = async (
-    name: string,
-    estimatedPomos: number,
-    project: string,
-    weekPlanItemId: number | null,
-  ) => {
-    await addTask(
-      name,
-      estimatedPomos,
-      project,
-      "",
-      null,
-      activeDayKey,
-      weekPlanItemId,
-    );
   };
 
   const handleCompleteTask = async (task: Task) => {
@@ -870,7 +764,7 @@ export function TimePlanningWorkspace() {
 
       <div
         className={cn(
-          "grid flex-1 gap-5",
+          "grid min-h-0 flex-1 gap-5",
           isPageTreeCollapsed
             ? "lg:grid-cols-[10rem_minmax(0,1fr)]"
             : "lg:grid-cols-[20rem_minmax(0,1fr)]",
@@ -914,12 +808,12 @@ export function TimePlanningWorkspace() {
             </Button>
           </div>
           <div className="space-y-1">
-            {pageTree.map((page, index) => (
+            {pageTree.map(({ page, depth }) => (
               <PageTreeButton
                 key={page.id}
                 page={page}
                 active={page.id === activePage.id}
-                depth={index}
+                depth={depth}
                 collapsed={isPageTreeCollapsed}
                 onClick={() => void handleSelectPage(page.id)}
               />
@@ -953,7 +847,7 @@ export function TimePlanningWorkspace() {
           )}
         </aside>
 
-        <main className="min-w-0 max-w-full space-y-4 overflow-hidden">
+        <main className="flex min-h-0 min-w-0 max-w-full flex-col gap-4 overflow-x-hidden">
           {activePage.type === "overview" && (
             <section className="grid gap-4 md:grid-cols-3">
               <button
@@ -1012,60 +906,6 @@ export function TimePlanningWorkspace() {
                   onMoveTaskCustomDate={handleMoveTaskCustomDate}
                 />
               </section>
-            </>
-          )}
-
-          {activePage.type === "day" && (
-            <>
-              <DayTaskCreator
-                dayKey={activeDayKey}
-                weekPlanItems={weekPlanItems}
-                onAddTask={handleAddTask}
-              />
-              <section className="rounded-3xl border border-sahara-border/20 bg-sahara-card/35 p-5 md:p-6">
-                <div className="mb-4">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-sahara-text-muted">
-                    Tasks For The Day
-                  </p>
-                  <h2 className="font-serif text-2xl text-sahara-text">{formatShortDate(activeDayKey)} 待办</h2>
-                </div>
-                <TaskGroups
-                  groups={activeDayGroups}
-                  emptyLabel="今天还没有任务。可以在上方添加一个任务。"
-                  weekPlanItems={weekPlanItems}
-                  onCompleteTask={handleCompleteTask}
-                  onEditTask={handleEditTask}
-                  onDeleteTask={handleDeleteTask}
-                  onFocusTask={handleFocusTask}
-                  onMoveTask={handleMoveTask}
-                  onMoveTaskCustomDate={handleMoveTaskCustomDate}
-                />
-              </section>
-
-              {overdueTasks.length > 0 && (
-                <section className="rounded-3xl border border-amber-200/50 bg-amber-50/30 p-5 md:p-6">
-                  <div className="mb-4 flex items-center gap-2">
-                    <Send className="size-4 text-amber-700" />
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-700/80">
-                        Need Migration
-                      </p>
-                      <h2 className="font-serif text-2xl text-sahara-text">待迁移任务</h2>
-                    </div>
-                  </div>
-                  <TaskGroups
-                    groups={overdueGroups}
-                    emptyLabel="没有待迁移任务。"
-                    weekPlanItems={weekPlanItems}
-                    onCompleteTask={handleCompleteTask}
-                    onEditTask={handleEditTask}
-                    onDeleteTask={handleDeleteTask}
-                    onFocusTask={handleFocusTask}
-                    onMoveTask={handleMoveTask}
-                    onMoveTaskCustomDate={handleMoveTaskCustomDate}
-                  />
-                </section>
-              )}
             </>
           )}
 

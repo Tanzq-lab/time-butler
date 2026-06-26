@@ -11,6 +11,7 @@ import {
 import type { Task } from "@/features/tasks/task-types";
 import { isTaskDone } from "@/features/tasks/task-completion";
 import { cn } from "@/lib/cn";
+import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
 
 interface TaskListCardProps {
   task: Task;
@@ -144,6 +145,16 @@ export function TaskListCard({
       >
         {task.name}
       </h3>
+
+      {isDone && task.completion_review && (
+        <div className="mt-2 max-h-20 overflow-hidden rounded-xl border border-sahara-border/10 bg-sahara-bg/35 px-3 py-2">
+          <MarkdownRenderer
+            content={task.completion_review}
+            variant="compact"
+            className="text-xs md:text-sm"
+          />
+        </div>
+      )}
 
       <div className="flex items-center gap-3 mt-2 md:mt-3 flex-wrap">
         <div className="flex items-center gap-1.5">

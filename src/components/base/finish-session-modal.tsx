@@ -7,6 +7,7 @@ import { formatTimeAmPm } from "@/lib/time";
 import type { SessionMood } from "@/features/timer/timer-types";
 export type { SessionMood } from "@/features/timer/timer-types";
 import { ModalOverlay } from "@/components/ui/modal-overlay";
+import { MarkdownEditor } from "@/components/ui/markdown-editor";
 
 interface MoodOption {
   id: SessionMood;
@@ -193,16 +194,18 @@ export function FinishSessionModal({
                 "本次完成后会产生预估偏差，请写下原因，方便后续任务制定。"}
             </p>
           )}
-          <textarea
+          <MarkdownEditor
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            onChange={setNotes}
+            ariaLabel="专注笔记"
             placeholder={
               requiresNotes
                 ? "必须写明本次偏差原因..."
                 : "写下这次的收获、卡点或分心原因..."
             }
-            rows={3}
-            className="w-full px-4 py-3 bg-sahara-bg/40 border border-sahara-border/20 rounded-xl text-sm text-sahara-text placeholder:text-sahara-text-muted/50 focus:outline-none focus:border-sahara-primary/50 focus:ring-2 focus:ring-sahara-primary/10 transition-all resize-none leading-relaxed"
+            minRows={3}
+            variant="compact"
+            modes={["edit", "preview"]}
           />
         </div>
 

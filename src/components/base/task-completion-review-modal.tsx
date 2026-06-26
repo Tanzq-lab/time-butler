@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModalOverlay } from "@/components/ui/modal-overlay";
+import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import type { Task } from "@/features/tasks/task-types";
 
 interface TaskCompletionReviewModalProps {
@@ -136,13 +137,15 @@ export function TaskCompletionReviewModal({
           >
             复盘原因{requiresReview ? "（必填）" : "（可选）"}
           </label>
-          <textarea
+          <MarkdownEditor
             id="completion-review"
             value={review}
-            onChange={(e) => setReview(e.target.value)}
+            onChange={setReview}
+            ariaLabel="复盘原因"
             placeholder="例如：需求比预期简单、资料更散、调试时间比预期长..."
-            rows={4}
-            className="w-full px-4 py-3 bg-sahara-bg/40 border border-sahara-border/20 rounded-xl text-sm text-sahara-text placeholder:text-sahara-text-muted/50 focus:outline-none focus:border-sahara-primary/50 focus:ring-2 focus:ring-sahara-primary/10 transition-all resize-none leading-relaxed"
+            minRows={4}
+            variant="compact"
+            modes={["edit", "preview"]}
           />
         </div>
 
