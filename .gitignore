@@ -1,16 +1,69 @@
+# Dependencies
 node_modules/
-dist/
-src-tauri/target/
+.pnp.*
+.yarn/*
+!.yarn/patches/
+!.yarn/plugins/
+!.yarn/releases/
+!.yarn/sdks/
+!.yarn/versions/
 
-.DS_Store
+# Build output and caches
+dist/
+build/
+out/
+.vite/
+*.tsbuildinfo
+
+# Test and coverage output
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+blob-report/
+
+# Tauri and Rust generated output
+src-tauri/target/
+src-tauri/gen/schemas/
+**/*.rs.bk
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Environment and local secrets
 .env
 .env.*
+!.env.example
+!.env.sample
 
 # Personal runtime data lives in the sibling private repo: ../time-butler-data
 *.db
 *.sqlite
+*.sqlite3
 *.db-shm
 *.db-wal
-data/*.jsonl
-backups/
+*.sqlite-shm
+*.sqlite-wal
+data/*
+!data/
 !data/.gitkeep
+backups/
+
+# OS and editor files
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json

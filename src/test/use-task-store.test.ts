@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useTaskStore } from "@/features/tasks/use-task-store";
 import { appendPomodoroEstimationLog } from "@/features/tasks/pomodoro-estimation-log";
+import { ensureRecurringSummaryTasks } from "@/features/tasks/recurring-summary-tasks";
 
 const mockTasks = [
   {
@@ -85,6 +86,10 @@ vi.mock("@/features/tasks/pomodoro-estimation-log", () => ({
   ),
 }));
 
+vi.mock("@/features/tasks/recurring-summary-tasks", () => ({
+  ensureRecurringSummaryTasks: vi.fn().mockResolvedValue(0),
+}));
+
 beforeEach(async () => {
   vi.clearAllMocks();
   useTaskStore.setState({ tasks: [], loading: false, error: null });
@@ -108,6 +113,7 @@ describe("useTaskStore", () => {
       expect(state.tasks[0].name).toBe("Task A");
       expect(state.loading).toBe(false);
       expect(state.error).toBeNull();
+      expect(ensureRecurringSummaryTasks).toHaveBeenCalledTimes(1);
     });
 
     it("sets loading true during fetch", async () => {

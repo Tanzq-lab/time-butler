@@ -15,6 +15,7 @@ import {
   getSetting,
   setSetting,
 } from "@/lib/db";
+import { ensureRecurringSummaryTasks } from "@/features/tasks/recurring-summary-tasks";
 
 interface TaskStore {
   tasks: Task[];
@@ -73,6 +74,8 @@ export const useTaskStore = create<TaskStore>((set) => ({
         await setSetting("has_seeded_tasks", "true");
       }
 
+      await ensureRecurringSummaryTasks();
+      tasks = await getTasks();
       set({ tasks, loading: false });
     } catch (err) {
       console.error("[TaskStore] Failed to load tasks:", err);

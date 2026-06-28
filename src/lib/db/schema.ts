@@ -150,9 +150,20 @@ export async function initDb(): Promise<void> {
       )`,
       "ALTER TABLE tasks ADD COLUMN week_plan_item_id INTEGER",
     ],
+    8: [
+      `CREATE TABLE IF NOT EXISTS recurring_task_occurrences (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        rule_key TEXT NOT NULL,
+        occurrence_date TEXT NOT NULL,
+        task_id INTEGER NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(rule_key, occurrence_date),
+        FOREIGN KEY (task_id) REFERENCES tasks(id)
+      )`,
+    ],
   };
 
-  const targetVersion = 7;
+  const targetVersion = 8;
 
   for (let v = currentVersion + 1; v <= targetVersion; v++) {
     const statements = migrations[v];
