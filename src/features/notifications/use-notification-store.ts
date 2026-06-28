@@ -67,7 +67,7 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
 
         try {
           await sendNotification({
-            title: "时间管家",
+            title: "Time-butler",
             body:
               "通知已开启！计时结束时会提醒你。",
           });

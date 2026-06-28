@@ -34,7 +34,7 @@ export function useNativeUI() {
     const phaseLabel = phase === "work" ? "专注" : "休息";
     const phaseIcon = phase === "work" ? "\u{1F351}" : "\u2615";
 
-    const menubarTooltip = `时间管家 - ${phaseLabel} ${formatSeconds(secondsRemaining)}`;
+    const menubarTooltip = `Time-butler - ${phaseLabel} ${formatSeconds(secondsRemaining)}`;
     invoke("menubar_set_tooltip", { tooltip: menubarTooltip }).catch(() => {});
 
     const trayTooltip = `${formatSeconds(secondsRemaining)} ${phaseIcon}`;

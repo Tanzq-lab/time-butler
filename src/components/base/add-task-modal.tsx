@@ -324,7 +324,7 @@ export function AddTaskModal({
                   value: e.target.value,
                 })
               }
-              placeholder="例如：时间管家、客户项目"
+              placeholder="例如：Time-butler、客户项目"
               className="w-full px-4 py-3 bg-sahara-bg/40 border border-sahara-border/20 rounded-xl text-sm text-sahara-text placeholder:text-sahara-text-muted/50 focus:outline-none focus:border-sahara-primary/50 focus:ring-2 focus:ring-sahara-primary/10 transition-all"
             />
           </div>

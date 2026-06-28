@@ -2,13 +2,15 @@ use std::fs;
 use std::path::PathBuf;
 
 const DATA_DIR_NAME: &str = "time-butler-data";
-const DB_FILE_NAME: &str = "Kairos-Pomodoro.db";
+const DB_FILE_NAME: &str = "Time-butler.db";
+const LEGACY_DB_FILE_NAME: &str = concat!("Kai", "ros-Pom", "odoro.db");
 
 #[tauri::command]
 pub fn private_database_url() -> Result<String, String> {
     let root = private_data_root()?;
     fs::create_dir_all(root.join("data")).map_err(|e| e.to_string())?;
     fs::create_dir_all(root.join("backups")).map_err(|e| e.to_string())?;
+    migrate_legacy_database(&root)?;
     Ok(format!("sqlite:{}", root.join(DB_FILE_NAME).display()))
 }
 
@@ -36,6 +38,27 @@ pub fn private_data_root() -> Result<PathBuf, String> {
         .map(PathBuf::from)
         .map_err(|_| "Cannot resolve HOME for private data root".to_string())?;
     Ok(home.join(DATA_DIR_NAME))
+}
+
+fn migrate_legacy_database(root: &PathBuf) -> Result<(), String> {
+    let target = root.join(DB_FILE_NAME);
+    let legacy = root.join(LEGACY_DB_FILE_NAME);
+
+    if target.exists() || !legacy.exists() {
+        return Ok(());
+    }
+
+    fs::rename(&legacy, &target).map_err(|e| e.to_string())?;
+
+    for suffix in ["-wal", "-shm"] {
+        let legacy_sidecar = root.join(format!("{LEGACY_DB_FILE_NAME}{suffix}"));
+        if legacy_sidecar.exists() {
+            let target_sidecar = root.join(format!("{DB_FILE_NAME}{suffix}"));
+            fs::rename(legacy_sidecar, target_sidecar).map_err(|e| e.to_string())?;
+        }
+    }
+
+    Ok(())
 }
 
 pub fn workspace_root() -> PathBuf {

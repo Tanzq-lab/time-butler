@@ -16,10 +16,10 @@ const STEP_ICON_COLOR = "bg-sahara-primary-light text-sahara-primary";
 
 const steps = [
   {
-    title: "欢迎使用时间管家",
+    title: "欢迎使用 Time-butler",
     subtitle: "把注意力安放在该做的事上。",
     description:
-      "时间管家帮助你用有意图的专注时段收回注意力，进入更稳定的工作节奏。",
+      "Time-butler 帮助你用有意图的专注时段收回注意力，进入更稳定的工作节奏。",
     icon: Star,
   },
   {
@@ -69,7 +69,7 @@ export function OnboardingPage() {
 
           <div>
             <h1 className="font-serif text-2xl md:text-4xl tracking-tight mb-1 md:mb-2">
-              时间管家
+              Time-butler
             </h1>
             <p className="text-[9px] md:text-[10px] tracking-[0.2em] md:tracking-[0.3em] font-bold uppercase opacity-70">
               专注 · 记录 · 复盘

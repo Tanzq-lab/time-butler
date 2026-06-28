@@ -1,12 +1,12 @@
 [package]
-name = "Kairos-Pomodoro"
+name = "time-butler"
 version = "1.0.0"
-description = "Kairos Pomodoro - Premium Pomodoro Timer"
+description = "Time-butler - Personal Pomodoro Timer"
 authors = ["you"]
 edition = "2021"
 
 [lib]
-name = "kairos_app_lib"
+name = "time_butler_app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

@@ -35,7 +35,7 @@ import { useTaskStore } from "@/features/tasks/use-task-store";
 import { useTimerStore } from "@/features/timer/use-timer-store";
 import { useTimePageStore } from "@/features/time-pages/use-time-page-store";
 
-const MarkdownNoteEditor = lazy(() => import("./markdown-note-editor"));
+const DocumentNoteEditor = lazy(() => import("./document-note-editor"));
 
 type SaveState = "idle" | "saving" | "saved";
 
@@ -425,7 +425,7 @@ function WeekPlanEditor({
           onKeyDown={(event) => {
             if (event.key === "Enter") void handleAdd();
           }}
-          placeholder="新增一个周计划条目，例如：时间管家记录系统"
+          placeholder="新增一个周计划条目，例如：Time-butler 记录系统"
           className="min-w-0 flex-1 rounded-2xl border border-sahara-border/20 bg-sahara-surface px-4 py-3 text-sm text-sahara-text outline-none transition-all placeholder:text-sahara-text-muted/50 focus:border-sahara-primary/40 focus:ring-2 focus:ring-sahara-primary/10"
         />
         <Button
@@ -519,7 +519,7 @@ function MarkdownSection({
           </div>
         </div>
       </div>
-      <div className="min-h-0 flex-1 notes-markdown-editor notes-markdown-editor--notion">
+      <div className="min-h-0 flex-1">
         <Suspense
           fallback={
             <div className="flex h-full items-center justify-center text-sahara-text-muted">
@@ -527,7 +527,7 @@ function MarkdownSection({
             </div>
           }
         >
-          <MarkdownNoteEditor
+          <DocumentNoteEditor
             value={draftContent}
             onChange={onChange}
             onBlur={onBlur}

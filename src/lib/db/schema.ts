@@ -3,7 +3,7 @@ import { DEFAULT_CATEGORY_COLOR } from "@/lib/constants";
 import { seedDefaultTaskCategories } from "./default-categories";
 import { invoke, isTauri } from "@/lib/tauri";
 
-const FALLBACK_DB_NAME = "sqlite:Kairos-Pomodoro.db";
+const FALLBACK_DB_NAME = "sqlite:Time-butler.db";
 
 let db: Database | null = null;
 let dbName: string | null = null;

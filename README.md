@@ -1,13 +1,13 @@
-# 时间管家
+# Time-butler
 
-时间管家是一个个人自用的桌面番茄钟和任务管理 App。它现在只保留一个真实使用版本：Tauri 桌面版，使用同一个 SQLite 数据库，不再维护浏览器预览版、开发库和正式库三套数据。
+Time-butler 是一个个人自用的桌面番茄钟和任务管理 App。它现在只保留一个真实使用版本：Tauri 桌面版，使用同一个 SQLite 数据库，不再维护浏览器预览版、开发库和正式库三套数据。
 
 ## 快速启动
 
 双击或运行：
 
 ```zsh
-/Users/amos/time-butler/open-kairos-dev.command
+/Users/amos/time-butler/open-time-butler-dev.command
 ```
 
 这是日常使用入口。它运行的是 Tauri 开发热更新版，所以 Codex 改前端代码后通常可以立即刷新生效；改 Rust/Tauri 壳层能力时，重新打开这个脚本即可。
@@ -41,16 +41,16 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 这个项目是个人自用工具，优先减少环境分叉。
 
 - App surface：只使用 Tauri 桌面版。
-- 数据库：只使用同级私密仓库里的 `../time-butler-data/Kairos-Pomodoro.db`。
-- 启动入口：只使用 `open-kairos-dev.command` 或 `npm run tauri dev`。
+- 数据库：只使用同级私密仓库里的 `../time-butler-data/Time-butler.db`。
+- 启动入口：只使用 `open-time-butler-dev.command` 或 `npm run tauri dev`。
 - 日常使用：使用开发热更新版，不维护本机安装的固定 `.app` 版本。
 - 不再把浏览器预览版当真实 App 使用。
-- 不再引入 `Kairos-Pomodoro-dev.db` 这类第二套任务数据。
+- 不再引入 `Time-butler-dev.db` 这类第二套任务数据。
 
 真实数据库位于：
 
 ```text
-../time-butler-data/Kairos-Pomodoro.db
+../time-butler-data/Time-butler.db
 ```
 
 ## 私密数据仓库
@@ -81,7 +81,7 @@ npm run data:init
 npm run data:backup
 ```
 
-App 现在直接读写 `../time-butler-data/Kairos-Pomodoro.db`。如果本仓库临时产生了 `data/pomodoro-estimation-log.jsonl`，脚本会去重合并到私密仓库后删除本仓库里的临时日志。
+App 现在直接读写 `../time-butler-data/Time-butler.db`。如果本仓库临时产生了 `data/pomodoro-estimation-log.jsonl`，脚本会去重合并到私密仓库后删除本仓库里的临时日志。
 
 ## Codex 加任务规则
 
@@ -149,7 +149,7 @@ src-tauri/                    Tauri 桌面壳和 Rust commands
 docs/                         Codex 任务录入和番茄预估文档
 data/                         仅保留占位；运行日志写入 ../time-butler-data/data/
 scripts/private-data.mjs      同级私密数据仓库初始化和遗留日志合并脚本
-open-kairos-dev.command       日常开发热更新启动入口
+open-time-butler-dev.command  日常开发热更新启动入口
 AGENTS.md                     Codex 项目规则入口
 ```
 
@@ -160,7 +160,7 @@ AGENTS.md                     Codex 项目规则入口
 先确认打开的是桌面版，不是浏览器预览。现在推荐只运行：
 
 ```zsh
-/Users/amos/time-butler/open-kairos-dev.command
+/Users/amos/time-butler/open-time-butler-dev.command
 ```
 
 再确认任务是否在稍后提醒分区。未来任务不会出现在「进行中」分区。
@@ -179,7 +179,7 @@ lsof -nP -iTCP:1420 -sTCP:LISTEN
 
 ### 通知没有弹出
 
-检查 macOS 系统设置里的通知权限，允许时间管家发送通知。
+检查 macOS 系统设置里的通知权限，允许 Time-butler 发送通知。
 
 ## 维护原则
 

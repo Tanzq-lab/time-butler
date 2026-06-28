@@ -22,7 +22,7 @@ Do not use broad domains like "工作", "投资", or "个人事务" as categorie
 This is a personal-use app. Keep one runtime/data path unless the user explicitly asks otherwise:
 
 - Use the Tauri desktop app as the only real app surface.
-- Use `../time-butler-data/Kairos-Pomodoro.db` as the single task database.
+- Use `../time-butler-data/Time-butler.db` as the single task database.
 - Do not introduce separate dev/prod task databases or browser-preview task data.
 
 ## Running App Safety

@@ -78,7 +78,7 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
         ) : (
           <>
             <h1 className="font-serif text-2xl tracking-tight text-sahara-primary">
-              时间管家
+              Time-butler
             </h1>
             <p className="text-[10px] tracking-[0.2em] font-bold text-sahara-text-muted mt-1 uppercase whitespace-nowrap">
               把时间交还给你

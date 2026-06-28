@@ -71,7 +71,7 @@ pub fn setup_menubar_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Er
     let show_item = MenuItem::with_id(
         app,
         "menubar-show",
-        "显示时间管家",
+        "显示 Time-butler",
         true,
         None::<&str>,
     )?;
@@ -81,7 +81,7 @@ pub fn setup_menubar_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Er
     let quit_item = MenuItem::with_id(
         app,
         "menubar-quit",
-        "退出时间管家",
+        "退出 Time-butler",
         true,
         None::<&str>,
     )?;
@@ -91,7 +91,7 @@ pub fn setup_menubar_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Er
     let tray = TrayIconBuilder::with_id("menubar-tray")
         .icon(TRAY_ICON)
         .menu(&menu)
-        .tooltip("时间管家")
+        .tooltip("Time-butler")
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "menubar-show" => {

@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
-import MarkdownNoteEditor from "@/components/containers/markdown-note-editor";
+import DocumentNoteEditor from "@/components/containers/document-note-editor";
 import { SessionCard } from "@/components/base/session-card";
 import { TaskListCard } from "@/components/base/task-list-card";
 import type { Session } from "@/lib/db";
@@ -65,19 +65,40 @@ describe("Markdown components", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows workspace note previews while editing", () => {
+  it("renders workspace notes as a single editable document", () => {
     render(
-      <MarkdownNoteEditor
+      <DocumentNoteEditor
         value={SAMPLE_MARKDOWN}
         onChange={vi.fn()}
         onBlur={vi.fn()}
       />,
     );
 
-    expect(screen.getByLabelText("记录内容")).toHaveValue(SAMPLE_MARKDOWN);
+    expect(screen.getByRole("textbox", { name: "记录内容" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "分栏预览" })).not.toBeInTheDocument();
     expect(
       screen.getByRole("heading", { level: 2, name: "今日复盘" }),
     ).toBeInTheDocument();
+  });
+
+  it("writes document edits back as Markdown", () => {
+    const handleChange = vi.fn();
+    render(
+      <DocumentNoteEditor
+        value={SAMPLE_MARKDOWN}
+        onChange={handleChange}
+        onBlur={vi.fn()}
+      />,
+    );
+
+    const editor = screen.getByRole("textbox", { name: "记录内容" });
+    screen.getByRole("heading", { level: 2, name: "今日复盘" }).textContent =
+      "今日复盘更新";
+    fireEvent.input(editor);
+
+    expect(handleChange).toHaveBeenLastCalledWith(
+      expect.stringContaining("## 今日复盘更新"),
+    );
   });
 
   it("renders Markdown in record list cards", () => {

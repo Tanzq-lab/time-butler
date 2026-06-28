@@ -37,7 +37,7 @@ function addHeader(doc: jsPDF, title: string, range: DateRange) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
   doc.setTextColor(...COLORS.white);
-  doc.text("时间管家 - 专注洞察", 14, 18);
+  doc.text("Time-butler - 专注洞察", 14, 18);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
@@ -264,7 +264,7 @@ export async function exportAnalyticsPdf(period: DatePeriod): Promise<void> {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
     doc.setTextColor(...COLORS.muted);
-    doc.text("时间管家 - 专注洞察", 14, pageHeight - 10);
+    doc.text("Time-butler - 专注洞察", 14, pageHeight - 10);
     doc.text(`第 ${i} 页 / 共 ${totalPages} 页`, pageWidth - 14, pageHeight - 10, { align: "right" });
   }
 

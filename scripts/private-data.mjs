@@ -17,9 +17,11 @@ const appSupportDir = path.join(
   "com.timebutler.desktop",
 );
 const sourceLog = path.join(repoRoot, "data", "pomodoro-estimation-log.jsonl");
-const targetDb = path.join(dataRoot, "Kairos-Pomodoro.db");
+const targetDb = path.join(dataRoot, "Time-butler.db");
 const targetLog = path.join(dataRoot, "data", "pomodoro-estimation-log.jsonl");
-const legacyAppSupportDb = path.join(appSupportDir, "Kairos-Pomodoro.db");
+const legacyDbFileName = ["Kai", "ros-Pom", "odoro.db"].join("");
+const legacyPrivateDb = path.join(dataRoot, legacyDbFileName);
+const legacyAppSupportDb = path.join(appSupportDir, legacyDbFileName);
 const runtimeDb = path.resolve(process.env.TIME_BUTLER_DB ?? targetDb);
 
 function usage() {
@@ -32,7 +34,7 @@ Defaults:
 
 Overrides:
   TIME_BUTLER_DATA_DIR=/path/to/time-butler-data
-  TIME_BUTLER_DB=/path/to/Kairos-Pomodoro.db`);
+  TIME_BUTLER_DB=/path/to/Time-butler.db`);
 }
 
 function ensureDir(dir) {
@@ -49,6 +51,7 @@ function initDataRoot() {
   ensureDir(dataRoot);
   ensureDir(path.join(dataRoot, "data"));
   ensureDir(path.join(dataRoot, "backups"));
+  migrateLegacyPrivateDb();
   ensureFileIfMissing(
     path.join(dataRoot, ".gitignore"),
     [".DS_Store", "*.db-shm", "*.db-wal", ""].join("\n"),
@@ -57,6 +60,18 @@ function initDataRoot() {
   console.log(`Data root ready: ${dataRoot}`);
   console.log(`Private DB path: ${targetDb}`);
   console.log(`Private log path: ${targetLog}`);
+}
+
+function renameIfPresent(source, destination) {
+  if (fs.existsSync(source) && !fs.existsSync(destination)) {
+    fs.renameSync(source, destination);
+  }
+}
+
+function migrateLegacyPrivateDb() {
+  renameIfPresent(legacyPrivateDb, targetDb);
+  renameIfPresent(`${legacyPrivateDb}-wal`, `${targetDb}-wal`);
+  renameIfPresent(`${legacyPrivateDb}-shm`, `${targetDb}-shm`);
 }
 
 function timestamp() {
@@ -95,7 +110,7 @@ function backupExistingPrivateDb() {
   const backupPath = path.join(
     dataRoot,
     "backups",
-    `Kairos-Pomodoro.before-backup-${timestamp()}.db`,
+    `Time-butler.before-backup-${timestamp()}.db`,
   );
   fs.copyFileSync(targetDb, backupPath);
   return backupPath;

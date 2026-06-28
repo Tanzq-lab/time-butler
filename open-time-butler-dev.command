@@ -40,7 +40,7 @@ install_with_npm_if_needed() {
   fi
 }
 
-echo "正在启动时间管家开发热更新版..."
+echo "正在启动 Time-butler 开发热更新版..."
 echo
 
 if ! has_command cargo; then
@@ -59,4 +59,4 @@ install_with_npm_if_needed || exit 1
 npm run tauri dev
 
 echo
-echo "时间管家开发热更新版已停止。"
+echo "Time-butler 开发热更新版已停止。"

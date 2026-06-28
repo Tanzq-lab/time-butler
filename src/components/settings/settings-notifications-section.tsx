@@ -173,10 +173,10 @@ export function SettingsNotifications({
 
         {status === "denied" && !checking && (
           <p className="mt-3 text-[10px] md:text-[11px] text-sahara-text-muted leading-relaxed">
-            时间管家需要通知权限才能提醒你。点击上方
+            Time-butler 需要通知权限才能提醒你。点击上方
             <strong>“开启通知”</strong> 触发 macOS 权限弹窗，或者手动打开
             <strong>系统设置 → 通知</strong>，在列表里找到
-            <em>时间管家</em>。
+            <em>Time-butler</em>。
           </p>
         )}
       </div>

@@ -3,7 +3,7 @@ import { test, expect } from "./helpers";
 test.describe("Navigation", () => {
   test("starts on the Timer page", async ({ page }) => {
     await expect(page.locator("text=START FOCUS")).toBeVisible();
-    await expect(page.locator("text=Kairos-Pomodoro")).toBeVisible();
+    await expect(page.locator("text=Time-butler")).toBeVisible();
   });
 
   test("navigates to Tasks page via sidebar", async ({ page }) => {

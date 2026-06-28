@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "时间管家",
+  "productName": "Time-butler",
   "version": "1.0.0",
   "identifier": "com.timebutler.desktop",
   "build": {
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "时间管家",
+        "title": "Time-butler",
         "width": 1280,
         "height": 720,
         "minWidth": 320,
@@ -45,7 +45,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://github.com/shakibdshy/kairos-pomodoro/releases/latest/download/latest-{{target}}-{{arch}}.json"
+        "https://github.com/Tanzq-lab/time-butler/releases/latest/download/latest-{{target}}-{{arch}}.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDI0MEJGMEY2NTBBNTFGRApSV1Q5VVFwbEQ3OUFBZ1kvdGltNEVxU3ZWRDlmRm5WejJWeC9oeENwdkpBczgxa1pDTTE1ZVN1bwo=",
       "v1Compatible": false
