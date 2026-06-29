@@ -101,6 +101,29 @@ describe("Markdown components", () => {
     );
   });
 
+  it("turns a leading hyphen into a bullet block while editing", () => {
+    const handleChange = vi.fn();
+    render(
+      <DocumentNoteEditor
+        value=""
+        onChange={handleChange}
+        onBlur={vi.fn()}
+      />,
+    );
+
+    const editor = screen.getByRole("textbox", { name: "记录内容" });
+    const paragraph = editor.querySelector('[data-block="paragraph"]');
+    expect(paragraph).toBeInstanceOf(HTMLElement);
+
+    paragraph!.textContent = "-";
+    fireEvent.keyDown(editor, { key: " " });
+
+    const listBlock = editor.querySelector('[data-block="list"][data-list-type="bullet"]');
+    expect(listBlock).toBeInTheDocument();
+    expect(editor).toHaveAttribute("data-empty", "false");
+    expect(handleChange).toHaveBeenLastCalledWith("- ");
+  });
+
   it("renders Markdown in record list cards", () => {
     const session: Session = {
       id: 1,

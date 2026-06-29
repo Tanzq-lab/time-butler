@@ -397,8 +397,20 @@ function serializeDocument(root: HTMLElement): string {
 
 function updateEmptyState(root: HTMLElement): void {
   const hasText = Boolean(root.textContent?.trim());
-  const hasDivider = Boolean(root.querySelector('[data-block="divider"], hr'));
-  root.dataset.empty = hasText || hasDivider ? "false" : "true";
+  const hasFormattedBlock = Boolean(
+    root.querySelector(
+      [
+        '[data-block="heading"]',
+        '[data-block="quote"]',
+        '[data-block="list"]',
+        '[data-block="task"]',
+        '[data-block="code"]',
+        '[data-block="divider"]',
+        "hr",
+      ].join(","),
+    ),
+  );
+  root.dataset.empty = hasText || hasFormattedBlock ? "false" : "true";
 }
 
 function getActiveTopLevelBlock(root: HTMLElement): HTMLElement | null {
@@ -503,6 +515,33 @@ function placeCaretAtEnd(element: HTMLElement): void {
   selection?.addRange(range);
 }
 
+function getMarkdownShortcutFormat(block: HTMLElement): BlockFormat | null {
+  if (block.dataset.block && block.dataset.block !== "paragraph") return null;
+
+  const marker = (block.textContent ?? "").replace(/\u00a0/g, " ").trim();
+  switch (marker) {
+    case "-":
+    case "*":
+      return { block: "list", listType: "bullet" };
+    case "1.":
+    case "1)":
+      return { block: "list", listType: "ordered" };
+    case "[]":
+    case "[ ]":
+      return { block: "task" };
+    case "#":
+      return { block: "heading", level: 1 };
+    case "##":
+      return { block: "heading", level: 2 };
+    case ">":
+      return { block: "quote" };
+    case "```":
+      return { block: "code" };
+    default:
+      return null;
+  }
+}
+
 export default function DocumentNoteEditor({
   value,
   onChange,
@@ -575,10 +614,31 @@ export default function DocumentNoteEditor({
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== "Tab") return;
-
     const editor = editorRef.current;
     if (!editor) return;
+
+    if (
+      (event.key === " " || event.key === "Spacebar") &&
+      !event.altKey &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.shiftKey
+    ) {
+      const block = getActiveTopLevelBlock(editor);
+      if (!block) return;
+
+      const shortcutFormat = getMarkdownShortcutFormat(block);
+      if (!shortcutFormat) return;
+
+      event.preventDefault();
+      const nextBlock = createFormattedBlock(shortcutFormat, "<br>", "");
+      block.replaceWith(nextBlock);
+      placeCaretAtEnd(nextBlock);
+      emitChange();
+      return;
+    }
+
+    if (event.key !== "Tab") return;
 
     const block = getActiveTopLevelBlock(editor);
     if (!block || (block.dataset.block !== "list" && block.dataset.block !== "task")) {

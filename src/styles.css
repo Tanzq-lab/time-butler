@@ -140,7 +140,12 @@ input[type="range"]::-webkit-slider-thumb {
 
 .markdown-renderer strong {
   color: var(--color-sahara-text);
-  font-weight: 800;
+  font-weight: 900;
+}
+
+.markdown-renderer b {
+  color: var(--color-sahara-text);
+  font-weight: 900;
 }
 
 .markdown-renderer a {
@@ -512,9 +517,9 @@ input[type="range"]::-webkit-slider-thumb {
   margin: 0 auto;
   outline: none;
   color: var(--color-sahara-text-secondary);
-  font-family: var(--font-sans);
-  font-size: 1rem;
-  line-height: 1.8;
+  font-family: "PingFang SC", "Hiragino Sans GB", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Microsoft YaHei", sans-serif;
+  font-size: 0.9375rem;
+  line-height: 1.72;
   overflow-wrap: anywhere;
   padding: 1.35rem 2rem 3.5rem;
   word-break: break-word;
@@ -542,41 +547,42 @@ input[type="range"]::-webkit-slider-thumb {
 .document-note-editor__page pre,
 .document-note-editor__page [data-block="list"],
 .document-note-editor__page [data-block="task"] {
-  min-height: 1.8em;
+  min-height: 1.72em;
 }
 
 .document-note-editor__page p {
-  margin: 0.65rem 0;
+  margin: 0.52rem 0;
 }
 
 .document-note-editor__page h1,
 .document-note-editor__page h2,
 .document-note-editor__page h3 {
   color: var(--color-sahara-text);
-  font-family: var(--font-serif);
+  font-family: inherit;
   font-weight: 700;
   line-height: 1.2;
   outline: none;
 }
 
 .document-note-editor__page h1 {
-  margin: 1.55rem 0 0.85rem;
-  font-size: 2.15rem;
+  margin: 1.3rem 0 0.62rem;
+  font-size: 1.72rem;
 }
 
 .document-note-editor__page h2 {
-  margin: 1.35rem 0 0.7rem;
-  font-size: 1.55rem;
+  margin: 1.1rem 0 0.52rem;
+  font-size: 1.34rem;
 }
 
 .document-note-editor__page h3 {
-  margin: 1.15rem 0 0.55rem;
-  font-size: 1.22rem;
+  margin: 0.9rem 0 0.42rem;
+  font-size: 1.1rem;
 }
 
-.document-note-editor__page strong {
+.document-note-editor__page strong,
+.document-note-editor__page b {
   color: var(--color-sahara-text);
-  font-weight: 800;
+  font-weight: 900;
 }
 
 .document-note-editor__page a {
@@ -588,12 +594,12 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 .document-note-editor__page blockquote {
-  margin: 1rem 0;
+  margin: 0.8rem 0;
   border-left: 3px solid var(--color-sahara-primary);
   border-radius: 0 0.65rem 0.65rem 0;
   background: color-mix(in srgb, var(--color-sahara-primary-light) 35%, transparent);
   color: var(--color-sahara-text-secondary);
-  padding: 0.65rem 0.9rem;
+  padding: 0.56rem 0.82rem;
 }
 
 .document-note-editor__page code {
@@ -606,13 +612,13 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 .document-note-editor__page pre {
-  margin: 1rem 0;
+  margin: 0.8rem 0;
   overflow-x: auto;
   border: 1px solid color-mix(in srgb, var(--color-sahara-border) 45%, transparent);
   border-radius: 0.9rem;
   background: color-mix(in srgb, var(--color-sahara-card) 72%, var(--color-sahara-surface));
   color: var(--color-sahara-text);
-  padding: 0.9rem 1rem;
+  padding: 0.76rem 0.9rem;
   white-space: pre-wrap;
 }
 
@@ -626,7 +632,7 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 .document-note-editor__page hr {
-  margin: 1.4rem 0;
+  margin: 1.05rem 0;
   border: 0;
   border-top: 1px solid color-mix(in srgb, var(--color-sahara-border) 70%, transparent);
 }
@@ -634,7 +640,7 @@ input[type="range"]::-webkit-slider-thumb {
 .document-note-editor__page [data-block="list"],
 .document-note-editor__page [data-block="task"] {
   position: relative;
-  margin: 0.32rem 0;
+  margin: 0.26rem 0;
   padding-left: 1.75rem;
 }
 
