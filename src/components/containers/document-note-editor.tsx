@@ -25,9 +25,17 @@ export interface DocumentNoteEditorProps {
 }
 
 type SerializedBlock = {
-  kind: "paragraph" | "heading" | "quote" | "list" | "task" | "code" | "divider";
+  kind: "paragraph" | "heading" | "quote" | "list" | "task" | "code" | "divider" | "table";
   markdown: string;
 };
+
+type TableAlignment = "left" | "center" | "right" | null;
+
+interface ParsedMarkdownTable {
+  headers: string[];
+  alignments: TableAlignment[];
+  rows: string[][];
+}
 
 type BlockFormat =
   | { block: "paragraph" }
@@ -110,6 +118,89 @@ function isDividerLine(line: string): boolean {
   return /^ {0,3}([-*_])(?:\s*\1){2,}\s*$/.test(line);
 }
 
+function splitTableRow(line: string): string[] {
+  let value = line.trim();
+  if (value.startsWith("|")) value = value.slice(1);
+  if (value.endsWith("|")) value = value.slice(0, -1);
+
+  const cells: string[] = [];
+  let cell = "";
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+    const next = value[index + 1];
+    if (char === "\\" && next === "|") {
+      cell += "|";
+      index += 1;
+      continue;
+    }
+    if (char === "|") {
+      cells.push(cell.trim());
+      cell = "";
+      continue;
+    }
+    cell += char;
+  }
+  cells.push(cell.trim());
+
+  return cells;
+}
+
+function parseTableAlignments(line: string): TableAlignment[] | null {
+  const cells = splitTableRow(line);
+  if (cells.length === 0) return null;
+
+  const alignments: TableAlignment[] = [];
+  for (const cell of cells) {
+    const marker = cell.replace(/\s/g, "");
+    if (!/^:?-{3,}:?$/.test(marker)) return null;
+
+    const left = marker.startsWith(":");
+    const right = marker.endsWith(":");
+    alignments.push(left && right ? "center" : right ? "right" : left ? "left" : null);
+  }
+
+  return alignments;
+}
+
+function normalizeTableCells(cells: string[], count: number): string[] {
+  const normalized = cells.slice(0, count);
+  while (normalized.length < count) {
+    normalized.push("");
+  }
+  return normalized;
+}
+
+function parseMarkdownTable(lines: string[], startIndex: number): {
+  table: ParsedMarkdownTable;
+  nextIndex: number;
+} | null {
+  const headerLine = lines[startIndex];
+  const separatorLine = lines[startIndex + 1];
+  if (!headerLine || !separatorLine || !headerLine.includes("|")) return null;
+
+  const headers = splitTableRow(headerLine);
+  const alignments = parseTableAlignments(separatorLine);
+  if (!alignments || headers.length === 0 || headers.length !== alignments.length) {
+    return null;
+  }
+
+  const rows: string[][] = [];
+  let index = startIndex + 2;
+  while (index < lines.length && lines[index].trim() && lines[index].includes("|")) {
+    rows.push(normalizeTableCells(splitTableRow(lines[index]), headers.length));
+    index += 1;
+  }
+
+  return {
+    table: {
+      headers,
+      alignments,
+      rows,
+    },
+    nextIndex: index,
+  };
+}
+
 function isSpecialMarkdownLine(line: string): boolean {
   return (
     /^```/.test(line) ||
@@ -150,6 +241,31 @@ function renderCodeBlock(text: string): string {
   return `<pre data-block="code"><code>${escapeHtml(text) || "\n"}</code></pre>`;
 }
 
+function renderTableCell(
+  tagName: "th" | "td",
+  content: string,
+  alignment: TableAlignment,
+): string {
+  const alignAttribute = alignment ? ` data-align="${alignment}"` : "";
+  return `<${tagName}${alignAttribute}>${inlineMarkdownToHtml(content)}</${tagName}>`;
+}
+
+function renderTable({ headers, alignments, rows }: ParsedMarkdownTable): string {
+  const headerHtml = headers
+    .map((header, index) => renderTableCell("th", header, alignments[index] ?? null))
+    .join("");
+  const bodyHtml = rows
+    .map((row) => {
+      const cells = normalizeTableCells(row, headers.length)
+        .map((cell, index) => renderTableCell("td", cell, alignments[index] ?? null))
+        .join("");
+      return `<tr>${cells}</tr>`;
+    })
+    .join("");
+
+  return `<table data-block="table"><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
+}
+
 function markdownToDocumentHtml(markdown: string): string {
   const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
   const blocks: string[] = [];
@@ -186,6 +302,13 @@ function markdownToDocumentHtml(markdown: string): string {
     if (isDividerLine(line)) {
       blocks.push('<hr data-block="divider">');
       index += 1;
+      continue;
+    }
+
+    const tableMatch = parseMarkdownTable(lines, index);
+    if (tableMatch) {
+      blocks.push(renderTable(tableMatch.table));
+      index = tableMatch.nextIndex;
       continue;
     }
 
@@ -235,6 +358,7 @@ function markdownToDocumentHtml(markdown: string): string {
     while (
       index < lines.length &&
       lines[index].trim() &&
+      !parseMarkdownTable(lines, index) &&
       !isSpecialMarkdownLine(lines[index])
     ) {
       paragraphLines.push(lines[index]);
@@ -292,6 +416,60 @@ function cleanInline(value: string): string {
     .trim();
 }
 
+function serializeTableCell(cell: Element): string {
+  return cleanInline(serializeInline(cell))
+    .replace(/\n+/g, " ")
+    .replace(/\|/g, "\\|");
+}
+
+function serializeTableRow(cells: string[]): string {
+  return `| ${cells.join(" | ")} |`;
+}
+
+function serializeTableAlignment(alignment: string | undefined): string {
+  switch (alignment) {
+    case "left":
+      return ":---";
+    case "center":
+      return ":---:";
+    case "right":
+      return "---:";
+    default:
+      return "---";
+  }
+}
+
+function serializeTableElement(table: HTMLElement): SerializedBlock[] {
+  const headerCells = Array.from(
+    table.querySelectorAll(":scope > thead > tr:first-child > th"),
+  );
+  const fallbackHeaderCells = Array.from(
+    table.querySelectorAll(":scope > tr:first-child > th, :scope > tr:first-child > td"),
+  );
+  const headers = (headerCells.length > 0 ? headerCells : fallbackHeaderCells)
+    .map(serializeTableCell);
+
+  if (headers.length === 0) return [];
+
+  const alignments = (headerCells.length > 0 ? headerCells : fallbackHeaderCells)
+    .map((cell) => serializeTableAlignment((cell as HTMLElement).dataset.align));
+  const bodyRows = Array.from(
+    table.querySelectorAll(":scope > tbody > tr, :scope > tr"),
+  ).filter((row) => row.querySelectorAll("td").length > 0);
+  const rows = bodyRows
+    .map((row) => Array.from(row.querySelectorAll("th, td")).map(serializeTableCell))
+    .map((cells) => normalizeTableCells(cells, headers.length));
+
+  return [{
+    kind: "table",
+    markdown: [
+      serializeTableRow(headers),
+      serializeTableRow(alignments),
+      ...rows.map(serializeTableRow),
+    ].join("\n"),
+  }];
+}
+
 function serializeElementBlock(element: HTMLElement): SerializedBlock[] {
   const tagName = element.tagName.toLowerCase();
   const block = element.dataset.block;
@@ -310,6 +488,10 @@ function serializeElementBlock(element: HTMLElement): SerializedBlock[] {
 
   if (tagName === "hr" || block === "divider") {
     return [{ kind: "divider", markdown: "---" }];
+  }
+
+  if (tagName === "table" || block === "table") {
+    return serializeTableElement(element);
   }
 
   if (tagName === "pre" || block === "code") {
@@ -406,6 +588,7 @@ function updateEmptyState(root: HTMLElement): void {
         '[data-block="task"]',
         '[data-block="code"]',
         '[data-block="divider"]',
+        '[data-block="table"]',
         "hr",
       ].join(","),
     ),

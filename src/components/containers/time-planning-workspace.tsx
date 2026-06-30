@@ -9,6 +9,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import {
   CalendarDays,
+  Check,
   CheckCircle2,
   Circle,
   Clock3,
@@ -22,6 +23,7 @@ import {
   Plus,
   Save,
   Trash2,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
@@ -399,12 +401,33 @@ function WeekPlanEditor({
   onArchive,
 }: WeekPlanEditorProps) {
   const [title, setTitle] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
 
   const handleAdd = async () => {
     const trimmed = title.trim();
     if (!trimmed) return;
     await onAdd(trimmed);
     setTitle("");
+  };
+
+  const startEditing = (item: WeekPlanItem) => {
+    setEditingId(item.id);
+    setEditingTitle(item.title);
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setEditingTitle("");
+  };
+
+  const saveEditing = async (item: WeekPlanItem) => {
+    const trimmed = editingTitle.trim();
+    if (!trimmed) return;
+    if (trimmed !== item.title) {
+      await onRename(item.id, trimmed);
+    }
+    cancelEditing();
   };
 
   return (
@@ -449,36 +472,72 @@ function WeekPlanEditor({
               className="flex items-center gap-2 rounded-2xl border border-sahara-border/15 bg-sahara-surface px-3 py-2"
             >
               <span className="size-2 rounded-full bg-sahara-primary" />
-              <span className="min-w-0 flex-1 truncate text-sm font-bold text-sahara-text">
-                {item.title}
-              </span>
-              <Button
-                variant="ghost"
-                intent="default"
-                size="icon-sm"
-                shape="rounded-full"
-                onClick={() => {
-                  const nextTitle = window.prompt("修改周计划条目", item.title);
-                  if (nextTitle !== null) void onRename(item.id, nextTitle);
-                }}
-                title="修改"
-              >
-                <Pencil className="size-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                intent="red"
-                size="icon-sm"
-                shape="rounded-full"
-                onClick={() => {
-                  if (window.confirm(`删除「${item.title}」？相关任务会进入临时任务 / 其他。`)) {
-                    void onArchive(item.id);
-                  }
-                }}
-                title="删除"
-              >
-                <Trash2 className="size-3.5" />
-              </Button>
+              {editingId === item.id ? (
+                <>
+                  <input
+                    autoFocus
+                    value={editingTitle}
+                    onChange={(event) => setEditingTitle(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") void saveEditing(item);
+                      if (event.key === "Escape") cancelEditing();
+                    }}
+                    className="min-w-0 flex-1 rounded-xl border border-sahara-primary/30 bg-sahara-card px-3 py-2 text-sm font-bold text-sahara-text outline-none transition-all focus:border-sahara-primary/60 focus:ring-2 focus:ring-sahara-primary/10"
+                    aria-label="周计划条目标题"
+                  />
+                  <Button
+                    variant="ghost"
+                    intent="green"
+                    size="icon-sm"
+                    shape="rounded-full"
+                    onClick={() => void saveEditing(item)}
+                    disabled={!editingTitle.trim()}
+                    title="保存"
+                  >
+                    <Check className="size-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    intent="default"
+                    size="icon-sm"
+                    shape="rounded-full"
+                    onClick={cancelEditing}
+                    title="取消"
+                  >
+                    <X className="size-3.5" />
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <span className="min-w-0 flex-1 truncate text-sm font-bold text-sahara-text">
+                    {item.title}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    intent="default"
+                    size="icon-sm"
+                    shape="rounded-full"
+                    onClick={() => startEditing(item)}
+                    title="修改"
+                  >
+                    <Pencil className="size-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    intent="red"
+                    size="icon-sm"
+                    shape="rounded-full"
+                    onClick={() => {
+                      if (window.confirm(`删除「${item.title}」？相关任务会进入临时任务 / 其他。`)) {
+                        void onArchive(item.id);
+                      }
+                    }}
+                    title="删除"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </>
+              )}
             </div>
           ))
         ) : (
@@ -565,6 +624,7 @@ export function TimePlanningWorkspace() {
 
   const [draftPageId, setDraftPageId] = useState<number | null>(null);
   const [draftContent, setDraftContent] = useState("");
+  const [loadedDraftContent, setLoadedDraftContent] = useState("");
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [isPageTreeCollapsed, setIsPageTreeCollapsed] = useState(false);
 
@@ -624,31 +684,42 @@ export function TimePlanningWorkspace() {
     if (!activePage) {
       setDraftPageId(null);
       setDraftContent("");
+      setLoadedDraftContent("");
       setSaveState("idle");
       return;
     }
-    setDraftPageId(activePage.id);
-    setDraftContent(activePage.content);
-    setSaveState("saved");
-  }, [activePage?.id]);
+    if (draftPageId !== activePage.id) {
+      setDraftPageId(activePage.id);
+      setDraftContent(activePage.content);
+      setLoadedDraftContent(activePage.content);
+      setSaveState("saved");
+      return;
+    }
+    if (draftContent === loadedDraftContent && activePage.content !== loadedDraftContent) {
+      setDraftContent(activePage.content);
+      setLoadedDraftContent(activePage.content);
+      setSaveState("saved");
+    }
+  }, [activePage?.content, activePage?.id, draftContent, draftPageId, loadedDraftContent]);
 
   const persistDraft = useCallback(async () => {
     if (!activePage || draftPageId !== activePage.id) return;
-    if (draftContent === activePage.content) return;
+    if (draftContent === loadedDraftContent) return;
     setSaveState("saving");
     await updatePageContent(activePage.id, draftContent);
+    setLoadedDraftContent(draftContent);
     setSaveState("saved");
-  }, [activePage, draftContent, draftPageId, updatePageContent]);
+  }, [activePage, draftContent, draftPageId, loadedDraftContent, updatePageContent]);
 
   useEffect(() => {
     if (!activePage || draftPageId !== activePage.id) return;
-    if (draftContent === activePage.content) return;
+    if (draftContent === loadedDraftContent) return;
     setSaveState("saving");
     const timer = window.setTimeout(() => {
       void persistDraft();
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [activePage, draftContent, draftPageId, persistDraft]);
+  }, [activePage, draftContent, draftPageId, loadedDraftContent, persistDraft]);
 
   const handleSelectPage = async (pageId: number) => {
     await persistDraft();
@@ -884,6 +955,13 @@ export function TimePlanningWorkspace() {
                 onRename={updateWeekPlanItemTitle}
                 onArchive={archiveWeekPlanItem}
               />
+              <MarkdownSection
+                activePage={activePage}
+                draftContent={draftContent}
+                saveLabel={saveLabel}
+                onChange={setDraftContent}
+                onBlur={() => void persistDraft()}
+              />
               <section className="rounded-3xl border border-sahara-border/20 bg-sahara-card/35 p-5 md:p-6">
                 <div className="mb-4">
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-sahara-text-muted">
@@ -909,13 +987,15 @@ export function TimePlanningWorkspace() {
             </>
           )}
 
-          <MarkdownSection
-            activePage={activePage}
-            draftContent={draftContent}
-            saveLabel={saveLabel}
-            onChange={setDraftContent}
-            onBlur={() => void persistDraft()}
-          />
+          {activePage.type !== "week" && (
+            <MarkdownSection
+              activePage={activePage}
+              draftContent={draftContent}
+              saveLabel={saveLabel}
+              onChange={setDraftContent}
+              onBlur={() => void persistDraft()}
+            />
+          )}
         </main>
       </div>
     </div>

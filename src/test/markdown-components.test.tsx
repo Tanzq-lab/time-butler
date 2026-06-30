@@ -28,6 +28,13 @@ const SAMPLE_MARKDOWN = `## 今日复盘
 console.log("time-butler");
 \`\`\``;
 
+const DAILY_REPORT_TABLE = `### 2. 时间投入分布
+
+| 方向 / 分类 | 时长 | 专注段数 | 代表任务 |
+|---|---:|---:|---|
+| Time Butler 功能迭代 | 2h 30m | 6 | 新增日报功能、新增周月年计划、优化记录页面 |
+| 面试逐字稿撰写 | 2h 30m | 6 | [面经逐字稿] 01 自我介绍 |`;
+
 describe("Markdown components", () => {
   it("renders common GFM Markdown as formatted content", () => {
     const { container } = render(<MarkdownRenderer content={SAMPLE_MARKDOWN} />);
@@ -122,6 +129,38 @@ describe("Markdown components", () => {
     expect(listBlock).toBeInTheDocument();
     expect(editor).toHaveAttribute("data-empty", "false");
     expect(handleChange).toHaveBeenLastCalledWith("- ");
+  });
+
+  it("renders and saves daily report Markdown tables in the document editor", () => {
+    const handleChange = vi.fn();
+    render(
+      <DocumentNoteEditor
+        value={DAILY_REPORT_TABLE}
+        onChange={handleChange}
+        onBlur={vi.fn()}
+      />,
+    );
+
+    const editor = screen.getByRole("textbox", { name: "记录内容" });
+    const table = editor.querySelector('[data-block="table"]');
+    expect(table).toBeInstanceOf(HTMLTableElement);
+    expect(screen.getByText("Time Butler 功能迭代")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "时长" })).toHaveAttribute(
+      "data-align",
+      "right",
+    );
+
+    screen.getAllByText("2h 30m")[0].textContent = "2h 35m";
+    fireEvent.input(editor);
+
+    expect(handleChange).toHaveBeenLastCalledWith(
+      expect.stringContaining(
+        "| Time Butler 功能迭代 | 2h 35m | 6 | 新增日报功能、新增周月年计划、优化记录页面 |",
+      ),
+    );
+    expect(handleChange).toHaveBeenLastCalledWith(
+      expect.stringContaining("| --- | ---: | ---: | --- |"),
+    );
   });
 
   it("renders Markdown in record list cards", () => {
