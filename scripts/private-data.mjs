@@ -23,6 +23,14 @@ const legacyDbFileName = ["Kai", "ros-Pom", "odoro.db"].join("");
 const legacyPrivateDb = path.join(dataRoot, legacyDbFileName);
 const legacyAppSupportDb = path.join(appSupportDir, legacyDbFileName);
 const runtimeDb = path.resolve(process.env.TIME_BUTLER_DB ?? targetDb);
+const privateGitignoreRules = [
+  ".DS_Store",
+  ".runtime-cleanup",
+  "*.db-shm",
+  "*.db-wal",
+  "logs/",
+  "backups/",
+];
 
 function usage() {
   console.log(`Usage: node scripts/private-data.mjs <init|backup>
@@ -41,21 +49,29 @@ function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true });
 }
 
-function ensureFileIfMissing(file, content) {
-  if (!fs.existsSync(file)) {
-    fs.writeFileSync(file, content);
-  }
+function ensureGitignoreRules(file, rules) {
+  const current = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
+  const existing = new Set(
+    current
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean),
+  );
+  const missing = rules.filter((rule) => !existing.has(rule));
+
+  if (missing.length === 0) return;
+
+  const prefix = current.length > 0 && !current.endsWith("\n") ? "\n" : "";
+  fs.writeFileSync(file, `${current}${prefix}${missing.join("\n")}\n`);
 }
 
 function initDataRoot() {
   ensureDir(dataRoot);
   ensureDir(path.join(dataRoot, "data"));
   ensureDir(path.join(dataRoot, "backups"));
+  ensureDir(path.join(dataRoot, "logs"));
   migrateLegacyPrivateDb();
-  ensureFileIfMissing(
-    path.join(dataRoot, ".gitignore"),
-    [".DS_Store", "*.db-shm", "*.db-wal", ""].join("\n"),
-  );
+  ensureGitignoreRules(path.join(dataRoot, ".gitignore"), privateGitignoreRules);
 
   console.log(`Data root ready: ${dataRoot}`);
   console.log(`Private DB path: ${targetDb}`);
