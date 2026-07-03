@@ -12,6 +12,7 @@ describe("default task categories", () => {
     expect(names).toContain(TASK_CATEGORY_NAMES.codeChange);
     expect(names).toContain(TASK_CATEGORY_NAMES.materialOrganization);
     expect(names).toContain(TASK_CATEGORY_NAMES.communication);
+    expect(names).toContain(TASK_CATEGORY_NAMES.memoryReview);
     expect(names).not.toContain("工作");
     expect(names).not.toContain("投资");
     expect(names).not.toContain("个人事务");

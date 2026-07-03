@@ -6,6 +6,35 @@ import {
 } from "@/features/tasks/recurring-summary-tasks";
 
 describe("recurring summary tasks", () => {
+  it("creates one ANKI review for the reference day", () => {
+    const occurrences = buildSummaryTaskOccurrences(
+      new Date(2026, 6, 3),
+      7,
+    );
+
+    expect(
+      occurrences
+        .filter((item) => item.ruleKey === "anki.daily")
+        .map((item) => ({
+          occurrenceDate: item.occurrenceDate,
+          scheduledFor: item.scheduledFor,
+          name: item.name,
+          estimatedPomos: item.estimatedPomos,
+          project: item.project,
+          categoryName: item.categoryName,
+        })),
+    ).toEqual([
+      {
+        occurrenceDate: "2026-07-03",
+        scheduledFor: "2026-07-03T09:00:00",
+        name: "复习 ANKI",
+        estimatedPomos: 1,
+        project: "ANKI",
+        categoryName: "记忆复习",
+      },
+    ]);
+  });
+
   it("creates weekly summaries for Sundays in the next week", () => {
     const occurrences = buildSummaryTaskOccurrences(
       new Date(2026, 5, 28),

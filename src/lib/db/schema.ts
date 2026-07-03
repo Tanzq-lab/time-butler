@@ -187,6 +187,8 @@ export async function initDb(): Promise<void> {
     );
   }
 
+  await seedDefaultTaskCategories(database);
+
   // Seed default presets if none exist
   const presetCount = await database.select<{ count: number }[]>(
     "SELECT COUNT(*) as count FROM presets",

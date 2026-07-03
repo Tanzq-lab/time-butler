@@ -6,19 +6,30 @@ const LOOKAHEAD_DAYS = 7;
 const SUMMARY_TASK_HOUR = 9;
 const SUMMARY_PROJECT = "个人复盘";
 const SUMMARY_CATEGORY = TASK_CATEGORY_NAMES.review;
+const DAILY_ANKI_TASK_HOUR = 9;
+const DAILY_ANKI_PROJECT = "ANKI";
+const DAILY_ANKI_CATEGORY = TASK_CATEGORY_NAMES.memoryReview;
 
-type SummaryRuleKey = "summary.weekly" | "summary.monthly" | "summary.yearly";
+type RecurringTaskRuleKey =
+  | "summary.weekly"
+  | "summary.monthly"
+  | "summary.yearly"
+  | "anki.daily";
 
-interface SummaryRule {
-  key: SummaryRuleKey;
+interface RecurringTaskRule {
+  key: RecurringTaskRuleKey;
   name: string;
   estimatedPomos: number;
   shouldCreateOn: (date: Date) => boolean;
+  scheduledHour: number;
+  project: string;
+  categoryName: string;
   reason: string;
+  lookaheadDays?: number;
 }
 
-export interface SummaryTaskOccurrence {
-  ruleKey: SummaryRuleKey;
+export interface RecurringTaskOccurrence {
+  ruleKey: RecurringTaskRuleKey;
   occurrenceDate: string;
   scheduledFor: string;
   name: string;
@@ -89,8 +100,8 @@ function toDateKey(date: Date): string {
   ].join("-");
 }
 
-function toScheduledFor(date: Date): string {
-  return `${toDateKey(date)}T${String(SUMMARY_TASK_HOUR).padStart(2, "0")}:00:00`;
+function toScheduledFor(date: Date, hour: number): string {
+  return `${toDateKey(date)}T${String(hour).padStart(2, "0")}:00:00`;
 }
 
 function isWeekend(date: Date): boolean {
@@ -141,12 +152,15 @@ function findFirstDayOffPeriodStartInYear(year: number): string | null {
   return null;
 }
 
-const SUMMARY_RULES: SummaryRule[] = [
+const RECURRING_TASK_RULES: RecurringTaskRule[] = [
   {
     key: "summary.weekly",
     name: "周总结",
     estimatedPomos: 1,
     shouldCreateOn: (date) => date.getDay() === 0,
+    scheduledHour: SUMMARY_TASK_HOUR,
+    project: SUMMARY_PROJECT,
+    categoryName: SUMMARY_CATEGORY,
     reason: "周总结是明确的周期复盘任务，按 1 个番茄预估。",
   },
   {
@@ -156,6 +170,9 @@ const SUMMARY_RULES: SummaryRule[] = [
     shouldCreateOn: (date) =>
       toDateKey(date) ===
       findFirstDayOffPeriodStartInMonth(date.getFullYear(), date.getMonth()),
+    scheduledHour: SUMMARY_TASK_HOUR,
+    project: SUMMARY_PROJECT,
+    categoryName: SUMMARY_CATEGORY,
     reason: "月总结需要回顾并归纳一个月的记录，按 2 个番茄预估。",
   },
   {
@@ -164,29 +181,44 @@ const SUMMARY_RULES: SummaryRule[] = [
     estimatedPomos: 4,
     shouldCreateOn: (date) =>
       toDateKey(date) === findFirstDayOffPeriodStartInYear(date.getFullYear()),
+    scheduledHour: SUMMARY_TASK_HOUR,
+    project: SUMMARY_PROJECT,
+    categoryName: SUMMARY_CATEGORY,
     reason: "年总结涉及全年复盘和输出，按 4 个番茄预估。",
+  },
+  {
+    key: "anki.daily",
+    name: "复习 ANKI",
+    estimatedPomos: 1,
+    shouldCreateOn: () => true,
+    scheduledHour: DAILY_ANKI_TASK_HOUR,
+    project: DAILY_ANKI_PROJECT,
+    categoryName: DAILY_ANKI_CATEGORY,
+    reason: "ANKI 复习是明确的每日记忆巩固任务，按 1 个番茄预估。",
+    lookaheadDays: 0,
   },
 ];
 
 export function buildSummaryTaskOccurrences(
   referenceDate = new Date(),
   lookaheadDays = LOOKAHEAD_DAYS,
-): SummaryTaskOccurrence[] {
-  const occurrences: SummaryTaskOccurrence[] = [];
+): RecurringTaskOccurrence[] {
+  const occurrences: RecurringTaskOccurrence[] = [];
   const start = cloneDate(referenceDate);
 
   for (let offset = 0; offset <= lookaheadDays; offset += 1) {
     const date = addDays(start, offset);
-    for (const rule of SUMMARY_RULES) {
+    for (const rule of RECURRING_TASK_RULES) {
+      if (offset > (rule.lookaheadDays ?? lookaheadDays)) continue;
       if (!rule.shouldCreateOn(date)) continue;
       occurrences.push({
         ruleKey: rule.key,
         occurrenceDate: toDateKey(date),
-        scheduledFor: toScheduledFor(date),
+        scheduledFor: toScheduledFor(date, rule.scheduledHour),
         name: rule.name,
         estimatedPomos: rule.estimatedPomos,
-        project: SUMMARY_PROJECT,
-        categoryName: SUMMARY_CATEGORY,
+        project: rule.project,
+        categoryName: rule.categoryName,
         reason: rule.reason,
       });
     }
@@ -195,17 +227,17 @@ export function buildSummaryTaskOccurrences(
   return occurrences;
 }
 
-async function getReviewCategoryId(): Promise<number | null> {
+async function getCategoryIdByName(categoryName: string): Promise<number | null> {
   const database = await getDb();
   const rows = await database.select<{ id: number }[]>(
     "SELECT id FROM categories WHERE name = $1 LIMIT 1",
-    [SUMMARY_CATEGORY],
+    [categoryName],
   );
   return rows[0]?.id ?? null;
 }
 
 async function getExistingOccurrence(
-  ruleKey: SummaryRuleKey,
+  ruleKey: RecurringTaskRuleKey,
   occurrenceDate: string,
 ): Promise<number | null> {
   const database = await getDb();
@@ -229,7 +261,7 @@ async function findExistingTaskId(
 }
 
 async function recordOccurrence(
-  occurrence: SummaryTaskOccurrence,
+  occurrence: RecurringTaskOccurrence,
   taskId: number,
 ): Promise<void> {
   const database = await getDb();
@@ -240,7 +272,7 @@ async function recordOccurrence(
 }
 
 async function logCreatedOccurrence(
-  occurrence: SummaryTaskOccurrence,
+  occurrence: RecurringTaskOccurrence,
 ): Promise<void> {
   await appendPomodoroEstimationLog({
     event: "created",
@@ -261,10 +293,17 @@ export async function ensureRecurringSummaryTasks(
   const occurrences = buildSummaryTaskOccurrences(referenceDate);
   if (occurrences.length === 0) return 0;
 
-  const categoryId = await getReviewCategoryId();
+  const categoryIds = new Map<string, number | null>();
   let createdCount = 0;
 
   for (const occurrence of occurrences) {
+    if (!categoryIds.has(occurrence.categoryName)) {
+      categoryIds.set(
+        occurrence.categoryName,
+        await getCategoryIdByName(occurrence.categoryName),
+      );
+    }
+
     const existingOccurrence = await getExistingOccurrence(
       occurrence.ruleKey,
       occurrence.occurrenceDate,
@@ -285,7 +324,7 @@ export async function ensureRecurringSummaryTasks(
       occurrence.estimatedPomos,
       occurrence.project,
       "medium",
-      categoryId,
+      categoryIds.get(occurrence.categoryName) ?? null,
       occurrence.scheduledFor,
     );
     await recordOccurrence(occurrence, taskId);

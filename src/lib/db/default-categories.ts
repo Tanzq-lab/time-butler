@@ -14,6 +14,7 @@ export const TASK_CATEGORY_NAMES = {
   workflowOptimization: "工作流优化",
   administration: "行政办理",
   readingResearch: "阅读研究",
+  memoryReview: "记忆复习",
 } as const;
 
 export type TaskCategoryName =
@@ -40,6 +41,7 @@ export const DEFAULT_TASK_CATEGORIES: readonly DefaultTaskCategory[] = [
   { name: TASK_CATEGORY_NAMES.workflowOptimization, color: "#8E7DBE" },
   { name: TASK_CATEGORY_NAMES.administration, color: "#A98467" },
   { name: TASK_CATEGORY_NAMES.readingResearch, color: "#6D8A96" },
+  { name: TASK_CATEGORY_NAMES.memoryReview, color: "#A06C75" },
 ] as const;
 
 interface DatabaseExecutor {
