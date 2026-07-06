@@ -87,7 +87,7 @@ export function getPageTitle(type: TimePageType, dateKey: string): string {
       return `${dateKey.slice(0, 4)} 年 ${Number(month)} 月`;
     }
     case "week":
-      return `${dateKey} 周计划`;
+      return `${dateKey} 周记录`;
     case "day": {
       const date = parseLocalDate(dateKey);
       const weekday = new Intl.DateTimeFormat("zh-CN", { weekday: "long" }).format(date);

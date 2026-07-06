@@ -94,16 +94,6 @@ export interface TimePage {
   updated_at: string;
 }
 
-export interface WeekPlanItem {
-  id: number;
-  week_page_id: number;
-  title: string;
-  sort_order: number;
-  archived: number;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface CompletedTaskEntry {
   task_id: number;
   task_name: string;

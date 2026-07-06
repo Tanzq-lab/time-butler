@@ -1,5 +1,5 @@
 import { getDb } from "./schema";
-import type { TimePage, TimePageType, WeekPlanItem } from "./types";
+import type { TimePage, TimePageType } from "./types";
 import {
   getDefaultPageContent,
   getPageTitle,
@@ -96,63 +96,6 @@ export async function updateTimePageContent(
          updated_at = datetime('now', 'localtime')
      WHERE id = $2`,
     [content, id],
-  );
-}
-
-export async function getWeekPlanItems(
-  weekPageId: number,
-): Promise<WeekPlanItem[]> {
-  const database = await getDb();
-  return database.select<WeekPlanItem[]>(
-    `SELECT id, week_page_id, title, sort_order, archived, created_at, updated_at
-     FROM week_plan_items
-     WHERE week_page_id = $1 AND archived = 0
-     ORDER BY sort_order ASC, created_at ASC`,
-    [weekPageId],
-  );
-}
-
-export async function addWeekPlanItem(
-  weekPageId: number,
-  title: string,
-): Promise<number> {
-  const database = await getDb();
-  const rows = await database.select<{ next_order: number }[]>(
-    `SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_order
-     FROM week_plan_items
-     WHERE week_page_id = $1`,
-    [weekPageId],
-  );
-  const result = await database.execute(
-    `INSERT INTO week_plan_items (week_page_id, title, sort_order)
-     VALUES ($1, $2, $3)`,
-    [weekPageId, title, rows[0]?.next_order ?? 0],
-  );
-  return result.lastInsertId as number;
-}
-
-export async function updateWeekPlanItemTitle(
-  id: number,
-  title: string,
-): Promise<void> {
-  const database = await getDb();
-  await database.execute(
-    `UPDATE week_plan_items
-     SET title = $1,
-         updated_at = datetime('now', 'localtime')
-     WHERE id = $2`,
-    [title, id],
-  );
-}
-
-export async function archiveWeekPlanItem(id: number): Promise<void> {
-  const database = await getDb();
-  await database.execute(
-    `UPDATE week_plan_items
-     SET archived = 1,
-         updated_at = datetime('now', 'localtime')
-     WHERE id = $1`,
-    [id],
   );
 }
 

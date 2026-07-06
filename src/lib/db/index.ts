@@ -1,6 +1,6 @@
 export { initDb } from "./schema";
 export { getDb } from "./schema";
-export type { Session, Category, CategoryBreakdown, DayData, WeekSession, WeekSummary, MoodStat, SessionNoteEntry, CompletedTaskEntry, TimePage, TimePageType, WeekPlanItem } from "./types";
+export type { Session, Category, CategoryBreakdown, DayData, WeekSession, WeekSummary, MoodStat, SessionNoteEntry, CompletedTaskEntry, TimePage, TimePageType } from "./types";
 export {
   getTasks,
   addTask,
@@ -48,9 +48,5 @@ export {
   ensureTimeWorkspace,
   getTimePages,
   updateTimePageContent,
-  getWeekPlanItems,
-  addWeekPlanItem,
-  updateWeekPlanItemTitle,
-  archiveWeekPlanItem,
   addTaskActivityLog,
 } from "./time-pages";

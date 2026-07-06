@@ -9,26 +9,20 @@ import {
 import { useNavigate } from "react-router-dom";
 import {
   CalendarDays,
-  Check,
   CheckCircle2,
   Circle,
   Clock3,
   FileText,
   FolderTree,
   Loader2,
-  Milestone,
   PanelLeftClose,
   PanelLeftOpen,
-  Pencil,
-  Plus,
   Save,
-  Trash2,
-  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
 import { cn } from "@/lib/cn";
-import type { TimePage, WeekPlanItem } from "@/lib/db";
+import type { TimePage } from "@/lib/db";
 import { addTaskActivityLog } from "@/lib/db";
 import { getWeekDateRangeFromKey, toLocalISODate } from "@/lib/time-pages";
 import { isTaskDone } from "@/features/tasks/task-completion";
@@ -41,18 +35,10 @@ const DocumentNoteEditor = lazy(() => import("./document-note-editor"));
 
 type SaveState = "idle" | "saving" | "saved";
 
-type TaskGroup = {
-  id: number | "other";
-  title: string;
-  tasks: Task[];
-};
-
 type PageTreeItem = {
   page: TimePage;
   depth: number;
 };
-
-const OTHER_GROUP_TITLE = "临时任务 / 其他";
 
 const PAGE_TYPE_ORDER: Record<TimePage["type"], number> = {
   overview: 0,
@@ -135,33 +121,6 @@ function buildPageTree(pages: TimePage[], overviewPageId: number | null): PageTr
   return items;
 }
 
-function buildTaskGroups(tasks: Task[], weekPlanItems: WeekPlanItem[]): TaskGroup[] {
-  const groups: TaskGroup[] = weekPlanItems.map((item) => ({
-    id: item.id,
-    title: item.title,
-    tasks: [],
-  }));
-  const otherGroup: TaskGroup = { id: "other", title: OTHER_GROUP_TITLE, tasks: [] };
-
-  for (const task of tasks) {
-    const group = groups.find((item) => item.id === task.week_plan_item_id);
-    if (group) group.tasks.push(task);
-    else otherGroup.tasks.push(task);
-  }
-
-  return [...groups.filter((group) => group.tasks.length > 0), ...(otherGroup.tasks.length > 0 ? [otherGroup] : [])];
-}
-
-function getWeekPlanTitle(
-  task: Task,
-  weekPlanItems: WeekPlanItem[],
-): string {
-  return (
-    weekPlanItems.find((item) => item.id === task.week_plan_item_id)?.title ??
-    OTHER_GROUP_TITLE
-  );
-}
-
 interface PageTreeButtonProps {
   page: TimePage;
   active: boolean;
@@ -212,7 +171,6 @@ function PageTreeButton({
 
 interface TaskCardProps {
   task: Task;
-  groupTitle: string;
   onComplete: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -224,7 +182,6 @@ interface TaskCardProps {
 
 function TaskCard({
   task,
-  groupTitle,
   onComplete,
   onEdit,
   onDelete,
@@ -255,9 +212,6 @@ function TaskCard({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="rounded-full bg-sahara-primary-light px-2 py-0.5 text-[10px] font-bold text-sahara-primary">
-              {groupTitle}
-            </span>
             {task.project && (
               <span className="rounded-full bg-sahara-card px-2 py-0.5 text-[10px] font-bold text-sahara-text-muted">
                 {task.project}
@@ -319,10 +273,9 @@ function TaskCard({
   );
 }
 
-interface TaskGroupsProps {
-  groups: TaskGroup[];
+interface PlanningTaskListProps {
+  tasks: Task[];
   emptyLabel: string;
-  weekPlanItems: WeekPlanItem[];
   onCompleteTask: (task: Task) => void;
   onEditTask: (task: Task) => void;
   onDeleteTask: (task: Task) => void;
@@ -331,23 +284,22 @@ interface TaskGroupsProps {
   onMoveTaskCustomDate: (task: Task) => void;
 }
 
-function TaskGroups({
-  groups,
+function PlanningTaskList({
+  tasks,
   emptyLabel,
-  weekPlanItems,
   onCompleteTask,
   onEditTask,
   onDeleteTask,
   onFocusTask,
   onMoveTask,
   onMoveTaskCustomDate,
-}: TaskGroupsProps) {
+}: PlanningTaskListProps) {
   const today = toLocalISODate(new Date());
   const tomorrowDate = new Date();
   tomorrowDate.setDate(tomorrowDate.getDate() + 1);
   const tomorrow = toLocalISODate(tomorrowDate);
 
-  if (groups.length === 0) {
+  if (tasks.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-sahara-border/40 bg-sahara-card/40 p-8 text-center">
         <p className="text-sm font-bold text-sahara-text-muted">{emptyLabel}</p>
@@ -356,197 +308,21 @@ function TaskGroups({
   }
 
   return (
-    <div className="space-y-5">
-      {groups.map((group) => (
-        <section key={group.id}>
-          <div className="mb-2 flex items-center gap-2">
-            <Milestone className="size-4 text-sahara-primary" />
-            <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-sahara-text-muted">
-              {group.title}（{group.tasks.length}）
-            </h3>
-          </div>
-          <div className="space-y-3">
-            {group.tasks.map((task) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                groupTitle={getWeekPlanTitle(task, weekPlanItems)}
-                onComplete={() => onCompleteTask(task)}
-                onEdit={() => onEditTask(task)}
-                onDelete={() => onDeleteTask(task)}
-                onFocus={() => onFocusTask(task)}
-                onMoveToday={() => onMoveTask(task, today)}
-                onMoveTomorrow={() => onMoveTask(task, tomorrow)}
-                onMoveCustomDate={() => onMoveTaskCustomDate(task)}
-              />
-            ))}
-          </div>
-        </section>
+    <div className="space-y-3">
+      {tasks.map((task) => (
+        <TaskCard
+          key={task.id}
+          task={task}
+          onComplete={() => onCompleteTask(task)}
+          onEdit={() => onEditTask(task)}
+          onDelete={() => onDeleteTask(task)}
+          onFocus={() => onFocusTask(task)}
+          onMoveToday={() => onMoveTask(task, today)}
+          onMoveTomorrow={() => onMoveTask(task, tomorrow)}
+          onMoveCustomDate={() => onMoveTaskCustomDate(task)}
+        />
       ))}
     </div>
-  );
-}
-
-interface WeekPlanEditorProps {
-  weekPlanItems: WeekPlanItem[];
-  onAdd: (title: string) => Promise<void>;
-  onRename: (id: number, title: string) => Promise<void>;
-  onArchive: (id: number) => Promise<void>;
-}
-
-function WeekPlanEditor({
-  weekPlanItems,
-  onAdd,
-  onRename,
-  onArchive,
-}: WeekPlanEditorProps) {
-  const [title, setTitle] = useState("");
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editingTitle, setEditingTitle] = useState("");
-
-  const handleAdd = async () => {
-    const trimmed = title.trim();
-    if (!trimmed) return;
-    await onAdd(trimmed);
-    setTitle("");
-  };
-
-  const startEditing = (item: WeekPlanItem) => {
-    setEditingId(item.id);
-    setEditingTitle(item.title);
-  };
-
-  const cancelEditing = () => {
-    setEditingId(null);
-    setEditingTitle("");
-  };
-
-  const saveEditing = async (item: WeekPlanItem) => {
-    const trimmed = editingTitle.trim();
-    if (!trimmed) return;
-    if (trimmed !== item.title) {
-      await onRename(item.id, trimmed);
-    }
-    cancelEditing();
-  };
-
-  return (
-    <section className="rounded-3xl border border-sahara-border/20 bg-sahara-card/35 p-5 md:p-6">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-sahara-text-muted">
-            Week Plan
-          </p>
-          <h2 className="font-serif text-2xl text-sahara-text">周计划</h2>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <input
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") void handleAdd();
-          }}
-          placeholder="新增一个周计划条目，例如：Time-butler 记录系统"
-          className="min-w-0 flex-1 rounded-2xl border border-sahara-border/20 bg-sahara-surface px-4 py-3 text-sm text-sahara-text outline-none transition-all placeholder:text-sahara-text-muted/50 focus:border-sahara-primary/40 focus:ring-2 focus:ring-sahara-primary/10"
-        />
-        <Button
-          variant="solid"
-          intent="sahara"
-          size="sm"
-          shape="rounded-full"
-          onClick={() => void handleAdd()}
-          className="gap-1.5"
-        >
-          <Plus className="size-4" />
-          添加
-        </Button>
-      </div>
-
-      <div className="mt-4 space-y-2">
-        {weekPlanItems.length > 0 ? (
-          weekPlanItems.map((item) => (
-            <div
-              key={item.id}
-              className="flex items-center gap-2 rounded-2xl border border-sahara-border/15 bg-sahara-surface px-3 py-2"
-            >
-              <span className="size-2 rounded-full bg-sahara-primary" />
-              {editingId === item.id ? (
-                <>
-                  <input
-                    autoFocus
-                    value={editingTitle}
-                    onChange={(event) => setEditingTitle(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") void saveEditing(item);
-                      if (event.key === "Escape") cancelEditing();
-                    }}
-                    className="min-w-0 flex-1 rounded-xl border border-sahara-primary/30 bg-sahara-card px-3 py-2 text-sm font-bold text-sahara-text outline-none transition-all focus:border-sahara-primary/60 focus:ring-2 focus:ring-sahara-primary/10"
-                    aria-label="周计划条目标题"
-                  />
-                  <Button
-                    variant="ghost"
-                    intent="green"
-                    size="icon-sm"
-                    shape="rounded-full"
-                    onClick={() => void saveEditing(item)}
-                    disabled={!editingTitle.trim()}
-                    title="保存"
-                  >
-                    <Check className="size-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    intent="default"
-                    size="icon-sm"
-                    shape="rounded-full"
-                    onClick={cancelEditing}
-                    title="取消"
-                  >
-                    <X className="size-3.5" />
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <span className="min-w-0 flex-1 truncate text-sm font-bold text-sahara-text">
-                    {item.title}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    intent="default"
-                    size="icon-sm"
-                    shape="rounded-full"
-                    onClick={() => startEditing(item)}
-                    title="修改"
-                  >
-                    <Pencil className="size-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    intent="red"
-                    size="icon-sm"
-                    shape="rounded-full"
-                    onClick={() => {
-                      if (window.confirm(`删除「${item.title}」？相关任务会进入临时任务 / 其他。`)) {
-                        void onArchive(item.id);
-                      }
-                    }}
-                    title="删除"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                </>
-              )}
-            </div>
-          ))
-        ) : (
-          <p className="rounded-2xl border border-dashed border-sahara-border/30 bg-sahara-surface/50 px-4 py-4 text-sm text-sahara-text-muted">
-            还没有周计划。先写 1-3 个本周主线，日任务会默认挂到这些主线下面。
-          </p>
-        )}
-      </div>
-    </section>
   );
 }
 
@@ -600,7 +376,6 @@ function MarkdownSection({
 export function TimePlanningWorkspace() {
   const navigate = useNavigate();
   const pages = useTimePageStore((state) => state.pages);
-  const weekPlanItems = useTimePageStore((state) => state.weekPlanItems);
   const activePageId = useTimePageStore((state) => state.activePageId);
   const workspaceKeys = useTimePageStore((state) => state.workspaceKeys);
   const overviewPageId = useTimePageStore((state) => state.overviewPageId);
@@ -611,9 +386,6 @@ export function TimePlanningWorkspace() {
   const loadWorkspace = useTimePageStore((state) => state.loadWorkspace);
   const selectPage = useTimePageStore((state) => state.selectPage);
   const updatePageContent = useTimePageStore((state) => state.updatePageContent);
-  const addWeekPlanItem = useTimePageStore((state) => state.addWeekPlanItem);
-  const updateWeekPlanItemTitle = useTimePageStore((state) => state.updateWeekPlanItemTitle);
-  const archiveWeekPlanItem = useTimePageStore((state) => state.archiveWeekPlanItem);
 
   const tasks = useTaskStore((state) => state.tasks);
   const loadTasks = useTaskStore((state) => state.loadTasks);
@@ -668,11 +440,6 @@ export function TimePlanningWorkspace() {
         );
       }),
     [tasks, weekRange.end, weekRange.start],
-  );
-
-  const completedWeekGroups = useMemo(
-    () => buildTaskGroups(completedWeekTasks, weekPlanItems),
-    [completedWeekTasks, weekPlanItems],
   );
 
   useEffect(() => {
@@ -757,9 +524,6 @@ export function TimePlanningWorkspace() {
 
   const handleMoveTask = async (task: Task, dateKey: string) => {
     const previousDate = task.scheduled_for ?? null;
-    const keepWeekPlan = isDateInRange(dateKey, workspaceKeys.weekStart, workspaceKeys.weekEnd)
-      ? task.week_plan_item_id ?? null
-      : null;
     await updateTask(
       task.id,
       undefined,
@@ -768,7 +532,6 @@ export function TimePlanningWorkspace() {
       undefined,
       undefined,
       dateKey,
-      keepWeekPlan,
     );
     await addTaskActivityLog(task.id, "moved_date", previousDate, dateKey);
   };
@@ -920,7 +683,7 @@ export function TimePlanningWorkspace() {
 
         <main className="flex min-h-0 min-w-0 max-w-full flex-col gap-4 overflow-x-hidden">
           {activePage.type === "overview" && (
-            <section className="grid gap-4 md:grid-cols-3">
+            <section className="grid gap-4 md:grid-cols-2">
               <button
                 type="button"
                 onClick={() => dayPageId && void handleSelectPage(dayPageId)}
@@ -939,22 +702,11 @@ export function TimePlanningWorkspace() {
                 <h3 className="mt-2 font-serif text-2xl text-sahara-text">本周完成</h3>
                 <p className="mt-2 text-sm font-bold text-green-600">{completedWeekTasks.length} 个已完成</p>
               </button>
-              <div className="rounded-3xl border border-sahara-border/20 bg-sahara-surface p-5 shadow-sm shadow-sahara-primary/5">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-sahara-text-muted">Plan</p>
-                <h3 className="mt-2 font-serif text-2xl text-sahara-text">周计划</h3>
-                <p className="mt-2 text-sm font-bold text-sahara-primary">{weekPlanItems.length} 条主线</p>
-              </div>
             </section>
           )}
 
           {activePage.type === "week" && (
             <>
-              <WeekPlanEditor
-                weekPlanItems={weekPlanItems}
-                onAdd={addWeekPlanItem}
-                onRename={updateWeekPlanItemTitle}
-                onArchive={archiveWeekPlanItem}
-              />
               <MarkdownSection
                 activePage={activePage}
                 draftContent={draftContent}
@@ -972,10 +724,9 @@ export function TimePlanningWorkspace() {
                     统计范围：{weekRange.start} 至 {weekRange.end}
                   </p>
                 </div>
-                <TaskGroups
-                  groups={completedWeekGroups}
+                <PlanningTaskList
+                  tasks={completedWeekTasks}
                   emptyLabel="这周还没有完成任务。完成日任务后，会自动汇总到这里。"
-                  weekPlanItems={weekPlanItems}
                   onCompleteTask={handleCompleteTask}
                   onEditTask={handleEditTask}
                   onDeleteTask={handleDeleteTask}
