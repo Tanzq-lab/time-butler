@@ -53,6 +53,7 @@ export function TimerControls() {
   const setDurationForCurrentPhase = useTimerStore(
     (s) => s.setDurationForCurrentPhase,
   );
+  const breakReminderActive = useTimerStore((s) => s.breakReminderActive);
 
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [finishModalMode, setFinishModalMode] = useState<
@@ -61,9 +62,14 @@ export function TimerControls() {
 
   useEffect(() => {
     if (!pendingFocusReview?.ready) return;
+    if (breakReminderActive) return;
     setFinishModalMode("pending-review");
     setShowFinishModal(true);
-  }, [pendingFocusReview?.ready, pendingFocusReview?.sessionId]);
+  }, [
+    breakReminderActive,
+    pendingFocusReview?.ready,
+    pendingFocusReview?.sessionId,
+  ]);
 
   const handleFinishWithReflection = async (data: {
     mood: SessionMood;
@@ -215,6 +221,7 @@ export function TimerControls() {
             secondsRemaining={secondsRemaining}
             durations={durations}
             isFullscreenFocus={isFullscreenFocus}
+            breakReminderActive={breakReminderActive}
           />
         ) : (
           <RunningActions

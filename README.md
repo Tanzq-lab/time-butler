@@ -138,6 +138,16 @@ cd src-tauri
 cargo check
 ```
 
+生成 AI 复盘：
+
+```zsh
+scripts/run-codex-daily-report.sh
+scripts/run-codex-weekly-report.sh
+scripts/run-codex-monthly-report.sh
+```
+
+月报脚本面向月初自动运行：每月 1 日 09:30 生成上一个完整自然月的月报，并写回对应 `time_pages` 月页面。
+
 ## 目录说明
 
 ```text

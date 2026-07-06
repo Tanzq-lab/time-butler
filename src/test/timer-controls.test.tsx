@@ -70,6 +70,7 @@ beforeEach(() => {
     currentSessionId: null,
     selectedCategory: null,
     deadlineAtMs: null,
+    breakReminderActive: false,
     pendingFocusReview: {
       sessionId: 9,
       durationSec: DEFAULT_WORK_SEC,
@@ -89,6 +90,15 @@ describe("TimerControls", () => {
 
     expect(screen.getByText("这次专注有什么收获？")).toBeInTheDocument();
     expect(screen.getByText("25 分钟")).toBeInTheDocument();
+  });
+
+  it("keeps the pending focus review hidden while the break reminder awaits acknowledgement", () => {
+    useTimerStore.setState({ breakReminderActive: true });
+
+    render(<TimerControls />);
+
+    expect(screen.queryByText("这次专注有什么收获？")).not.toBeInTheDocument();
+    expect(screen.getByTestId("idle-actions")).toBeInTheDocument();
   });
 
   it("submits the ready focus review to the completed work session", async () => {

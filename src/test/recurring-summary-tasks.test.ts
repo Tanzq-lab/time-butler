@@ -35,7 +35,7 @@ describe("recurring summary tasks", () => {
     ]);
   });
 
-  it("creates weekly summaries for Sundays in the next week", () => {
+  it("creates weekly summaries for Mondays in the next week", () => {
     const occurrences = buildSummaryTaskOccurrences(
       new Date(2026, 5, 28),
       7,
@@ -45,7 +45,7 @@ describe("recurring summary tasks", () => {
       occurrences
         .filter((item) => item.ruleKey === "summary.weekly")
         .map((item) => item.occurrenceDate),
-    ).toEqual(["2026-06-28", "2026-07-05"]);
+    ).toEqual(["2026-06-29"]);
   });
 
   it("creates the monthly summary on the first day-off period start", () => {

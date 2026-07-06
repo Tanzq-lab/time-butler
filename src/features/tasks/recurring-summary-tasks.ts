@@ -157,11 +157,11 @@ const RECURRING_TASK_RULES: RecurringTaskRule[] = [
     key: "summary.weekly",
     name: "周总结",
     estimatedPomos: 1,
-    shouldCreateOn: (date) => date.getDay() === 0,
+    shouldCreateOn: (date) => date.getDay() === 1,
     scheduledHour: SUMMARY_TASK_HOUR,
     project: SUMMARY_PROJECT,
     categoryName: SUMMARY_CATEGORY,
-    reason: "周总结是明确的周期复盘任务，按 1 个番茄预估。",
+    reason: "周总结是明确的周期检查和修改任务，按 1 个番茄预估。",
   },
   {
     key: "summary.monthly",

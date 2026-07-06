@@ -13,6 +13,15 @@ const focusMusicMocks = vi.hoisted(() => ({
   stopFocusMusic: vi.fn(),
 }));
 
+const notificationMocks = vi.hoisted(() => ({
+  sendNotification: vi.fn(),
+  canSendNotification: vi.fn().mockResolvedValue(true),
+  playChime: vi.fn(),
+  playBreakOverSound: vi.fn(),
+  prepareNotificationAudio: vi.fn(),
+  stopBreakOverSound: vi.fn(),
+}));
+
 const mockWorker = {
   postMessage: vi.fn(),
   terminate: vi.fn(),
@@ -44,11 +53,7 @@ vi.mock("@/lib/db", () => ({
   getDailySummary: vi.fn().mockResolvedValue(null),
 }));
 
-vi.mock("@/lib/notifications", () => ({
-  sendNotification: vi.fn(),
-  canSendNotification: vi.fn().mockResolvedValue(true),
-  playChime: vi.fn(),
-}));
+vi.mock("@/lib/notifications", () => notificationMocks);
 
 vi.mock("@/features/settings/use-settings-store", () => ({
   useSettingsStore: {
@@ -74,6 +79,7 @@ beforeEach(() => {
     selectedCategory: null,
     deadlineAtMs: null,
     pendingFocusReview: null,
+    breakReminderActive: false,
     durations: {
       work: DEFAULT_WORK_SEC,
       short: DEFAULT_SHORT_BREAK_SEC,
@@ -94,6 +100,7 @@ describe("useTimerStore", () => {
       expect(state.activeTaskId).toBeNull();
       expect(state.currentSessionId).toBeNull();
       expect(state.deadlineAtMs).toBeNull();
+      expect(state.breakReminderActive).toBe(false);
     });
   });
 
@@ -244,6 +251,12 @@ describe("useTimerStore", () => {
       expect(state.currentSessionId).toBe(1);
     });
 
+    it("prepares notification audio when starting from a user action", async () => {
+      await useTimerStore.getState().start();
+
+      expect(notificationMocks.prepareNotificationAudio).toHaveBeenCalledOnce();
+    });
+
     it("plays focus music when a work session starts", async () => {
       await useTimerStore.getState().start();
 
@@ -288,6 +301,7 @@ describe("useTimerStore", () => {
   describe("resume", () => {
     it("resumes the worker and restores running status", async () => {
       await useTimerStore.getState().start();
+      notificationMocks.prepareNotificationAudio.mockClear();
 
       useTimerStore.getState().pause();
       useTimerStore.getState().resume();
@@ -300,6 +314,7 @@ describe("useTimerStore", () => {
       );
       expect(useTimerStore.getState().status).toBe("running");
       expect(useTimerStore.getState().deadlineAtMs).toEqual(expect.any(Number));
+      expect(notificationMocks.prepareNotificationAudio).toHaveBeenCalledOnce();
     });
   });
 
@@ -398,6 +413,37 @@ describe("useTimerStore", () => {
       const state = useTimerStore.getState();
       expect(state.phase).toBe("work");
       expect(state.status).toBe("idle");
+      expect(state.breakReminderActive).toBe(true);
+    });
+
+    it("keeps the break reminder active until the user acknowledges the existing button", async () => {
+      await useTimerStore.getState().start();
+
+      mockWorker.onmessage?.({
+        data: { type: "done", remaining: 0 },
+      } as MessageEvent);
+
+      await vi.waitFor(() =>
+        expect(useTimerStore.getState().phase).toBe("short_break"),
+      );
+
+      await useTimerStore.getState().start();
+      mockWorker.onmessage?.({
+        data: { type: "done", remaining: 0 },
+      } as MessageEvent);
+
+      await vi.waitFor(() =>
+        expect(useTimerStore.getState().breakReminderActive).toBe(true),
+      );
+      expect(useTimerStore.getState().phase).toBe("work");
+      expect(notificationMocks.stopBreakOverSound).not.toHaveBeenCalled();
+
+      useTimerStore.getState().acknowledgeBreakReminder();
+
+      expect(notificationMocks.stopBreakOverSound).toHaveBeenCalledOnce();
+      expect(useTimerStore.getState().breakReminderActive).toBe(false);
+      expect(useTimerStore.getState().phase).toBe("work");
+      expect(useTimerStore.getState().status).toBe("idle");
     });
 
     it("saves pending focus review without changing session timing", async () => {

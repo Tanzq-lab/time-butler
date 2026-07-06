@@ -8,6 +8,7 @@ interface IdleActionsProps {
   secondsRemaining: number;
   durations: { work: number; short: number; long: number };
   isFullscreenFocus: boolean;
+  breakReminderActive: boolean;
 }
 
 export function IdleActions({
@@ -15,16 +16,25 @@ export function IdleActions({
   secondsRemaining,
   durations,
   isFullscreenFocus,
+  breakReminderActive,
 }: IdleActionsProps) {
   const start = useTimerStore((s) => s.start);
   const reset = useTimerStore((s) => s.reset);
+  const acknowledgeBreakReminder = useTimerStore(
+    (s) => s.acknowledgeBreakReminder,
+  );
   const setFullscreenFocus = useUIStore((s) => s.setFullscreenFocus);
 
   const isModified =
     (phase === "work" && secondsRemaining !== durations.work) ||
     (phase === "short_break" && secondsRemaining !== durations.short) ||
     (phase === "long_break" && secondsRemaining !== durations.long);
-  const startLabel = phase === "work" ? "开始专注" : "开始休息";
+  const startLabel =
+    phase === "work" && breakReminderActive
+      ? "休息结束"
+      : phase === "work"
+        ? "开始专注"
+        : "开始休息";
 
   return (
     <>
@@ -34,6 +44,11 @@ export function IdleActions({
         size="lg"
         shape="rounded-full"
         onClick={() => {
+          if (phase === "work" && breakReminderActive) {
+            acknowledgeBreakReminder();
+            return;
+          }
+
           start();
           setFullscreenFocus(true);
         }}

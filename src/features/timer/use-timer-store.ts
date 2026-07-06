@@ -29,6 +29,11 @@ import {
   invokeTimerScheduleDeadline,
   isTauri,
 } from "@/lib/tauri";
+import {
+  playBreakOverSound,
+  prepareNotificationAudio,
+  stopBreakOverSound,
+} from "@/lib/notifications";
 
 interface TimerStore {
   phase: TimerPhase;
@@ -42,6 +47,7 @@ interface TimerStore {
   durations: TimerDurations;
   deadlineAtMs: number | null;
   pendingFocusReview: PendingFocusReview | null;
+  breakReminderActive: boolean;
 
   start: (duration?: number) => void;
   pause: () => void;
@@ -60,6 +66,7 @@ interface TimerStore {
   confirmStartNextPhase: (mood?: string, notes?: string) => Promise<void>;
   submitPendingFocusReview: (mood?: string, notes?: string) => Promise<void>;
   dismissPendingFocusReview: () => void;
+  acknowledgeBreakReminder: () => void;
   addFiveMinutes: () => void;
   endWithoutBreak: () => Promise<void>;
 }
@@ -83,6 +90,7 @@ type PersistedTimerState = Pick<
   | "durations"
   | "deadlineAtMs"
   | "pendingFocusReview"
+  | "breakReminderActive"
 > & {
   savedAt: number;
 };
@@ -196,6 +204,7 @@ function persistTimerState(state: TimerStore): void {
     durations: state.durations,
     deadlineAtMs: state.deadlineAtMs,
     pendingFocusReview: state.pendingFocusReview,
+    breakReminderActive: state.breakReminderActive,
     savedAt: Date.now(),
   };
 
@@ -216,6 +225,12 @@ function stopFocusMusicForActiveWork(
 
 export const useTimerStore = create<TimerStore>((set, get) => {
   const persistedTimerState = loadPersistedTimerState();
+
+  function acknowledgeBreakReminder() {
+    if (!get().breakReminderActive) return;
+    stopBreakOverSound();
+    set({ breakReminderActive: false });
+  }
 
   async function settleCompletedPhase() {
     if (settleInFlight) return;
@@ -264,6 +279,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         currentSessionId: null,
         deadlineAtMs: null,
         pendingFocusReview,
+        breakReminderActive: phase !== "work",
       });
 
       if (phase === "work" && settings.autoStartBreaks) {
@@ -302,6 +318,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
     selectedCategory: null,
     deadlineAtMs: null,
     pendingFocusReview: null,
+    breakReminderActive: false,
     durations: {
       work: DEFAULT_WORK_SEC,
       short: DEFAULT_SHORT_BREAK_SEC,
@@ -311,6 +328,9 @@ export const useTimerStore = create<TimerStore>((set, get) => {
 
     start: async (duration?: number) => {
       const state = get();
+      void prepareNotificationAudio();
+      if (state.breakReminderActive) acknowledgeBreakReminder();
+
       const secs = duration ?? getPhaseDuration(state.phase, state.durations);
 
       let resolvedPhase = state.phase;
@@ -336,6 +356,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         totalSeconds: secs,
         currentSessionId: sessionId,
         deadlineAtMs,
+        breakReminderActive: false,
       });
 
       if (resolvedPhase === "work") {
@@ -353,6 +374,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
 
     resume: () => {
       const state = get();
+      void prepareNotificationAudio();
       const secondsRemaining = Math.max(0, state.secondsRemaining);
 
       if (secondsRemaining <= 0) {
@@ -424,6 +446,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
 
     reset: () => {
       const state = get();
+      acknowledgeBreakReminder();
       engine.terminate();
       cancelNativeDeadline();
       stopFocusMusicForActiveWork(state);
@@ -433,11 +456,13 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         secondsRemaining: duration,
         totalSeconds: duration,
         deadlineAtMs: null,
+        breakReminderActive: false,
       });
     },
 
     setPhase: (phase: TimerPhase) => {
       const state = get();
+      acknowledgeBreakReminder();
       engine.terminate();
       cancelNativeDeadline();
       stopFocusMusicForActiveWork(state);
@@ -448,6 +473,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         secondsRemaining: duration,
         totalSeconds: duration,
         deadlineAtMs: null,
+        breakReminderActive: false,
       });
     },
 
@@ -541,6 +567,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
     finishSession: async (mood?: string, notes?: string) => {
       const state = get();
       const { currentSessionId } = state;
+      acknowledgeBreakReminder();
       engine.terminate();
       cancelNativeDeadline();
       stopFocusMusicForActiveWork(state);
@@ -560,11 +587,13 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         completedPomos: state.completedPomos,
         deadlineAtMs: null,
         pendingFocusReview: state.pendingFocusReview,
+        breakReminderActive: false,
       });
     },
 
     abandonSession: async () => {
       const state = get();
+      acknowledgeBreakReminder();
       engine.terminate();
       cancelNativeDeadline();
       stopFocusMusicForActiveWork(state);
@@ -580,6 +609,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         totalSeconds: duration,
         currentSessionId: null,
         deadlineAtMs: null,
+        breakReminderActive: false,
       });
     },
 
@@ -590,6 +620,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
     confirmStartNextPhase: async (mood?: string, notes?: string) => {
       const state = get();
       const { currentSessionId, activeTaskId, phase, totalSeconds } = state;
+      acknowledgeBreakReminder();
       engine.terminate();
       cancelNativeDeadline();
       stopFocusMusicForActiveWork(state);
@@ -610,6 +641,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         completedPomos: newPomos,
         currentSessionId: null,
         deadlineAtMs: null,
+        breakReminderActive: false,
       });
 
       get().start(next.duration);
@@ -631,6 +663,8 @@ export const useTimerStore = create<TimerStore>((set, get) => {
       set({ pendingFocusReview: null });
     },
 
+    acknowledgeBreakReminder,
+
     addFiveMinutes: () => {
       const addedSec = 5 * 60;
       const state = get();
@@ -650,6 +684,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
     endWithoutBreak: async () => {
       const state = get();
       const { currentSessionId, activeTaskId, phase, totalSeconds } = state;
+      acknowledgeBreakReminder();
       engine.terminate();
       cancelNativeDeadline();
       stopFocusMusicForActiveWork(state);
@@ -668,6 +703,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         currentSessionId: null,
         completedPomos: get().completedPomos + (phase === "work" ? 1 : 0),
         deadlineAtMs: null,
+        breakReminderActive: false,
       });
     },
   };
@@ -692,7 +728,10 @@ function installClockSyncListeners(): void {
   if (clockSyncListenersInstalled || typeof window === "undefined") return;
 
   clockSyncListenersInstalled = true;
-  const sync = () => useTimerStore.getState().syncWithClock();
+  const sync = () => {
+    useTimerStore.getState().syncWithClock();
+    playBreakOverReminderIfNeeded();
+  };
 
   window.addEventListener("focus", sync);
   window.addEventListener("online", sync);
@@ -702,6 +741,14 @@ function installClockSyncListeners(): void {
       if (document.visibilityState === "visible") sync();
     });
   }
+}
+
+function playBreakOverReminderIfNeeded(): void {
+  const state = useTimerStore.getState();
+  if (!state.breakReminderActive) return;
+
+  const { soundEnabled } = useSettingsStore.getState().settings;
+  if (soundEnabled) void playBreakOverSound();
 }
 
 useTimerStore.subscribe((state) => persistTimerState(state));
@@ -734,4 +781,6 @@ queueMicrotask(() => {
       deadlineAtMs: null,
     });
   }
+
+  playBreakOverReminderIfNeeded();
 });
