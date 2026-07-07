@@ -12,10 +12,25 @@ import {
   toggleTaskArchived,
   incrementTaskPomos,
   completeTask as dbCompleteTask,
+  getCategories,
   getSetting,
   setSetting,
 } from "@/lib/db";
 import { ensureRecurringSummaryTasks } from "@/features/tasks/recurring-summary-tasks";
+import { parseTaskDraft } from "@/features/tasks/task-intake";
+
+async function inferCategoryIdFromTaskName(
+  name: string,
+  categoryId?: number | null,
+): Promise<number | null> {
+  if (categoryId) return categoryId;
+
+  const categoryName = parseTaskDraft(name).categoryName;
+  if (!categoryName) return categoryId ?? null;
+
+  const categories = await getCategories();
+  return categories.find((category) => category.name === categoryName)?.id ?? null;
+}
 
 interface TaskStore {
   tasks: Task[];
@@ -90,12 +105,13 @@ export const useTaskStore = create<TaskStore>((set) => ({
     scheduledFor,
   ) => {
     try {
+      const resolvedCategoryId = await inferCategoryIdFromTaskName(name, categoryId);
       const id = await dbAddTask(
         name,
         estimatedPomos,
         project,
         priority,
-        categoryId,
+        resolvedCategoryId,
         scheduledFor,
       );
       const newTask: Task = {
@@ -105,7 +121,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
         completed_pomos: 0,
         project: project ?? undefined,
         priority: priority as Task["priority"] | undefined,
-        category_id: categoryId ?? null,
+        category_id: resolvedCategoryId,
         scheduled_for: scheduledFor ?? null,
         completed_at: null,
         completion_review: null,

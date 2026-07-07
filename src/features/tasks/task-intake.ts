@@ -168,6 +168,40 @@ export function parseTaskDraft(input: string): ParsedTaskDraft {
 
   const text = name.toLowerCase();
 
+  if (includesAny(text, ["anki"]) || includesAny(name, ["背诵", "复习"])) {
+    const draft = baseDraft(
+      name,
+      1,
+      "medium",
+      "记忆复习或背诵类任务通常可以先按 1 个番茄起步，复杂背诵内容后续按完成偏差修正。",
+    );
+    draft.categoryName = TASK_CATEGORY_NAMES.memoryReview;
+    if (includesAny(text, ["anki"])) draft.project = "ANKI";
+    return withBreakdown(draft);
+  }
+
+  if (includesAny(name, ["日报", "周报", "月报", "复盘", "总结"])) {
+    const draft = baseDraft(
+      name,
+      1,
+      "medium",
+      "复盘总结类任务通常先按 1 个番茄起步，若包含资料整理再拆分。",
+    );
+    draft.categoryName = TASK_CATEGORY_NAMES.review;
+    return withBreakdown(draft);
+  }
+
+  if (includesAny(name, ["面试题", "面经", "逐字稿", "回答"]) || includesAny(text, ["prompt", "提示词"])) {
+    const draft = baseDraft(
+      name,
+      2,
+      "medium",
+      "面试回答和提示词优化通常需要先形成观点再组织表达，按 2 个番茄预估。",
+    );
+    draft.categoryName = TASK_CATEGORY_NAMES.writing;
+    return withBreakdown(draft);
+  }
+
   if (
     includesAny(name, ["快速回复", "回复"]) &&
     includesAny(name, ["邮件", "消息", "客服"])
@@ -192,6 +226,17 @@ export function parseTaskDraft(input: string): ParsedTaskDraft {
     );
     draft.project = "旅游";
     draft.categoryName = TASK_CATEGORY_NAMES.materialOrganization;
+    return withBreakdown(draft);
+  }
+
+  if (includesAny(name, ["阅读", "读书", "看书"])) {
+    const draft = baseDraft(
+      name,
+      1,
+      "medium",
+      "阅读研究类任务先按 1 个番茄起步；如果还要整理输出，再单独拆出资料整理。",
+    );
+    draft.categoryName = TASK_CATEGORY_NAMES.readingResearch;
     return withBreakdown(draft);
   }
 

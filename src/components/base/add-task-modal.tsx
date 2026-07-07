@@ -258,56 +258,6 @@ export function AddTaskModal({
 
           <div>
             <label
-              htmlFor="task-category"
-              className="block text-[11px] font-bold text-sahara-text-muted uppercase tracking-wider mb-1.5"
-            >
-              <span className="inline-flex items-center gap-1.5">
-                <Tag className="size-3" />
-                分类（意图）
-              </span>
-            </label>
-            <div className="flex items-center gap-2">
-              <select
-                id="task-category"
-                value={form.categoryId ?? ""}
-                onChange={(e) =>
-                  dispatch({
-                    type: "SET_FIELD",
-                    field: "categoryId",
-                    value: e.target.value ? Number(e.target.value) : null,
-                  })
-                }
-                className="min-w-0 flex-1 px-4 py-3 bg-sahara-bg/40 border border-sahara-border/20 rounded-xl text-sm text-sahara-text focus:outline-none focus:border-sahara-primary/50 focus:ring-2 focus:ring-sahara-primary/10 transition-all appearance-none cursor-pointer"
-              >
-                <option value="">未分类</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {matchedCategory && (
-              <div className="flex items-center gap-2 mt-2">
-                <span
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-                  style={{
-                    backgroundColor: `${matchedCategory.color}18`,
-                    color: matchedCategory.color,
-                  }}
-                >
-                  <span
-                    className="size-2 rounded-full"
-                    style={{ backgroundColor: matchedCategory.color }}
-                  />
-                  {matchedCategory.name}
-                </span>
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label
               htmlFor="task-project"
               className="block text-[11px] font-bold text-sahara-text-muted uppercase tracking-wider mb-1.5"
             >
@@ -328,6 +278,61 @@ export function AddTaskModal({
               className="w-full px-4 py-3 bg-sahara-bg/40 border border-sahara-border/20 rounded-xl text-sm text-sahara-text placeholder:text-sahara-text-muted/50 focus:outline-none focus:border-sahara-primary/50 focus:ring-2 focus:ring-sahara-primary/10 transition-all"
             />
           </div>
+
+          <details className="group rounded-xl border border-sahara-border/20 bg-sahara-bg/30">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm text-sahara-text marker:hidden">
+              <span className="inline-flex items-center gap-2 font-bold">
+                <Tag className="size-4 text-sahara-text-muted" />
+                手动指定分类
+              </span>
+              {matchedCategory ? (
+                <span
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+                  style={{
+                    backgroundColor: `${matchedCategory.color}18`,
+                    color: matchedCategory.color,
+                  }}
+                >
+                  <span
+                    className="size-2 rounded-full"
+                    style={{ backgroundColor: matchedCategory.color }}
+                  />
+                  {matchedCategory.name}
+                </span>
+              ) : (
+                <span className="shrink-0 text-xs font-bold text-sahara-text-muted">
+                  默认留空
+                </span>
+              )}
+            </summary>
+            <div className="border-t border-sahara-border/10 px-4 pb-4 pt-3">
+              <label
+                htmlFor="task-category"
+                className="block text-[11px] font-bold uppercase tracking-wider text-sahara-text-muted mb-1.5"
+              >
+                分类（可选）
+              </label>
+              <select
+                id="task-category"
+                value={form.categoryId ?? ""}
+                onChange={(e) =>
+                  dispatch({
+                    type: "SET_FIELD",
+                    field: "categoryId",
+                    value: e.target.value ? Number(e.target.value) : null,
+                  })
+                }
+                className="w-full px-4 py-3 bg-sahara-surface border border-sahara-border/20 rounded-xl text-sm text-sahara-text focus:outline-none focus:border-sahara-primary/50 focus:ring-2 focus:ring-sahara-primary/10 transition-all appearance-none cursor-pointer"
+              >
+                <option value="">未分类</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </details>
 
           <div className="flex gap-3 pt-2">
             <Button

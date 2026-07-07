@@ -55,6 +55,20 @@ vi.mock("@/lib/db", () => ({
   toggleTaskArchived: vi.fn().mockResolvedValue(undefined),
   incrementTaskPomos: vi.fn().mockResolvedValue(undefined),
   completeTask: vi.fn().mockResolvedValue(undefined),
+  getCategories: vi.fn().mockResolvedValue([
+    {
+      id: 69,
+      name: "记忆复习",
+      color: "#A06C75",
+      created_at: "2026-01-01T00:00:00",
+    },
+    {
+      id: 63,
+      name: "写作输出",
+      color: "#B08968",
+      created_at: "2026-01-01T00:00:00",
+    },
+  ]),
   getSetting: vi.fn().mockResolvedValue("true"),
   setSetting: vi.fn().mockResolvedValue(undefined),
 }));
@@ -134,6 +148,44 @@ describe("useTaskStore", () => {
       expect(state.tasks[0].estimated_pomos).toBe(2);
       expect(state.tasks[0].completed_pomos).toBe(0);
       expect(state.tasks[0].project).toBe("Project");
+    });
+
+    it("infers category when manual task category is empty", async () => {
+      const { addTask: dbAddTask } = await import("@/lib/db");
+      useTaskStore.setState({ tasks: [...mockTasks] });
+
+      await useTaskStore
+        .getState()
+        .addTask("背诵：赛车 UGC 的产品内核是什么？", 2);
+
+      expect(dbAddTask).toHaveBeenLastCalledWith(
+        "背诵：赛车 UGC 的产品内核是什么？",
+        2,
+        undefined,
+        undefined,
+        69,
+        undefined,
+      );
+      expect(useTaskStore.getState().tasks[0].category_id).toBe(69);
+    });
+
+    it("keeps explicit manual category over inferred category", async () => {
+      const { addTask: dbAddTask } = await import("@/lib/db");
+      useTaskStore.setState({ tasks: [...mockTasks] });
+
+      await useTaskStore
+        .getState()
+        .addTask("背诵：赛车 UGC 的产品内核是什么？", 2, "", "", 63);
+
+      expect(dbAddTask).toHaveBeenLastCalledWith(
+        "背诵：赛车 UGC 的产品内核是什么？",
+        2,
+        "",
+        "",
+        63,
+        undefined,
+      );
+      expect(useTaskStore.getState().tasks[0].category_id).toBe(63);
     });
 
     it("sets error on failure", async () => {

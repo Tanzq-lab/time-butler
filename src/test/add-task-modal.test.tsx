@@ -35,6 +35,7 @@ describe("AddTaskModal", () => {
     fireEvent.change(screen.getByLabelText("优先级"), {
       target: { value: "medium" },
     });
+    fireEvent.click(screen.getByText("手动指定分类"));
     fireEvent.change(screen.getByLabelText(/分类/), {
       target: { value: "1" },
     });
@@ -55,6 +56,35 @@ describe("AddTaskModal", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("leaves category empty by default", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const onClose = vi.fn();
+
+    render(
+      <AddTaskModal
+        open
+        onClose={onClose}
+        onSubmit={onSubmit}
+        categories={categories}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("任务名称"), {
+      target: { value: "写面试题框架" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /创建任务/ }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit).toHaveBeenCalledWith({
+      name: "写面试题框架",
+      estimatedPomos: 4,
+      project: "",
+      priority: "",
+      categoryId: null,
+    });
+  });
+
   it("uses only categories passed from the data layer", () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     const onClose = vi.fn();
@@ -67,6 +97,8 @@ describe("AddTaskModal", () => {
         categories={categories}
       />,
     );
+
+    fireEvent.click(screen.getByText("手动指定分类"));
 
     expect(screen.getByRole("option", { name: "工作流优化" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "新增分类" })).toBeNull();
