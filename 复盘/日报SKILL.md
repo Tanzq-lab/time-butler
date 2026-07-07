@@ -88,7 +88,8 @@ WHERE type = 'day'
 1. `AGENTS.md`
 2. `README.md`
 3. `../time-butler-data/README.md`
-4. 当前 SQLite schema：
+4. `docs/codex-mistake-notebook.md`
+5. 当前 SQLite schema：
 
 ```bash
 sqlite3 "file:../time-butler-data/Time-butler.db?mode=ro" ".schema"
@@ -512,6 +513,8 @@ DAILY_AI_REPORT:<TARGET_DATE>:end
 
 日报写入并验证完成后，必须做一次“是否需要优化 Time Butler 本身”的判断。
 
+这个判断不是可选收尾。不能只看任务完成情况，也不能只看 AI 日报正文；必须主动扫描用户手写记录和近期复盘里对 App 的建议。
+
 ### 1. 可以自动优化的范围
 
 只有同时满足以下条件，才允许自动修改代码并提交 git：
@@ -529,6 +532,38 @@ DAILY_AI_REPORT:<TARGET_DATE>:end
 * `复盘/` 中相关 SKILL。
 * `docs/` 中相关流程说明。
 * 与本次优化直接相关的测试。
+
+### 1.1 必须主动扫描的建议来源
+
+在判断“没有适合自动处理的优化点”之前，必须完成这些动作：
+
+1. 读取 `docs/codex-mistake-notebook.md`，尤其是“复盘后不要等用户提醒才看 App 建议”。
+2. 检查目标日页面中未被 `DAILY_AI_REPORT` 包裹的手写内容。
+3. 检查本次生成的 AI 日报第 4-10 节。
+4. 必要时检索近期日 / 周 / 月页面内容，关键词包括：
+
+```text
+App
+APP
+Time Butler
+时间管家
+标签
+不直观
+优化
+建议
+刷新
+自动
+```
+
+5. 对命中的建议，必须简要判断：
+
+```md
+- 建议：XXX
+- 是否适合自动处理：是 / 否
+- 原因：范围小且可验证 / 需要产品判断 / 涉及历史数据修改 / 超过 4 个番茄 / 证据不足
+```
+
+如果存在适合自动处理的小优化，不能只写进日报建议；要实施、验证并提交 git。
 
 ### 2. 不允许自动优化的范围
 
@@ -561,6 +596,8 @@ git commit -m "chore: improve daily review automation"
 8. 如果本次优化影响了已写入日报中的第 10 节，用同一 `DAILY_AI_REPORT` 标记替换 AI 日报区块，更新 commit、处理方式和验证结果，然后再次验证日报标记存在。
 
 每天最多执行一轮自我优化。不要因为第 10 节被更新而再次触发新的自我优化。
+
+如果用户指出“你没有检查 App / 没有根据记录优化 / 没有纠错”，必须先更新 `docs/codex-mistake-notebook.md` 和本 SKILL 中的相关规则，再继续实现功能。
 
 ### 4. git 提交要求
 

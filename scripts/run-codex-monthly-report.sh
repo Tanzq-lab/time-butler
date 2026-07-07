@@ -53,10 +53,11 @@ PROMPT=$(cat <<PROMPT
 - MONTH_END=$MONTH_END
 
 必须先完整读取 /Users/amos/time-butler/复盘/月报SKILL.md，并严格按该 skill 执行：
-- 读取 AGENTS.md、README.md、../time-butler-data/README.md 和 SQLite schema。
+- 读取 AGENTS.md、README.md、docs/codex-mistake-notebook.md、../time-butler-data/README.md 和 SQLite schema。
 - 读取 ../time-butler-data/Time-butler.db 中目标月的 month page、与目标月有交集的 week pages、必要的 day pages、sessions、tasks、categories、week_plan_items、task_activity_log。
 - 读取 ../time-butler-data/data/pomodoro-estimation-log.jsonl 中目标月 created/completion 事件。
 - 必须阅读相关周页面内容，优先提取 WEEKLY_AI_REPORT:<WEEK_KEY> 区块；没有 AI 周报时读取用户手写周复盘；周页面不足时再读取日页面；不能只按数字汇总。
+- 必须扫描目标月日报/周报/月报中的 App 建议关键词，例如 App、Time Butler、时间管家、标签、不直观、优化、建议、刷新、自动，并汇总为系统优化线索。
 - 生成 MONTHLY_AI_REPORT:<TARGET_MONTH> 标记包裹的 AI 月复盘。
 - 只追加或替换该 AI 区块到 time_pages 中 type='month' 且 date_key='<TARGET_MONTH>' 的页面 content。
 - 必要时按 skill 创建缺失 overview/year/month 链路。

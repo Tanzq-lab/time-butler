@@ -46,12 +46,13 @@ PROMPT=$(cat <<PROMPT
 - TARGET_DATE=$TARGET_DATE
 
 必须先完整读取 /Users/amos/time-butler/复盘/日报SKILL.md，并严格按该 skill 执行：
-- 读取 AGENTS.md、README.md、../time-butler-data/README.md 和 SQLite schema。
+- 读取 AGENTS.md、README.md、docs/codex-mistake-notebook.md、../time-butler-data/README.md 和 SQLite schema。
 - 从 ../time-butler-data/Time-butler.db 与 ../time-butler-data/data/pomodoro-estimation-log.jsonl 读取 TARGET_DATE=$TARGET_DATE 的数据。
 - 生成 DAILY_AI_REPORT:$TARGET_DATE 标记包裹的 AI 时间管理复盘。
 - 日报不能只是任务完成情况汇总；必须包含今日一句话、今日复盘、今天学到了什么、需要改进什么、预估偏差和明日建议。
 - “学到了什么”和“需要改进什么”必须基于 sessions、tasks、completion_review、session notes、手写日报或 pomodoro-estimation-log 中的证据；证据不足时明确写数据不足，不要编造。
 - 日报写入并验证完成后，必须按 skill 的「复盘后自我优化规则」判断 Time Butler 代码、脚本、SKILL 或复盘流程是否有小而明确的优化点。
+- 判断复盘后自我优化时，必须主动扫描目标日页面手写内容和近期日/周/月页面中的 App 建议关键词，例如 App、Time Butler、时间管家、标签、不直观、优化、建议、刷新、自动。
 - 如果优化点预计不超过 4 个番茄、能限制在 /Users/amos/time-butler 仓库内、能安全验证，允许自行修改相关文件、运行最小必要验证、只暂存本次优化文件并创建 git commit。
 - 如果问题较大、边界不清、工作区有无法隔离的无关改动、验证失败、需要用户判断、或需要修改用户任务数据，只写入日报第 10 节作为后续建议，不要自动提交。
 - 只追加或替换该 AI 区块到 time_pages 中 type='day' 且 date_key='$TARGET_DATE' 的页面 content。

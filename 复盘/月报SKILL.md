@@ -108,8 +108,9 @@ WHERE type = 'month'
 
 1. `AGENTS.md`
 2. `README.md`
-3. `../time-butler-data/README.md`
-4. SQLite schema：
+3. `docs/codex-mistake-notebook.md`
+4. `../time-butler-data/README.md`
+5. SQLite schema：
 
 ```bash
 sqlite3 "file:../time-butler-data/Time-butler.db?mode=ro" ".schema"
@@ -364,6 +365,9 @@ ORDER BY l.created_at ASC;
 * 哪些事情只是消耗时间但产出不明显。
 * 哪些偏差在多周反复出现。
 * 哪些工作类型应在下月调整预估方法。
+* 本月日报 / 周报 / 手写月报中出现的 Time Butler / App 优化建议，尤其是 `标签`、`不直观`、`刷新`、`自动`、`建议`、`优化` 这类关键词。
+
+如果读到明确的 App 建议，不能只当作普通复盘素材；必须在月报中汇总为“系统优化线索”，并判断它适合自动小步优化、需要用户产品判断，还是需要拆成后续任务。
 
 ---
 

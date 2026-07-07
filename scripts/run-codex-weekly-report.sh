@@ -53,10 +53,11 @@ PROMPT=$(cat <<PROMPT
 - WEEK_END=$WEEK_END
 
 必须先完整读取 /Users/amos/time-butler/复盘/周报SKILL.md，并严格按该 skill 执行：
-- 读取 AGENTS.md、README.md、../time-butler-data/README.md 和 SQLite schema。
+- 读取 AGENTS.md、README.md、docs/codex-mistake-notebook.md、../time-butler-data/README.md 和 SQLite schema。
 - 读取 ../time-butler-data/Time-butler.db 中 $TARGET_WEEK_KEY（$WEEK_START 至 $WEEK_END）的 week page、7 天 day pages、sessions、tasks、categories、week_plan_items、task_activity_log。
 - 读取 ../time-butler-data/data/pomodoro-estimation-log.jsonl 中 $TARGET_WEEK_KEY（$WEEK_START 至 $WEEK_END）的 created/completion 事件。
 - 必须逐日阅读日报内容，优先提取 DAILY_AI_REPORT:<DATE> 区块；没有 AI 日报时读取用户手写内容；不能只按数字汇总。
+- 必须扫描本周日报/周报中的 App 建议关键词，例如 App、Time Butler、时间管家、标签、不直观、优化、建议、刷新、自动，并汇总为系统优化线索。
 - 生成 WEEKLY_AI_REPORT:$TARGET_WEEK_KEY 标记包裹的 AI 周复盘。
 - 只追加或替换该 AI 区块到 time_pages 中 type='week' 且 date_key='$TARGET_WEEK_KEY' 的页面 content。
 - 必要时按 skill 创建缺失 overview/year/month/week 链路。
