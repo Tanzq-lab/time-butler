@@ -17,6 +17,7 @@ import {
   Loader2,
   PanelLeftClose,
   PanelLeftOpen,
+  RefreshCw,
   Save,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -405,6 +406,11 @@ export function TimePlanningWorkspace() {
     [activePageId, pages],
   );
 
+  const hasUnsavedDraft =
+    Boolean(activePage) &&
+    draftPageId === activePage?.id &&
+    draftContent !== loadedDraftContent;
+
   const pageTree = useMemo(() => {
     return buildPageTree(pages, overviewPageId);
   }, [overviewPageId, pages]);
@@ -446,6 +452,30 @@ export function TimePlanningWorkspace() {
     void loadWorkspace();
     void loadTasks();
   }, [loadTasks, loadWorkspace]);
+
+  const refreshWorkspace = useCallback(async () => {
+    if (hasUnsavedDraft) return;
+    await loadWorkspace();
+  }, [hasUnsavedDraft, loadWorkspace]);
+
+  useEffect(() => {
+    const handleFocus = () => {
+      void refreshWorkspace();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void refreshWorkspace();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [refreshWorkspace]);
 
   useEffect(() => {
     if (!activePage) {
@@ -583,6 +613,18 @@ export function TimePlanningWorkspace() {
               总览
             </Button>
           )}
+          <Button
+            variant="outline"
+            intent="default"
+            size="icon-sm"
+            shape="rounded-full"
+            onClick={() => void refreshWorkspace()}
+            disabled={hasUnsavedDraft || loading}
+            title={hasUnsavedDraft ? "有未保存内容，保存后再刷新" : "刷新页面内容"}
+            aria-label={hasUnsavedDraft ? "有未保存内容，保存后再刷新" : "刷新页面内容"}
+          >
+            <RefreshCw className={cn("size-4", loading && "animate-spin")} />
+          </Button>
           {dayPageId && (
             <Button variant="solid" intent="sahara" size="sm" shape="rounded-full" onClick={() => void handleSelectPage(dayPageId)}>
               进入今天
