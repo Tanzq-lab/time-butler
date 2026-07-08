@@ -161,9 +161,23 @@ export async function initDb(): Promise<void> {
         FOREIGN KEY (task_id) REFERENCES tasks(id)
       )`,
     ],
+    9: [
+      `CREATE TABLE IF NOT EXISTS app_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_name TEXT NOT NULL,
+        route TEXT,
+        entity_type TEXT,
+        entity_id TEXT,
+        metadata TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`,
+      "CREATE INDEX IF NOT EXISTS idx_app_events_created_at ON app_events(created_at)",
+      "CREATE INDEX IF NOT EXISTS idx_app_events_event_name ON app_events(event_name)",
+      "CREATE INDEX IF NOT EXISTS idx_app_events_route ON app_events(route)",
+    ],
   };
 
-  const targetVersion = 8;
+  const targetVersion = 9;
 
   for (let v = currentVersion + 1; v <= targetVersion; v++) {
     const statements = migrations[v];

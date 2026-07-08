@@ -5,6 +5,7 @@ import {
   getPageTitle,
   getWorkspaceKeys,
 } from "@/lib/time-pages";
+import { recordAppEvent } from "./app-events";
 
 async function getTimePageByDateKey(dateKey: string): Promise<TimePage | null> {
   const database = await getDb();
@@ -38,6 +39,19 @@ async function createTimePageIfMissing(
   if (!created) {
     throw new Error(`Failed to create time page: ${dateKey}`);
   }
+  void recordAppEvent({
+    eventName: "time_page_created",
+    route: "/notes",
+    entityType: "time_page",
+    entityId: created.id,
+    metadata: {
+      pageType: type,
+      dateKey,
+      parentId,
+      hasDefaultContent: content.length > 0,
+      contentLength: content.length,
+    },
+  });
   return created;
 }
 

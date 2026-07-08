@@ -3,10 +3,11 @@ import { useTaskStore } from "@/features/tasks/use-task-store";
 
 export function recordPomoCompletion(
   phase: TimerPhase,
-  activeTaskId: number | null,
+  taskId: number | null,
   review?: string,
 ) {
-  if (phase === "work" && activeTaskId) {
-    useTaskStore.getState().incrementPomos(activeTaskId, review);
+  if (phase === "work" && taskId) {
+    return useTaskStore.getState().incrementPomos(taskId, review);
   }
+  return Promise.resolve();
 }

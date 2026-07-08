@@ -43,6 +43,7 @@ interface TimerStore {
   completedPomos: number;
   activeTaskId: number | null;
   currentSessionId: number | null;
+  currentSessionTaskId: number | null;
   selectedCategory: Category | null;
   durations: TimerDurations;
   deadlineAtMs: number | null;
@@ -53,7 +54,7 @@ interface TimerStore {
   pause: () => void;
   resume: () => void;
   syncWithClock: () => void;
-  skip: () => void;
+  skip: () => Promise<void>;
   reset: () => void;
   setPhase: (phase: TimerPhase) => void;
   setActiveTask: (taskId: number | null) => Promise<void>;
@@ -86,6 +87,7 @@ type PersistedTimerState = Pick<
   | "completedPomos"
   | "activeTaskId"
   | "currentSessionId"
+  | "currentSessionTaskId"
   | "selectedCategory"
   | "durations"
   | "deadlineAtMs"
@@ -178,6 +180,7 @@ function loadPersistedTimerState(): Partial<TimerStore> {
         secondsRemaining: duration,
         totalSeconds: duration,
         currentSessionId: null,
+        currentSessionTaskId: null,
         deadlineAtMs: null,
       };
     }
@@ -200,6 +203,7 @@ function persistTimerState(state: TimerStore): void {
     completedPomos: state.completedPomos,
     activeTaskId: state.activeTaskId,
     currentSessionId: state.currentSessionId,
+    currentSessionTaskId: state.currentSessionTaskId,
     selectedCategory: state.selectedCategory,
     durations: state.durations,
     deadlineAtMs: state.deadlineAtMs,
@@ -241,6 +245,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
     settleInFlight = true;
     const {
       currentSessionId,
+      currentSessionTaskId,
       activeTaskId,
       phase,
       totalSeconds,
@@ -256,8 +261,19 @@ export const useTimerStore = create<TimerStore>((set, get) => {
       stopFocusMusicForActiveWork(state);
 
       if (currentSessionId) {
+        const completionTaskId = phase === "work"
+          ? currentSessionTaskId ?? activeTaskId
+          : null;
+        if (phase === "work") {
+          await SessionService.updateAttribution(
+            currentSessionId,
+            completionTaskId,
+            state.selectedCategory?.id,
+            state.selectedCategory?.name,
+          );
+        }
         await SessionService.finish(currentSessionId, totalSeconds, undefined, undefined, true);
-        recordPomoCompletion(phase, activeTaskId);
+        await recordPomoCompletion(phase, completionTaskId);
       }
 
       const newPomos = phase === "work" ? completedPomos + 1 : completedPomos;
@@ -277,6 +293,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         totalSeconds: next.duration,
         completedPomos: newPomos,
         currentSessionId: null,
+        currentSessionTaskId: null,
         deadlineAtMs: null,
         pendingFocusReview,
         breakReminderActive: phase !== "work",
@@ -315,6 +332,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
     completedPomos: 0,
     activeTaskId: null,
     currentSessionId: null,
+    currentSessionTaskId: null,
     selectedCategory: null,
     deadlineAtMs: null,
     pendingFocusReview: null,
@@ -338,11 +356,14 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         resolvedPhase = determineBreakPhase(secs, state.durations);
       }
 
+      const sessionTaskId = resolvedPhase === "work" ? state.activeTaskId : null;
+      const sessionCategory = resolvedPhase === "work" ? state.selectedCategory : null;
+
       const sessionId = await SessionService.start(
-        state.activeTaskId,
+        sessionTaskId,
         resolvedPhase,
-        state.selectedCategory?.id,
-        state.selectedCategory?.name,
+        sessionCategory?.id,
+        sessionCategory?.name,
       );
 
       const deadlineAtMs = Date.now() + secs * 1000;
@@ -355,6 +376,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         secondsRemaining: secs,
         totalSeconds: secs,
         currentSessionId: sessionId,
+        currentSessionTaskId: sessionTaskId,
         deadlineAtMs,
         breakReminderActive: false,
       });
@@ -409,23 +431,60 @@ export const useTimerStore = create<TimerStore>((set, get) => {
       }
     },
 
-    skip: () => {
+    skip: async () => {
       const state = get();
-      const { phase, totalSeconds, activeTaskId, completedPomos } = state;
+      const {
+        phase,
+        totalSeconds,
+        currentSessionId,
+        currentSessionTaskId,
+        activeTaskId,
+        completedPomos,
+      } = state;
 
       const secondsRemaining = getAccurateSecondsRemaining(state);
       const completed = secondsRemaining <= 0;
       const elapsed = Math.max(0, totalSeconds - secondsRemaining);
-      SessionService.recordSkip(activeTaskId, phase, elapsed, completed);
-
-      if (completed) {
-        recordPomoCompletion(phase, activeTaskId);
-        notifySkipped(phase);
-      }
 
       engine.terminate();
       cancelNativeDeadline();
       stopFocusMusicForActiveWork(state);
+
+      if (currentSessionId) {
+        const completionTaskId = phase === "work"
+          ? currentSessionTaskId ?? activeTaskId
+          : null;
+        if (phase === "work") {
+          await SessionService.updateAttribution(
+            currentSessionId,
+            completionTaskId,
+            state.selectedCategory?.id,
+            state.selectedCategory?.name,
+          );
+        }
+        await SessionService.finish(
+          currentSessionId,
+          elapsed,
+          undefined,
+          undefined,
+          completed,
+        );
+      } else {
+        await SessionService.recordSkip(
+          currentSessionTaskId ?? activeTaskId,
+          phase,
+          elapsed,
+          completed,
+        );
+      }
+
+      if (completed) {
+        const completionTaskId = phase === "work"
+          ? currentSessionTaskId ?? activeTaskId
+          : null;
+        await recordPomoCompletion(phase, completionTaskId);
+        notifySkipped(phase);
+      }
 
       const newPomos = phase === "work" && completed ? completedPomos + 1 : completedPomos;
       const next = getNextPhase(phase, newPomos, state.durations);
@@ -436,6 +495,8 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         secondsRemaining: next.duration,
         totalSeconds: next.duration,
         completedPomos: newPomos,
+        currentSessionId: null,
+        currentSessionTaskId: null,
         deadlineAtMs: null,
       });
 
@@ -457,6 +518,8 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         totalSeconds: duration,
         deadlineAtMs: null,
         breakReminderActive: false,
+        currentSessionId: null,
+        currentSessionTaskId: null,
       });
     },
 
@@ -474,27 +537,54 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         totalSeconds: duration,
         deadlineAtMs: null,
         breakReminderActive: false,
+        currentSessionId: null,
+        currentSessionTaskId: null,
       });
     },
 
     setActiveTask: async (taskId: number | null) => {
-      set({ activeTaskId: taskId });
+      const sessionState = get();
+      const shouldRetargetCurrentSession =
+        sessionState.phase === "work" &&
+        sessionState.status !== "idle" &&
+        Boolean(sessionState.currentSessionId);
+
+      set({
+        activeTaskId: taskId,
+        ...(shouldRetargetCurrentSession && { currentSessionTaskId: taskId }),
+      });
+
+      let selectedCategory: Category | null = null;
       if (taskId) {
         try {
           const tasks = await getTasks();
           const task = tasks.find((t) => t.id === taskId);
           if (task?.category_id) {
             const category = await getCategory(task.category_id);
-            set({ selectedCategory: category || null });
-          } else {
-            set({ selectedCategory: null });
+            selectedCategory = category || null;
           }
         } catch (err) {
           console.error("[TimerStore] Failed to load category for task:", taskId, err);
         }
-      } else {
-        set({ selectedCategory: null });
       }
+
+      if (shouldRetargetCurrentSession && sessionState.currentSessionId) {
+        try {
+          await SessionService.updateAttribution(
+            sessionState.currentSessionId,
+            taskId,
+            selectedCategory?.id,
+            selectedCategory?.name,
+          );
+        } catch (err) {
+          console.error("[TimerStore] Failed to update session task:", err);
+        }
+      }
+
+      set({
+        selectedCategory,
+        ...(shouldRetargetCurrentSession && { currentSessionTaskId: taskId }),
+      });
     },
 
     setDurations: (work: number, short: number, long: number) => {
@@ -584,6 +674,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         secondsRemaining: duration,
         totalSeconds: duration,
         currentSessionId: null,
+        currentSessionTaskId: null,
         completedPomos: state.completedPomos,
         deadlineAtMs: null,
         pendingFocusReview: state.pendingFocusReview,
@@ -608,6 +699,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         secondsRemaining: duration,
         totalSeconds: duration,
         currentSessionId: null,
+        currentSessionTaskId: null,
         deadlineAtMs: null,
         breakReminderActive: false,
       });
@@ -619,15 +711,32 @@ export const useTimerStore = create<TimerStore>((set, get) => {
 
     confirmStartNextPhase: async (mood?: string, notes?: string) => {
       const state = get();
-      const { currentSessionId, activeTaskId, phase, totalSeconds } = state;
+      const {
+        currentSessionId,
+        currentSessionTaskId,
+        activeTaskId,
+        phase,
+        totalSeconds,
+      } = state;
       acknowledgeBreakReminder();
       engine.terminate();
       cancelNativeDeadline();
       stopFocusMusicForActiveWork(state);
 
       if (currentSessionId) {
+        const completionTaskId = phase === "work"
+          ? currentSessionTaskId ?? activeTaskId
+          : null;
+        if (phase === "work") {
+          await SessionService.updateAttribution(
+            currentSessionId,
+            completionTaskId,
+            state.selectedCategory?.id,
+            state.selectedCategory?.name,
+          );
+        }
         await SessionService.finish(currentSessionId, totalSeconds, mood, notes, true);
-        recordPomoCompletion(phase, activeTaskId, notes);
+        await recordPomoCompletion(phase, completionTaskId, notes);
       }
 
       const newPomos = phase === "work" ? state.completedPomos + 1 : state.completedPomos;
@@ -640,6 +749,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         totalSeconds: next.duration,
         completedPomos: newPomos,
         currentSessionId: null,
+        currentSessionTaskId: null,
         deadlineAtMs: null,
         breakReminderActive: false,
       });
@@ -683,15 +793,32 @@ export const useTimerStore = create<TimerStore>((set, get) => {
 
     endWithoutBreak: async () => {
       const state = get();
-      const { currentSessionId, activeTaskId, phase, totalSeconds } = state;
+      const {
+        currentSessionId,
+        currentSessionTaskId,
+        activeTaskId,
+        phase,
+        totalSeconds,
+      } = state;
       acknowledgeBreakReminder();
       engine.terminate();
       cancelNativeDeadline();
       stopFocusMusicForActiveWork(state);
 
       if (currentSessionId) {
+        const completionTaskId = phase === "work"
+          ? currentSessionTaskId ?? activeTaskId
+          : null;
+        if (phase === "work") {
+          await SessionService.updateAttribution(
+            currentSessionId,
+            completionTaskId,
+            state.selectedCategory?.id,
+            state.selectedCategory?.name,
+          );
+        }
         await SessionService.finish(currentSessionId, totalSeconds, undefined, undefined, true);
-        recordPomoCompletion(phase, activeTaskId);
+        await recordPomoCompletion(phase, completionTaskId);
       }
 
       const duration = getPhaseDuration("work", state.durations);
@@ -701,6 +828,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         secondsRemaining: duration,
         totalSeconds: duration,
         currentSessionId: null,
+        currentSessionTaskId: null,
         completedPomos: get().completedPomos + (phase === "work" ? 1 : 0),
         deadlineAtMs: null,
         breakReminderActive: false,
@@ -778,6 +906,7 @@ queueMicrotask(() => {
       secondsRemaining: duration,
       totalSeconds: duration,
       currentSessionId: null,
+      currentSessionTaskId: null,
       deadlineAtMs: null,
     });
   }

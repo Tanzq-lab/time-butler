@@ -71,6 +71,7 @@ vi.mock("@/lib/db", () => ({
   ]),
   getSetting: vi.fn().mockResolvedValue("true"),
   setSetting: vi.fn().mockResolvedValue(undefined),
+  recordAppEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/features/tasks/pomodoro-estimation-log", () => ({

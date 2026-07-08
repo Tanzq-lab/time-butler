@@ -45,12 +45,14 @@ vi.mock("@/lib/db", () => ({
   addSession: vi.fn().mockResolvedValue(1),
   startSession: vi.fn().mockResolvedValue(1),
   finishSession: vi.fn().mockResolvedValue(undefined),
+  updateSessionAttribution: vi.fn().mockResolvedValue(undefined),
   updateSessionReflection: vi.fn().mockResolvedValue(undefined),
   abandonSession: vi.fn().mockResolvedValue(undefined),
   incrementTaskPomos: vi.fn().mockResolvedValue(undefined),
   getSessionsByDateRange: vi.fn().mockResolvedValue([]),
   getSessions: vi.fn().mockResolvedValue([]),
   getDailySummary: vi.fn().mockResolvedValue(null),
+  recordAppEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/lib/notifications", () => notificationMocks);
@@ -76,6 +78,7 @@ beforeEach(() => {
     completedPomos: 0,
     activeTaskId: null,
     currentSessionId: null,
+    currentSessionTaskId: null,
     selectedCategory: null,
     deadlineAtMs: null,
     pendingFocusReview: null,
@@ -99,6 +102,7 @@ describe("useTimerStore", () => {
       expect(state.completedPomos).toBe(0);
       expect(state.activeTaskId).toBeNull();
       expect(state.currentSessionId).toBeNull();
+      expect(state.currentSessionTaskId).toBeNull();
       expect(state.deadlineAtMs).toBeNull();
       expect(state.breakReminderActive).toBe(false);
     });
@@ -249,6 +253,7 @@ describe("useTimerStore", () => {
       expect(state.secondsRemaining).toBe(DEFAULT_WORK_SEC);
       expect(state.totalSeconds).toBe(DEFAULT_WORK_SEC);
       expect(state.currentSessionId).toBe(1);
+      expect(state.currentSessionTaskId).toBeNull();
     });
 
     it("prepares notification audio when starting from a user action", async () => {
@@ -322,12 +327,17 @@ describe("useTimerStore", () => {
     it("records a completed work session, increments the active task, and stops at break idle", async () => {
       useTimerStore.setState({ activeTaskId: 42 });
       await useTimerStore.getState().start();
+      await useTimerStore.getState().setActiveTask(190);
 
       mockWorker.onmessage?.({
         data: { type: "done", remaining: 0 },
       } as MessageEvent);
 
-      const { finishSession: dbFinish, incrementTaskPomos } = await import("@/lib/db");
+      const {
+        finishSession: dbFinish,
+        incrementTaskPomos,
+        updateSessionAttribution,
+      } = await import("@/lib/db");
       await vi.waitFor(() =>
         expect(dbFinish).toHaveBeenCalledWith(
           1,
@@ -337,7 +347,8 @@ describe("useTimerStore", () => {
           true,
         ),
       );
-      expect(incrementTaskPomos).toHaveBeenCalledWith(42);
+      expect(updateSessionAttribution).toHaveBeenCalledWith(1, 190, undefined, undefined);
+      expect(incrementTaskPomos).toHaveBeenCalledWith(190);
       expect(focusMusicMocks.stopFocusMusic).toHaveBeenCalledOnce();
 
       const state = useTimerStore.getState();
@@ -345,6 +356,7 @@ describe("useTimerStore", () => {
       expect(state.phase).toBe("short_break");
       expect(state.status).toBe("idle");
       expect(state.currentSessionId).toBeNull();
+      expect(state.currentSessionTaskId).toBeNull();
       expect(state.pendingFocusReview).toEqual({
         sessionId: 1,
         durationSec: DEFAULT_WORK_SEC,
@@ -355,6 +367,7 @@ describe("useTimerStore", () => {
     it("settles an overdue running timer when the worker was throttled", async () => {
       useTimerStore.setState({ activeTaskId: 42 });
       await useTimerStore.getState().start();
+      await useTimerStore.getState().setActiveTask(190);
 
       useTimerStore.setState({
         secondsRemaining: DEFAULT_WORK_SEC,
@@ -372,13 +385,14 @@ describe("useTimerStore", () => {
           true,
         ),
       );
-      expect(incrementTaskPomos).toHaveBeenCalledWith(42);
+      expect(incrementTaskPomos).toHaveBeenCalledWith(190);
 
       const state = useTimerStore.getState();
       expect(state.secondsRemaining).toBe(DEFAULT_SHORT_BREAK_SEC);
       expect(state.phase).toBe("short_break");
       expect(state.status).toBe("idle");
       expect(state.currentSessionId).toBeNull();
+      expect(state.currentSessionTaskId).toBeNull();
       expect(state.deadlineAtMs).toBeNull();
     });
 
@@ -523,19 +537,23 @@ describe("useTimerStore", () => {
         deadlineAtMs: Date.now() - 1000,
       });
 
-      useTimerStore.getState().skip();
+      await useTimerStore.getState().skip();
 
-      const { addSession } = await import("@/lib/db");
-      expect(addSession).toHaveBeenCalledWith(
-        null,
-        "work",
+      const { finishSession: dbFinish } = await import("@/lib/db");
+      expect(dbFinish).toHaveBeenCalledWith(
+        1,
         DEFAULT_WORK_SEC,
+        undefined,
+        undefined,
         true,
       );
 
       const state = useTimerStore.getState();
       expect(state.completedPomos).toBe(1);
       expect(state.phase).toBe("short_break");
+      expect(state.status).toBe("running");
+      expect(state.currentSessionId).toBe(1);
+      expect(state.currentSessionTaskId).toBeNull();
     });
 
     it("records incomplete session when skipping mid-session", async () => {
@@ -545,13 +563,14 @@ describe("useTimerStore", () => {
         deadlineAtMs: Date.now() + 500 * 1000,
       });
 
-      useTimerStore.getState().skip();
+      await useTimerStore.getState().skip();
 
-      const { addSession } = await import("@/lib/db");
-      expect(addSession).toHaveBeenCalledWith(
-        null,
-        "work",
+      const { finishSession: dbFinish } = await import("@/lib/db");
+      expect(dbFinish).toHaveBeenCalledWith(
+        1,
         DEFAULT_WORK_SEC - 500,
+        undefined,
+        undefined,
         false,
       );
 
@@ -563,15 +582,16 @@ describe("useTimerStore", () => {
     it("increments task pomos when work completed with active task", async () => {
       useTimerStore.setState({ activeTaskId: 42 });
       await useTimerStore.getState().start();
+      await useTimerStore.getState().setActiveTask(190);
       useTimerStore.setState({
         secondsRemaining: 0,
         deadlineAtMs: Date.now() - 1000,
       });
 
-      useTimerStore.getState().skip();
+      await useTimerStore.getState().skip();
 
       const { incrementTaskPomos } = await import("@/lib/db");
-      expect(incrementTaskPomos).toHaveBeenCalledWith(42);
+      expect(incrementTaskPomos).toHaveBeenCalledWith(190);
     });
 
     it("sends notification when session completed", async () => {
@@ -581,7 +601,7 @@ describe("useTimerStore", () => {
         deadlineAtMs: Date.now() - 1000,
       });
 
-      useTimerStore.getState().skip();
+      await useTimerStore.getState().skip();
 
       const { sendNotification } = await import("@/lib/notifications");
       expect(sendNotification).toHaveBeenCalled();
@@ -595,7 +615,7 @@ describe("useTimerStore", () => {
         deadlineAtMs: Date.now() - 1000,
       });
 
-      useTimerStore.getState().skip();
+      await useTimerStore.getState().skip();
 
       expect(useTimerStore.getState().phase).toBe("long_break");
     });
@@ -695,18 +715,20 @@ describe("useTimerStore", () => {
     it("finishes current session and auto-starts next phase", async () => {
       useTimerStore.setState({ activeTaskId: 5 });
       await useTimerStore.getState().start();
+      await useTimerStore.getState().setActiveTask(8);
 
       await useTimerStore.getState().confirmStartNextPhase("good", "Nice");
 
       const { finishSession: dbFinish, incrementTaskPomos } = await import("@/lib/db");
       expect(dbFinish).toHaveBeenCalledWith(1, DEFAULT_WORK_SEC, "good", "Nice", true);
-      expect(incrementTaskPomos).toHaveBeenCalledWith(5);
+      expect(incrementTaskPomos).toHaveBeenCalledWith(8);
 
       const state = useTimerStore.getState();
       expect(state.completedPomos).toBe(1);
       expect(state.phase).toBe("short_break");
       expect(state.status).toBe("running");
       expect(state.currentSessionId).toBe(1);
+      expect(state.currentSessionTaskId).toBeNull();
     });
 
     it("transitions from break to work phase", async () => {
@@ -725,12 +747,13 @@ describe("useTimerStore", () => {
     it("finishes session and resets to work idle without auto-starting break", async () => {
       useTimerStore.setState({ activeTaskId: 3 });
       await useTimerStore.getState().start();
+      await useTimerStore.getState().setActiveTask(9);
 
       await useTimerStore.getState().endWithoutBreak();
 
       const { finishSession: dbFinish, incrementTaskPomos } = await import("@/lib/db");
       expect(dbFinish).toHaveBeenCalledWith(1, DEFAULT_WORK_SEC, undefined, undefined, true);
-      expect(incrementTaskPomos).toHaveBeenCalledWith(3);
+      expect(incrementTaskPomos).toHaveBeenCalledWith(9);
 
       const state = useTimerStore.getState();
       expect(state.phase).toBe("work");

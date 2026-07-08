@@ -14,6 +14,7 @@ import {
   completeTask as dbCompleteTask,
   getCategories,
   getSetting,
+  recordAppEvent,
   setSetting,
 } from "@/lib/db";
 import { ensureRecurringSummaryTasks } from "@/features/tasks/recurring-summary-tasks";
@@ -132,6 +133,20 @@ export const useTaskStore = create<TaskStore>((set) => ({
         tasks: [newTask, ...state.tasks],
         error: null,
       }));
+      void recordAppEvent({
+        eventName: "task_added",
+        route: "/tasks",
+        entityType: "task",
+        entityId: id,
+        metadata: {
+          estimatedPomos,
+          hasProject: Boolean(project?.trim()),
+          hasPriority: Boolean(priority?.trim()),
+          hasCategory: resolvedCategoryId != null,
+          hasSchedule: Boolean(scheduledFor),
+          categoryInferred: resolvedCategoryId != null && categoryId == null,
+        },
+      });
     } catch (err) {
       console.error("[TaskStore] Failed to add task:", err);
       set({ error: String(err) });
@@ -180,6 +195,22 @@ export const useTaskStore = create<TaskStore>((set) => ({
         }),
         error: null,
       }));
+      void recordAppEvent({
+        eventName: "task_updated",
+        route: "/tasks",
+        entityType: "task",
+        entityId: id,
+        metadata: {
+          changedFields: [
+            name !== undefined ? "name" : null,
+            estimatedPomos !== undefined ? "estimated_pomos" : null,
+            project !== undefined ? "project" : null,
+            priority !== undefined ? "priority" : null,
+            categoryId !== undefined ? "category_id" : null,
+            scheduledFor !== undefined ? "scheduled_for" : null,
+          ].filter(Boolean),
+        },
+      });
     } catch (err) {
       console.error("[TaskStore] Failed to update task:", err);
       set({ error: String(err) });
@@ -193,6 +224,12 @@ export const useTaskStore = create<TaskStore>((set) => ({
         tasks: state.tasks.filter((t) => t.id !== id),
         error: null,
       }));
+      void recordAppEvent({
+        eventName: "task_deleted",
+        route: "/tasks",
+        entityType: "task",
+        entityId: id,
+      });
     } catch (err) {
       console.error("[TaskStore] Failed to delete task:", err);
       set({ error: String(err) });
@@ -206,6 +243,12 @@ export const useTaskStore = create<TaskStore>((set) => ({
         tasks: state.tasks.filter((t) => t.id !== id),
         error: null,
       }));
+      void recordAppEvent({
+        eventName: "task_archived",
+        route: "/tasks",
+        entityType: "task",
+        entityId: id,
+      });
     } catch (err) {
       console.error("[TaskStore] Failed to archive task:", err);
       set({ error: String(err) });
@@ -237,6 +280,16 @@ export const useTaskStore = create<TaskStore>((set) => ({
         const entry = buildCompletionLogEntry(completionLogTask, review);
         if (entry) await appendPomodoroEstimationLog(entry);
       }
+      void recordAppEvent({
+        eventName: "task_pomo_incremented",
+        route: "/",
+        entityType: "task",
+        entityId: id,
+        metadata: {
+          promptedReview: Boolean(completionLogTask),
+          hasReview: Boolean(review?.trim()),
+        },
+      });
     } catch (err) {
       console.error("[TaskStore] Failed to increment pomos:", err);
       set({ error: String(err) });
@@ -249,6 +302,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
       await dbCompleteTask(id, safeActualPomos, review);
       const completedAt = new Date().toISOString();
       let completionLogTask: Task | null = null;
+      let estimateDelta = 0;
 
       set((state) => ({
         tasks: state.tasks.map((t) => {
@@ -259,7 +313,8 @@ export const useTaskStore = create<TaskStore>((set) => ({
             completed_at: completedAt,
             completion_review: review?.trim() || null,
           };
-          if (nextTask.completed_pomos !== nextTask.estimated_pomos) {
+          estimateDelta = nextTask.completed_pomos - nextTask.estimated_pomos;
+          if (estimateDelta !== 0) {
             completionLogTask = nextTask;
           }
           return nextTask;
@@ -271,6 +326,17 @@ export const useTaskStore = create<TaskStore>((set) => ({
         const entry = buildCompletionLogEntry(completionLogTask, review);
         if (entry) await appendPomodoroEstimationLog(entry);
       }
+      void recordAppEvent({
+        eventName: "task_completed",
+        route: "/tasks",
+        entityType: "task",
+        entityId: id,
+        metadata: {
+          actualPomos: safeActualPomos,
+          estimateDelta,
+          hasReview: Boolean(review?.trim()),
+        },
+      });
     } catch (err) {
       console.error("[TaskStore] Failed to complete task:", err);
       set({ error: String(err) });

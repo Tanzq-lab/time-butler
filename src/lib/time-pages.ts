@@ -107,7 +107,7 @@ export function getDefaultPageContent(type: TimePageType, title: string): string
     case "week":
       return `## 周复盘\n\n- 本周推进了什么：\n- 下周要继续什么：\n- 哪些任务需要调整：\n`;
     case "day":
-      return `## 今日记录\n\n\n## 今日复盘\n\n- 今天完成了什么：\n- 哪些没完成：\n- 明天要继续：\n`;
+      return "";
     default:
       return `# ${title}\n`;
   }

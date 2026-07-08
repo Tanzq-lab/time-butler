@@ -1,5 +1,19 @@
 # Time Butler Codex Rules
 
+## Product Optimization Methodology Policy
+
+When the user asks Codex to optimize Time Butler as a product/tool, improve UX, add instrumentation, fix workflow friction, or when a report's self-optimization step may change app behavior, Codex must treat AmosTan methodology as required context.
+
+Before changing product behavior, UX, instrumentation, reporting workflow, or optimization rules, Codex must:
+
+1. Read `docs/product-optimization-methodology.md`.
+2. Follow its required read order for `/Users/amos/AmosTan`.
+3. Read the relevant original methodology notes routed by the problem type.
+4. Use local product signals where available: `app_events`, sessions, tasks, completion reviews, time pages, and user feedback.
+5. State the user path, extracted need, key assumption, smallest useful change, validation, and risk boundary before or during implementation.
+
+The user delegates product and design judgment to Codex for small, locally verifiable Time Butler improvements. Prefer making a reasonable product decision and implementing it over asking for design direction. Still preserve the safety rules in this file: do not rewrite user data casually, do not restart the Tauri dev server for data-only work, and do not make destructive changes without an explicit request.
+
 ## Task Intake Memory Policy
 
 When the user asks Codex to add, schedule, remind, estimate, split, or record a task in this repository, Codex must treat the pomodoro estimation memo as required context.

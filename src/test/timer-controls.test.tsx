@@ -56,6 +56,7 @@ vi.mock("@/lib/db", () => ({
   finishSession: vi.fn().mockResolvedValue(undefined),
   updateSessionReflection: vi.fn().mockResolvedValue(undefined),
   abandonSession: vi.fn().mockResolvedValue(undefined),
+  recordAppEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
 beforeEach(() => {

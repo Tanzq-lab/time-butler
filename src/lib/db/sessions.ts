@@ -66,6 +66,25 @@ export async function finishSession(
   }
 }
 
+export async function updateSessionAttribution(
+  sessionId: number,
+  taskId: number | null,
+  categoryId?: number | null,
+  intention?: string | null,
+): Promise<void> {
+  const database = await getDb();
+  await database.execute(
+    `
+    UPDATE sessions
+    SET task_id = $2,
+        category_id = $3,
+        intention = $4
+    WHERE id = $1 AND completed = 0
+    `,
+    [sessionId, taskId, categoryId ?? null, intention ?? null],
+  );
+}
+
 export async function updateSessionReflection(
   sessionId: number,
   mood?: string,
