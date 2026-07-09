@@ -50,6 +50,7 @@ PROMPT=$(cat <<PROMPT
 - 从 ../time-butler-data/Time-butler.db 与 ../time-butler-data/data/pomodoro-estimation-log.jsonl 读取 TARGET_DATE=$TARGET_DATE 的数据，包括 sessions、tasks、completion_review、time_pages、task_activity_log 和 app_events。
 - 生成 DAILY_AI_REPORT:$TARGET_DATE 标记包裹的 AI 时间管理复盘。
 - 日报不能只是任务完成情况汇总；必须包含今日反思、今日复盘、今天学到了什么、需要改进什么、预估偏差和明日建议。
+- “今日反思”必须包含“原始留言”小节，逐条写出当天所有非空的任务 completion_review；不要只摘要或只挑重点。completed session 的 intention、mood、notes 只作为分析证据，不要逐条写入该小节。
 - “学到了什么”和“需要改进什么”必须基于 sessions、tasks、completion_review、session notes、手写日报、app_events 或 pomodoro-estimation-log 中的证据；证据不足时明确写数据不足，不要编造。
 - 日报写入并验证完成后，必须按 skill 的「复盘后自我优化规则」判断 Time Butler 代码、脚本、SKILL 或复盘流程是否有小而明确的优化点。
 - 判断或执行任何 Time Butler 产品 / 工具优化前，必须先读取 docs/product-optimization-methodology.md，并按它读取 /Users/amos/AmosTan 的产品方法论索引和相关原始方法笔记。
