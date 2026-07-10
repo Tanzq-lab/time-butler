@@ -48,15 +48,17 @@ PROMPT=$(cat <<PROMPT
 必须先完整读取 /Users/amos/time-butler/复盘/日报SKILL.md，并严格按该 skill 执行：
 - 读取 AGENTS.md、README.md、docs/codex-mistake-notebook.md、../time-butler-data/README.md 和 SQLite schema。
 - 从 ../time-butler-data/Time-butler.db 与 ../time-butler-data/data/pomodoro-estimation-log.jsonl 读取 TARGET_DATE=$TARGET_DATE 的数据，包括 sessions、tasks、completion_review、time_pages、task_activity_log 和 app_events。
-- 生成 DAILY_AI_REPORT:$TARGET_DATE 标记包裹的 AI 时间管理复盘。
-- 日报不能只是任务完成情况汇总；必须包含今日反思、今日复盘、今天学到了什么、需要改进什么、预估偏差和明日建议。
-- “今日反思”必须包含“原始留言”小节，逐条写出当天所有非空的任务 completion_review；不要只摘要或只挑重点。completed session 的 intention、mood、notes 只作为分析证据，不要逐条写入该小节。
-- “学到了什么”和“需要改进什么”必须基于 sessions、tasks、completion_review、session notes、手写日报、app_events 或 pomodoro-estimation-log 中的证据；证据不足时明确写数据不足，不要编造。
+- 生成 DAILY_AI_REPORT:$TARGET_DATE 标记包裹的紧凑日报整理区块。
+- 必须单独生成“任务完成记录（原文）”：只收集 completed_at 按 Asia/Shanghai 归属于 TARGET_DATE=$TARGET_DATE 且非空的每一条 completion_review，按完成时间排列。
+- completion_review 只汇总一次，必须保持原文和换行，不摘要、不改写、不纠错、不合并。不得因任务当天有 session、当天被计划或后来才完成，就把其他日期的完成复盘混入。
+- 目标日日页面中用户自己写的日报必须完整阅读和理解，但它已存在于页面中，不得在自动区块中再次摘要、改写或大段复述。
+- AI 部分只允许写 1 个高价值关键判断和最多 3 条下一步行动。每条行动必须包含范围或时间上限和完成标准；证据不足时明确写数据不足，不要编造或填满章节。
+- 当日时长和番茄只能从目标日 work sessions 计算；不得把任务累计 completed_pomos 写成当日投入。
 - 日报写入并验证完成后，必须按 skill 的「复盘后自我优化规则」判断 Time Butler 代码、脚本、SKILL 或复盘流程是否有小而明确的优化点。
 - 判断或执行任何 Time Butler 产品 / 工具优化前，必须先读取 docs/product-optimization-methodology.md，并按它读取 /Users/amos/AmosTan 的产品方法论索引和相关原始方法笔记。
 - 判断复盘后自我优化时，必须主动扫描目标日页面手写内容和近期日/周/月页面中的 App 建议关键词，例如 App、Time Butler、时间管家、标签、不直观、优化、建议、刷新、自动。
 - 如果优化点预计不超过 4 个番茄、能限制在 /Users/amos/time-butler 仓库内、能安全验证，允许自行修改相关文件、运行最小必要验证、只暂存本次优化文件并创建 git commit。
-- 如果问题较大、边界不清、工作区有无法隔离的无关改动、验证失败、需要用户判断、或需要修改用户任务数据，只写入日报第 10 节作为后续建议，不要自动提交。
+- 如果问题较大、边界不清、工作区有无法隔离的无关改动、验证失败、需要用户判断、或需要修改用户任务数据，只写入本次自动任务的最终结果和日志，不要把内部工程审计写入个人日报，也不要自动提交。
 - 只追加或替换该 AI 区块到 time_pages 中 type='day' 且 date_key='$TARGET_DATE' 的页面 content。
 - 必要时按 skill 创建缺失 day 页面链路。
 - 写入前备份数据库到 ../time-butler-data/backups。
