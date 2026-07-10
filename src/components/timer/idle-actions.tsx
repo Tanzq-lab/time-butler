@@ -1,7 +1,15 @@
 import { useTimerStore } from "@/features/timer/use-timer-store";
 import { useUIStore } from "@/features/ui/use-ui-store";
 import { Button } from "@/components/ui/button";
-import { Play, RotateCcw, Maximize2, Minimize2 } from "lucide-react";
+import {
+  Coffee,
+  Maximize2,
+  Minimize2,
+  Play,
+  Plus,
+  RotateCcw,
+  SkipForward,
+} from "lucide-react";
 
 interface IdleActionsProps {
   phase: "work" | "short_break" | "long_break";
@@ -20,6 +28,8 @@ export function IdleActions({
 }: IdleActionsProps) {
   const start = useTimerStore((s) => s.start);
   const reset = useTimerStore((s) => s.reset);
+  const adjustDuration = useTimerStore((s) => s.adjustDuration);
+  const endWithoutBreak = useTimerStore((s) => s.endWithoutBreak);
   const acknowledgeBreakReminder = useTimerStore(
     (s) => s.acknowledgeBreakReminder,
   );
@@ -35,12 +45,13 @@ export function IdleActions({
       : phase === "work"
         ? "开始专注"
         : "开始休息";
+  const isBreakReady = phase !== "work" && !breakReminderActive;
 
   return (
     <>
       <Button
         variant="solid"
-        intent="sahara"
+        intent={isBreakReady ? "emerald" : "sahara"}
         size="lg"
         shape="rounded-full"
         onClick={() => {
@@ -54,9 +65,41 @@ export function IdleActions({
         }}
         className="gap-1.5 md:gap-2 text-xs md:text-xs px-6 md:px-8 py-3 md:py-3.5"
       >
-        <Play className="size-3.5 md:w-4 md:h-4 fill-current ml-0.5" />
+        {isBreakReady ? (
+          <Coffee className="size-3.5 md:w-4 md:h-4" />
+        ) : (
+          <Play className="size-3.5 md:w-4 md:h-4 fill-current ml-0.5" />
+        )}
         {startLabel}
       </Button>
+
+      {isBreakReady && (
+        <>
+          <div className="h-6 md:h-8 w-px bg-sahara-border/20 mx-0.5 md:mx-1 hidden sm:block" />
+          <Button
+            variant="outline"
+            intent="sahara"
+            size="sm"
+            shape="rounded-full"
+            onClick={() => adjustDuration(5)}
+            className="gap-1 md:gap-1.5 text-[10px]"
+          >
+            <Plus className="size-3.5 md:w-4 md:h-4" />
+            延长 5 分钟
+          </Button>
+          <Button
+            variant="outline"
+            intent="slate"
+            size="sm"
+            shape="rounded-full"
+            onClick={() => void endWithoutBreak()}
+            className="gap-1 md:gap-1.5 text-[10px]"
+          >
+            <SkipForward className="size-3.5 md:w-4 md:h-4" />
+            跳过休息
+          </Button>
+        </>
+      )}
 
       {isModified && (
         <>

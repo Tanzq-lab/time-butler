@@ -769,6 +769,31 @@ describe("useTimerStore", () => {
 
       expect(useTimerStore.getState().completedPomos).toBe(0);
     });
+
+    it("makes a pending focus review ready when skipping an idle break", async () => {
+      useTimerStore.setState({
+        phase: "short_break",
+        status: "idle",
+        secondsRemaining: DEFAULT_SHORT_BREAK_SEC,
+        totalSeconds: DEFAULT_SHORT_BREAK_SEC,
+        pendingFocusReview: {
+          sessionId: 12,
+          durationSec: DEFAULT_WORK_SEC,
+          ready: false,
+        },
+      });
+
+      await useTimerStore.getState().endWithoutBreak();
+
+      const state = useTimerStore.getState();
+      expect(state.phase).toBe("work");
+      expect(state.status).toBe("idle");
+      expect(state.pendingFocusReview).toEqual({
+        sessionId: 12,
+        durationSec: DEFAULT_WORK_SEC,
+        ready: true,
+      });
+    });
   });
 
   describe("addFiveMinutes", () => {

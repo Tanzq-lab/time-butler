@@ -821,6 +821,10 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         await recordPomoCompletion(phase, completionTaskId);
       }
 
+      const pendingFocusReview =
+        phase !== "work" && state.pendingFocusReview
+          ? { ...state.pendingFocusReview, ready: true }
+          : state.pendingFocusReview;
       const duration = getPhaseDuration("work", state.durations);
       set({
         phase: "work",
@@ -831,6 +835,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         currentSessionTaskId: null,
         completedPomos: get().completedPomos + (phase === "work" ? 1 : 0),
         deadlineAtMs: null,
+        pendingFocusReview,
         breakReminderActive: false,
       });
     },
