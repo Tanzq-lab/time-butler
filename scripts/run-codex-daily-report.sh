@@ -2,7 +2,7 @@
 set -uo pipefail
 
 export HOME="/Users/amos"
-export PATH="/Applications/Codex.app/Contents/Resources:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export PATH="/Applications/ChatGPT.app/Contents/Resources:/Applications/Codex.app/Contents/Resources:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 export LANG="zh_CN.UTF-8"
 export LC_ALL="zh_CN.UTF-8"
 export TZ="Asia/Shanghai"
@@ -10,17 +10,24 @@ export TZ="Asia/Shanghai"
 ROOT="/Users/amos/time-butler"
 DATA_DIR="/Users/amos/time-butler-data"
 LOG_DIR="$DATA_DIR/logs"
-CODEX_CLI="/Applications/Codex.app/Contents/Resources/codex"
+CODEX_CLI="${CODEX_CLI:-}"
 STAMP="$(date '+%Y%m%d-%H%M%S')"
 RUN_LOG="$LOG_DIR/codex-daily-report-$STAMP.log"
 FINAL_MESSAGE="$LOG_DIR/codex-daily-report-$STAMP.final.md"
 LOCK_DIR="$DATA_DIR/.codex-daily-report.lock"
-TARGET_DATE="$(date -v-1d '+%Y-%m-%d')"
+TARGET_DATE="${TIME_BUTLER_REPORT_DATE:-$(date -v-1d '+%Y-%m-%d')}"
 
 mkdir -p "$LOG_DIR"
 exec >>"$RUN_LOG" 2>&1
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S %Z')] daily report job starting"
+echo "Target date: $TARGET_DATE"
+
+parsed_target_date="$(date -j -f '%Y-%m-%d' "$TARGET_DATE" '+%Y-%m-%d' 2>/dev/null)"
+if [ "$parsed_target_date" != "$TARGET_DATE" ]; then
+  echo "Invalid target date: $TARGET_DATE (expected YYYY-MM-DD)"
+  exit 64
+fi
 
 if ! mkdir "$LOCK_DIR" 2>/dev/null; then
   echo "Another daily report job is already running; exiting."
@@ -32,10 +39,26 @@ cleanup() {
 }
 trap cleanup EXIT
 
-if [ ! -x "$CODEX_CLI" ]; then
-  echo "Codex CLI not found or not executable: $CODEX_CLI"
+if [ -z "$CODEX_CLI" ]; then
+  path_codex="$(command -v codex 2>/dev/null || true)"
+  for candidate in \
+    "/Applications/ChatGPT.app/Contents/Resources/codex" \
+    "/Applications/Codex.app/Contents/Resources/codex" \
+    "$path_codex"
+  do
+    if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+      CODEX_CLI="$candidate"
+      break
+    fi
+  done
+fi
+
+if [ -z "$CODEX_CLI" ] || [ ! -x "$CODEX_CLI" ]; then
+  echo "Codex CLI not found or not executable. Checked ChatGPT.app, Codex.app, and PATH."
   exit 127
 fi
+
+echo "Codex CLI: $CODEX_CLI"
 
 cd "$ROOT" || exit 1
 

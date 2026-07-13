@@ -46,6 +46,7 @@ type BlockFormat =
   | { block: "code" };
 
 const EMPTY_DOCUMENT_HTML = '<p data-block="paragraph"><br></p>';
+const CARET_PLACEHOLDER = "\u200B";
 const MAX_LIST_INDENT = 4;
 
 const BLOCK_TOOLS: Array<{
@@ -214,7 +215,8 @@ function isSpecialMarkdownLine(line: string): boolean {
 }
 
 function renderHeading(level: 1 | 2 | 3, text: string): string {
-  return `<h${level} data-block="heading" data-level="${level}">${inlineMarkdownToHtml(text)}</h${level}>`;
+  const html = text ? inlineMarkdownToHtml(text) : CARET_PLACEHOLDER;
+  return `<h${level} data-block="heading" data-level="${level}">${html}</h${level}>`;
 }
 
 function renderParagraph(text: string): string {
@@ -222,7 +224,8 @@ function renderParagraph(text: string): string {
 }
 
 function renderQuote(text: string): string {
-  return `<blockquote data-block="quote">${inlineMarkdownToHtml(text)}</blockquote>`;
+  const html = text ? inlineMarkdownToHtml(text) : CARET_PLACEHOLDER;
+  return `<blockquote data-block="quote">${html}</blockquote>`;
 }
 
 function renderListItem(
@@ -230,15 +233,17 @@ function renderListItem(
   indent: number,
   text: string,
 ): string {
-  return `<div data-block="list" data-list-type="${listType}" data-indent="${indent}">${inlineMarkdownToHtml(text)}</div>`;
+  const html = text ? inlineMarkdownToHtml(text) : CARET_PLACEHOLDER;
+  return `<div data-block="list" data-list-type="${listType}" data-indent="${indent}">${html}</div>`;
 }
 
 function renderTaskItem(checked: boolean, indent: number, text: string): string {
-  return `<div data-block="task" data-checked="${checked ? "true" : "false"}" data-indent="${indent}">${inlineMarkdownToHtml(text)}</div>`;
+  const html = text ? inlineMarkdownToHtml(text) : CARET_PLACEHOLDER;
+  return `<div data-block="task" data-checked="${checked ? "true" : "false"}" data-indent="${indent}">${html}</div>`;
 }
 
 function renderCodeBlock(text: string): string {
-  return `<pre data-block="code"><code>${escapeHtml(text) || "\n"}</code></pre>`;
+  return `<pre data-block="code"><code>${escapeHtml(text) || CARET_PLACEHOLDER}</code></pre>`;
 }
 
 function renderTableCell(
@@ -372,7 +377,9 @@ function markdownToDocumentHtml(markdown: string): string {
 
 function serializeInline(node: Node): string {
   if (node.nodeType === Node.TEXT_NODE) {
-    return node.textContent?.replace(/\u00a0/g, " ") ?? "";
+    return node.textContent
+      ?.replace(/\u00a0/g, " ")
+      .replaceAll(CARET_PLACEHOLDER, "") ?? "";
   }
 
   if (!(node instanceof HTMLElement)) {
@@ -495,7 +502,9 @@ function serializeElementBlock(element: HTMLElement): SerializedBlock[] {
   }
 
   if (tagName === "pre" || block === "code") {
-    const code = element.textContent?.replace(/\n+$/g, "") ?? "";
+    const code = element.textContent
+      ?.replaceAll(CARET_PLACEHOLDER, "")
+      .replace(/\n+$/g, "") ?? "";
     return [{ kind: "code", markdown: `\`\`\`\n${code}\n\`\`\`` }];
   }
 
@@ -578,7 +587,9 @@ function serializeDocument(root: HTMLElement): string {
 }
 
 function updateEmptyState(root: HTMLElement): void {
-  const hasText = Boolean(root.textContent?.trim());
+  const hasText = Boolean(
+    root.textContent?.replaceAll(CARET_PLACEHOLDER, "").trim(),
+  );
   const hasFormattedBlock = Boolean(
     root.querySelector(
       [
@@ -601,7 +612,7 @@ function getActiveTopLevelBlock(root: HTMLElement): HTMLElement | null {
   let node = selection?.anchorNode ?? null;
 
   if (!node || !root.contains(node)) {
-    return root.firstElementChild instanceof HTMLElement ? root.firstElementChild : null;
+    return null;
   }
 
   let element = node instanceof HTMLElement ? node : node.parentElement;
@@ -642,14 +653,18 @@ function createFormattedBlock(
     const heading = document.createElement(format.level === 1 ? "h1" : "h2");
     heading.dataset.block = "heading";
     heading.dataset.level = String(format.level);
-    heading.innerHTML = html || "<br>";
+    heading.innerHTML = text.replaceAll(CARET_PLACEHOLDER, "").trim()
+      ? html || "<br>"
+      : CARET_PLACEHOLDER;
     return heading;
   }
 
   if (format.block === "quote") {
     const quote = document.createElement("blockquote");
     quote.dataset.block = "quote";
-    quote.innerHTML = html || "<br>";
+    quote.innerHTML = text.replaceAll(CARET_PLACEHOLDER, "").trim()
+      ? html || "<br>"
+      : CARET_PLACEHOLDER;
     return quote;
   }
 
@@ -658,7 +673,9 @@ function createFormattedBlock(
     list.dataset.block = "list";
     list.dataset.listType = format.listType;
     list.dataset.indent = "0";
-    list.innerHTML = html || "<br>";
+    list.innerHTML = text.replaceAll(CARET_PLACEHOLDER, "").trim()
+      ? html || "<br>"
+      : CARET_PLACEHOLDER;
     return list;
   }
 
@@ -667,7 +684,11 @@ function createFormattedBlock(
     task.dataset.block = "task";
     task.dataset.checked = "false";
     task.dataset.indent = "0";
-    task.innerHTML = html || "<br>";
+    if (text.replaceAll(CARET_PLACEHOLDER, "").trim()) {
+      task.innerHTML = html || "<br>";
+    } else {
+      task.textContent = CARET_PLACEHOLDER;
+    }
     return task;
   }
 
@@ -675,7 +696,7 @@ function createFormattedBlock(
     const pre = document.createElement("pre");
     pre.dataset.block = "code";
     const code = document.createElement("code");
-    code.textContent = text || "\n";
+    code.textContent = text || CARET_PLACEHOLDER;
     pre.append(code);
     return pre;
   }
@@ -691,11 +712,191 @@ function placeCaretAtEnd(element: HTMLElement): void {
     ? element.querySelector("code") ?? element
     : element;
   const range = document.createRange();
-  range.selectNodeContents(target);
-  range.collapse(false);
+
+  if (
+    element.dataset.block !== "paragraph" &&
+    !target.textContent?.replaceAll(CARET_PLACEHOLDER, "").trim()
+  ) {
+    const placeholder = document.createTextNode(CARET_PLACEHOLDER);
+    target.replaceChildren(placeholder);
+    range.setStart(placeholder, CARET_PLACEHOLDER.length);
+    range.collapse(true);
+  } else {
+    range.selectNodeContents(target);
+    range.collapse(false);
+  }
   const selection = window.getSelection();
   selection?.removeAllRanges();
   selection?.addRange(range);
+}
+
+function placeCaretAtStart(element: HTMLElement): void {
+  const target = element.tagName.toLowerCase() === "pre"
+    ? element.querySelector("code") ?? element
+    : element;
+  const range = document.createRange();
+
+  if (!target.textContent?.replaceAll(CARET_PLACEHOLDER, "").trim()) {
+    if (element.dataset.block !== "paragraph") {
+      const placeholder = document.createTextNode(CARET_PLACEHOLDER);
+      target.replaceChildren(placeholder);
+      range.setStart(placeholder, CARET_PLACEHOLDER.length);
+    } else {
+      target.innerHTML = "<br>";
+      range.setStart(target, 0);
+    }
+  } else {
+    range.selectNodeContents(target);
+    range.collapse(true);
+  }
+
+  range.collapse(true);
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+}
+
+function isBlockEmpty(block: HTMLElement): boolean {
+  return !block.textContent?.replaceAll(CARET_PLACEHOLDER, "").trim();
+}
+
+function ensureEditableBlockContent(block: HTMLElement): void {
+  if (!isBlockEmpty(block)) return;
+
+  if (
+    block.dataset.block &&
+    block.dataset.block !== "paragraph" &&
+    block.dataset.block !== "code"
+  ) {
+    block.textContent = CARET_PLACEHOLDER;
+    return;
+  }
+
+  if (block.dataset.block === "code") {
+    const code = block.querySelector("code") ?? block;
+    code.textContent = CARET_PLACEHOLDER;
+    return;
+  }
+
+  block.innerHTML = "<br>";
+}
+
+function getCollapsedSelectionRange(block: HTMLElement): Range | null {
+  const selection = window.getSelection();
+  if (!selection || !selection.isCollapsed || selection.rangeCount === 0) return null;
+
+  const range = selection.getRangeAt(0);
+  return block.contains(range.startContainer) ? range : null;
+}
+
+function isCaretAtBlockStart(block: HTMLElement, range: Range): boolean {
+  const prefix = document.createRange();
+  prefix.selectNodeContents(block);
+  prefix.setEnd(range.startContainer, range.startOffset);
+  return !prefix.toString().replaceAll(CARET_PLACEHOLDER, "");
+}
+
+function getContinuationFormat(block: HTMLElement): BlockFormat {
+  switch (block.dataset.block) {
+    case "list":
+      return {
+        block: "list",
+        listType: block.dataset.listType === "ordered" ? "ordered" : "bullet",
+      };
+    case "task":
+      return { block: "task" };
+    case "quote":
+      return { block: "quote" };
+    default:
+      return { block: "paragraph" };
+  }
+}
+
+function fragmentHasContent(fragment: DocumentFragment): boolean {
+  if (fragment.textContent?.replaceAll(CARET_PLACEHOLDER, "").trim()) return true;
+  return Boolean(fragment.querySelector("br, hr, table"));
+}
+
+function splitBlockAtSelection(block: HTMLElement, range: Range): HTMLElement {
+  const tailRange = document.createRange();
+  tailRange.setStart(range.startContainer, range.startOffset);
+  tailRange.setEnd(block, block.childNodes.length);
+  const tail = tailRange.extractContents();
+  const nextBlock = createFormattedBlock(getContinuationFormat(block), "<br>", "");
+
+  if (fragmentHasContent(tail)) {
+    nextBlock.replaceChildren(tail);
+  }
+
+  ensureEditableBlockContent(block);
+  ensureEditableBlockContent(nextBlock);
+  block.after(nextBlock);
+  placeCaretAtStart(nextBlock);
+  return nextBlock;
+}
+
+function replaceBlockWithParagraph(block: HTMLElement): HTMLElement {
+  const html = getBlockHtml(block).replaceAll(CARET_PLACEHOLDER, "");
+  const paragraph = createFormattedBlock(
+    { block: "paragraph" },
+    html,
+    block.textContent?.replaceAll(CARET_PLACEHOLDER, "") ?? "",
+  );
+  block.replaceWith(paragraph);
+  ensureEditableBlockContent(paragraph);
+  placeCaretAtStart(paragraph);
+  return paragraph;
+}
+
+function insertCodeLineBreak(range: Range): void {
+  range.deleteContents();
+  const lineBreak = document.createTextNode("\n");
+  range.insertNode(lineBreak);
+  range.setStartAfter(lineBreak);
+  range.collapse(true);
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+}
+
+function insertSoftLineBreak(range: Range): void {
+  range.deleteContents();
+  const lineBreak = document.createElement("br");
+  const caretMarker = document.createTextNode(CARET_PLACEHOLDER);
+  const fragment = document.createDocumentFragment();
+  fragment.append(lineBreak, caretMarker);
+  range.insertNode(fragment);
+  range.setStart(caretMarker, CARET_PLACEHOLDER.length);
+  range.collapse(true);
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+}
+
+function mergeParagraphIntoPrevious(
+  paragraph: HTMLElement,
+  previous: HTMLElement,
+): boolean {
+  if (
+    previous.dataset.block === "code" ||
+    previous.dataset.block === "divider" ||
+    previous.dataset.block === "table"
+  ) {
+    return false;
+  }
+
+  if (isBlockEmpty(previous)) previous.replaceChildren();
+  const caretMarker = document.createTextNode(CARET_PLACEHOLDER);
+  previous.append(caretMarker, ...Array.from(paragraph.childNodes));
+  paragraph.remove();
+
+  const range = document.createRange();
+  range.setStart(caretMarker, CARET_PLACEHOLDER.length);
+  range.collapse(true);
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+  return true;
 }
 
 function getMarkdownShortcutFormat(block: HTMLElement): BlockFormat | null {
@@ -770,8 +971,8 @@ export default function DocumentNoteEditor({
     const editor = editorRef.current;
     if (!editor) return;
 
-    editor.focus();
     const currentBlock = getActiveTopLevelBlock(editor);
+    editor.focus();
     const block = currentBlock ?? createFormattedBlock({ block: "paragraph" }, "<br>", "");
     if (!currentBlock) editor.append(block);
 
@@ -800,6 +1001,8 @@ export default function DocumentNoteEditor({
     const editor = editorRef.current;
     if (!editor) return;
 
+    if (event.nativeEvent.isComposing) return;
+
     if (
       (event.key === " " || event.key === "Spacebar") &&
       !event.altKey &&
@@ -818,6 +1021,62 @@ export default function DocumentNoteEditor({
       block.replaceWith(nextBlock);
       placeCaretAtEnd(nextBlock);
       emitChange();
+      return;
+    }
+
+    if (event.key === "Enter") {
+      const block = getActiveTopLevelBlock(editor);
+      if (!block) return;
+
+      const range = getCollapsedSelectionRange(block);
+      if (!range) return;
+
+      event.preventDefault();
+      if (block.dataset.block === "code") {
+        insertCodeLineBreak(range);
+      } else if (
+        event.shiftKey &&
+        (block.dataset.block === "paragraph" || block.dataset.block === "quote")
+      ) {
+        insertSoftLineBreak(range);
+      } else if (isBlockEmpty(block) && block.dataset.block !== "paragraph") {
+        replaceBlockWithParagraph(block);
+      } else {
+        splitBlockAtSelection(block, range);
+      }
+      emitChange();
+      return;
+    }
+
+    if (event.key === "Backspace") {
+      const block = getActiveTopLevelBlock(editor);
+      if (!block) return;
+
+      const range = getCollapsedSelectionRange(block);
+      if (!range || !isCaretAtBlockStart(block, range)) return;
+
+      if (block.dataset.block && block.dataset.block !== "paragraph") {
+        event.preventDefault();
+        replaceBlockWithParagraph(block);
+        emitChange();
+        return;
+      }
+
+      const previous = block.previousElementSibling;
+      if (!(previous instanceof HTMLElement)) return;
+
+      if (isBlockEmpty(block)) {
+        event.preventDefault();
+        block.remove();
+        placeCaretAtEnd(previous);
+        emitChange();
+        return;
+      }
+
+      if (mergeParagraphIntoPrevious(block, previous)) {
+        event.preventDefault();
+        emitChange();
+      }
       return;
     }
 

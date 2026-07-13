@@ -146,6 +146,14 @@ scripts/run-codex-weekly-report.sh
 scripts/run-codex-monthly-report.sh
 ```
 
+三个复盘脚本会依次从 ChatGPT.app、Codex.app 和 `PATH` 发现可执行的 Codex CLI，不依赖单一 App 安装路径。需要补跑某一天的日报时使用：
+
+```zsh
+TIME_BUTLER_REPORT_DATE=2026-07-10 scripts/run-codex-daily-report.sh
+```
+
+日期必须是 `YYYY-MM-DD`。无覆盖值时，日报仍按 `Asia/Shanghai` 处理运行日前一天。运行成功不能只看退出码；还要确认 `../time-butler-data/logs` 中生成对应 `.final.md`、`../time-butler-data/backups` 中生成写入前备份，并读回页面的 start/end marker 各 1 个。锁冲突会安全退出而不创建第二份报告。CLI 缺失、日期无效、模型容量不足等错误要先按日志、备份和 marker 判断失败发生在写入前还是写入后；只有目标报告缺失或 marker 不完整时才重跑，不能把非零退出直接等同于“完全未写入”。
+
 月报脚本面向月初自动运行：每月 1 日 09:30 生成上一个完整自然月的月报，并写回对应 `time_pages` 月页面。
 
 ## 目录说明
