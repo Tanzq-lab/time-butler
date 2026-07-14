@@ -4,30 +4,28 @@ Before every Time Butler product/tool optimization, Codex must read AmosTan prod
 
 ## Required Read Order
 
-Always read these files before deciding or implementing an optimization:
+The AmosTan knowledge base is Obsidian-native and no longer maintains README route indexes inside each knowledge domain. Always use this order before deciding or implementing an optimization:
 
-1. `/Users/amos/AmosTan/AGENTS.md`
-2. `/Users/amos/AmosTan/README.md`
-3. `/Users/amos/AmosTan/AI_RETRIEVAL_GUIDE.md`
-4. `/Users/amos/AmosTan/产品基本功/README.md`
-5. `/Users/amos/AmosTan/产品基本功/业务分析/README.md`
-6. `/Users/amos/AmosTan/产品基本功/业务落地/README.md`
-
-Then read the relevant original method notes based on the problem:
-
-- User need, scenario, task, pain, false demand: `/Users/amos/AmosTan/产品基本功/业务分析/需求分析/README.md`, then the relevant `需求实操*.md`.
-- Product core, MVP, minimal loop, core experience: `/Users/amos/AmosTan/产品基本功/业务分析/产品内核/README.md`, then the relevant `产品内核*.md`.
-- Low-cost validation, key assumptions, experiments: `/Users/amos/AmosTan/产品基本功/业务落地/精益实验/README.md`, then the relevant `低成本验证*.md`.
-- Funnel, activation, friction, motivation, touchpoint: `/Users/amos/AmosTan/产品基本功/业务落地/转化率/README.md`, then the relevant `转化率黑客*.md`, `阻力消除策略.md`, or `触点策略.md`.
-- Metrics, business formula, parameters, hypothesis pool: `/Users/amos/AmosTan/产品基本功/业务落地/业务公式/业务公式_认知篇.md` and related `业务公式*.md`.
-
-If the right file is unclear, run local RAG from `/Users/amos/AmosTan`:
+1. Read `/Users/amos/AmosTan/AGENTS.md`.
+2. Read `/Users/amos/AmosTan/rag/README.md`.
+3. From `/Users/amos/AmosTan`, query the optimization question with local RAG:
 
 ```bash
-python3 tools/knowledge_rag.py query "<optimization question>"
+./tools/rag query "<optimization question>"
 ```
 
-Use the context pack only as retrieval guidance; read the original matched `.md` files before making decisions.
+4. Use the results and `rag/runtime/latest_context_pack.md` only as retrieval guidance.
+5. Read the matched original `.md` files before making decisions. Do not treat the context pack or a missing historical README as the methodology source.
+
+Route the query toward these current original-note domains when relevant:
+
+- User need, scenario, task, pain, false demand: `产品基本功/业务分析/1-需求原点/需求原点实操*.md`.
+- Product core, MVP, minimal loop, core experience: `产品基本功/业务分析/2-产品内核/产品内核*.md`.
+- Low-cost validation, key assumptions, experiments: `产品基本功/业务落地/精益实验/低成本验证*.md`.
+- Funnel, activation, friction, motivation, touchpoint: `产品基本功/业务落地/转化率/转化率黑客*.md`, `武器库_阻力消除策略.md`, or `武器库_触点策略.md`.
+- Metrics, business formula, parameters, hypothesis pool: original notes under `产品基本功/业务落地/业务公式/`.
+
+The legacy `python3 tools/knowledge_rag.py query ...` entry remains compatible, but new workflow documentation should use `./tools/rag query`.
 
 ## Product Optimization Frame
 
