@@ -186,7 +186,8 @@ describe("notifications", () => {
           audioAsset: "simple-happy-beep.ogg",
           loop: true,
           gain: 1.45,
-          repeatStrategy: "continuous",
+          gapless: true,
+          repeatStrategy: "persistent_native_stream",
         }),
       }),
     );

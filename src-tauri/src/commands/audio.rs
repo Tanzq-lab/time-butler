@@ -1,17 +1,16 @@
 use serde::Deserialize;
-use std::sync::{
-    atomic::{AtomicU64, Ordering},
-    Arc,
-};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 #[cfg(target_os = "macos")]
 use std::{
+    fs::File,
     path::{Path, PathBuf},
-    process::{Child, Command, Stdio},
-    thread,
-    time::Duration,
+    process::{Command, Stdio},
+    sync::Mutex,
 };
 
+#[cfg(target_os = "macos")]
+use rodio::{Decoder, DeviceSinkBuilder, MixerDeviceSink, Player};
 #[cfg(target_os = "macos")]
 use tauri::{path::BaseDirectory, AppHandle, Manager};
 
@@ -19,8 +18,6 @@ use tauri::{path::BaseDirectory, AppHandle, Manager};
 const SYSTEM_SOUND_PATH: &str = "/System/Library/Sounds/Glass.aiff";
 #[cfg(target_os = "macos")]
 const BREAK_OVER_SOUND_RESOURCE: &str = "sounds/simple-happy-beep.ogg";
-#[cfg(target_os = "macos")]
-const DEFAULT_VOLUME: f32 = 1.0;
 #[cfg(target_os = "macos")]
 const BREAK_OVER_VOLUME: f32 = 1.45;
 
@@ -31,15 +28,24 @@ pub enum NativeNotificationSound {
     BreakOver,
 }
 
-#[derive(Clone)]
+#[cfg(target_os = "macos")]
+struct NativePlayback {
+    _device_sink: MixerDeviceSink,
+    player: Player,
+}
+
 pub struct NativeAudioState {
-    current_token: Arc<AtomicU64>,
+    current_token: AtomicU64,
+    #[cfg(target_os = "macos")]
+    playback: Mutex<Option<NativePlayback>>,
 }
 
 impl NativeAudioState {
     pub fn new() -> Self {
         Self {
-            current_token: Arc::new(AtomicU64::new(0)),
+            current_token: AtomicU64::new(0),
+            #[cfg(target_os = "macos")]
+            playback: Mutex::new(None),
         }
     }
 }
@@ -51,9 +57,22 @@ pub fn notification_audio_play(
     kind: NativeNotificationSound,
     repeat: bool,
 ) -> Result<u64, String> {
+    let token = state.current_token.fetch_add(1, Ordering::SeqCst) + 1;
+
     #[cfg(target_os = "macos")]
     {
-        play_macos_notification_audio(&app, state, kind, repeat)
+        match kind {
+            NativeNotificationSound::Chime => {
+                stop_current_playback(&state)?;
+                play_macos_system_chime()?;
+            }
+            NativeNotificationSound::BreakOver => {
+                let sound_path = resolve_break_over_sound(&app)?;
+                let playback = create_break_over_playback(&sound_path, repeat)?;
+                start_playback_if_current(&state, playback, token)?;
+            }
+        }
+        Ok(token)
     }
 
     #[cfg(not(target_os = "macos"))]
@@ -62,6 +81,7 @@ pub fn notification_audio_play(
         let _ = state;
         let _ = kind;
         let _ = repeat;
+        let _ = token;
         Err("Native notification audio is only supported on macOS.".to_string())
     }
 }
@@ -69,17 +89,20 @@ pub fn notification_audio_play(
 #[tauri::command]
 pub fn notification_audio_stop(state: tauri::State<'_, NativeAudioState>) -> Result<(), String> {
     state.current_token.fetch_add(1, Ordering::SeqCst);
+
+    #[cfg(target_os = "macos")]
+    stop_current_playback(&state)?;
+
     Ok(())
 }
 
 #[cfg(target_os = "macos")]
-fn play_macos_notification_audio(
-    app: &AppHandle,
-    state: tauri::State<'_, NativeAudioState>,
-    kind: NativeNotificationSound,
-    repeat: bool,
-) -> Result<u64, String> {
-    let (sound_path, volume) = resolve_sound(app, kind)?;
+fn resolve_break_over_sound(app: &AppHandle) -> Result<PathBuf, String> {
+    let sound_path = app
+        .path()
+        .resolve(BREAK_OVER_SOUND_RESOURCE, BaseDirectory::Resource)
+        .map_err(|error| format!("failed to resolve break-over sound: {error}"))?;
+
     if !sound_path.is_file() {
         return Err(format!(
             "notification sound not found: {}",
@@ -87,102 +110,102 @@ fn play_macos_notification_audio(
         ));
     }
 
-    let token_source = state.current_token.clone();
-    let token = token_source.fetch_add(1, Ordering::SeqCst) + 1;
-    let first_child = spawn_sound(&sound_path, volume)?;
-
-    thread::spawn(move || {
-        run_audio_worker(
-            first_child,
-            sound_path,
-            volume,
-            token_source,
-            token,
-            repeat,
-        );
-    });
-
-    Ok(token)
+    Ok(sound_path)
 }
 
 #[cfg(target_os = "macos")]
-fn resolve_sound(
-    app: &AppHandle,
-    kind: NativeNotificationSound,
-) -> Result<(PathBuf, f32), String> {
-    match kind {
-        NativeNotificationSound::Chime => {
-            Ok((PathBuf::from(SYSTEM_SOUND_PATH), DEFAULT_VOLUME))
-        }
-        NativeNotificationSound::BreakOver => app
-            .path()
-            .resolve(BREAK_OVER_SOUND_RESOURCE, BaseDirectory::Resource)
-            .map(|path| (path, BREAK_OVER_VOLUME))
-            .map_err(|error| format!("failed to resolve break-over sound: {error}")),
+fn play_macos_system_chime() -> Result<(), String> {
+    if !Path::new(SYSTEM_SOUND_PATH).is_file() {
+        return Err(format!("notification sound not found: {SYSTEM_SOUND_PATH}"));
     }
-}
 
-#[cfg(target_os = "macos")]
-fn spawn_sound(sound_path: &Path, volume: f32) -> Result<Child, String> {
     Command::new("/usr/bin/afplay")
-        .arg("--volume")
-        .arg(volume.to_string())
-        .arg(sound_path)
+        .arg(SYSTEM_SOUND_PATH)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
+        .map(|_| ())
         .map_err(|error| format!("failed to start native notification audio: {error}"))
 }
 
 #[cfg(target_os = "macos")]
-fn run_audio_worker(
-    mut child: Child,
-    sound_path: PathBuf,
-    volume: f32,
-    token_source: Arc<AtomicU64>,
-    token: u64,
+fn create_break_over_playback(
+    sound_path: &Path,
     repeat: bool,
-) {
-    loop {
-        if !wait_for_sound_or_cancel(&mut child, &token_source, token) || !repeat {
-            return;
-        }
+) -> Result<NativePlayback, String> {
+    let file = File::open(sound_path)
+        .map_err(|error| format!("failed to open break-over sound: {error}"))?;
+    let byte_len = file
+        .metadata()
+        .map_err(|error| format!("failed to inspect break-over sound: {error}"))?
+        .len();
+    let decoder = Decoder::builder()
+        .with_data(file)
+        .with_byte_len(byte_len)
+        .with_seekable(true)
+        .with_hint("ogg")
+        .with_gapless(true);
 
-        if token_source.load(Ordering::SeqCst) != token {
-            return;
-        }
+    let mut device_sink = DeviceSinkBuilder::open_default_sink()
+        .map_err(|error| format!("failed to open native audio output: {error}"))?;
+    device_sink.log_on_drop(false);
+    let player = Player::connect_new(device_sink.mixer());
+    player.pause();
+    player.set_volume(BREAK_OVER_VOLUME);
 
-        match spawn_sound(&sound_path, volume) {
-            Ok(next_child) => child = next_child,
-            Err(_) => return,
-        }
+    if repeat {
+        let source = decoder
+            .build_looped()
+            .map_err(|error| format!("failed to decode looping break-over sound: {error}"))?;
+        player.append(source);
+    } else {
+        let source = decoder
+            .build()
+            .map_err(|error| format!("failed to decode break-over sound: {error}"))?;
+        player.append(source);
     }
+
+    Ok(NativePlayback {
+        _device_sink: device_sink,
+        player,
+    })
 }
 
 #[cfg(target_os = "macos")]
-fn wait_for_sound_or_cancel(
-    child: &mut Child,
-    token_source: &AtomicU64,
+fn start_playback_if_current(
+    state: &NativeAudioState,
+    playback: NativePlayback,
     token: u64,
-) -> bool {
-    loop {
-        if token_source.load(Ordering::SeqCst) != token {
-            let _ = child.kill();
-            let _ = child.wait();
-            return false;
-        }
+) -> Result<(), String> {
+    let mut active = state
+        .playback
+        .lock()
+        .map_err(|_| "native audio state lock was poisoned".to_string())?;
 
-        match child.try_wait() {
-            Ok(Some(status)) => return status.success(),
-            Ok(None) => thread::sleep(Duration::from_millis(10)),
-            Err(_) => {
-                let _ = child.kill();
-                let _ = child.wait();
-                return false;
-            }
-        }
+    if state.current_token.load(Ordering::SeqCst) != token {
+        playback.player.stop();
+        return Err("native audio playback was cancelled before start".to_string());
     }
+
+    if let Some(previous) = active.take() {
+        previous.player.stop();
+    }
+    playback.player.play();
+    *active = Some(playback);
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn stop_current_playback(state: &NativeAudioState) -> Result<(), String> {
+    let mut active = state
+        .playback
+        .lock()
+        .map_err(|_| "native audio state lock was poisoned".to_string())?;
+    if let Some(playback) = active.take() {
+        playback.player.stop();
+    }
+    Ok(())
 }
 
 #[cfg(all(test, target_os = "macos"))]
@@ -195,9 +218,18 @@ mod tests {
     }
 
     #[test]
-    fn original_break_over_sound_source_exists() {
+    fn original_break_over_sound_decodes_as_gapless_loop() {
         let source_path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../src/assets/sounds/simple-happy-beep.ogg");
-        assert!(source_path.is_file());
+        let file = File::open(source_path).expect("break-over sound should exist");
+        let byte_len = file.metadata().expect("sound metadata should load").len();
+        Decoder::builder()
+            .with_data(file)
+            .with_byte_len(byte_len)
+            .with_seekable(true)
+            .with_hint("ogg")
+            .with_gapless(true)
+            .build_looped()
+            .expect("break-over sound should decode as a gapless loop");
     }
 }
