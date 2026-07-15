@@ -265,8 +265,8 @@ export function TasksList() {
         className="mb-6 md:mb-8"
       />
 
-      {/* Controls */}
-      <div className="mb-7 flex flex-col items-stretch gap-3 border-b border-sahara-border pb-5 sm:flex-row sm:items-center md:mb-9">
+      {/* Shared search */}
+      <div className="mb-7 border-b border-sahara-border pb-5 md:mb-9">
         <div className="relative flex-1 sm:max-w-xs">
           <Search aria-hidden="true" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-sahara-text-muted" />
           <input
@@ -279,42 +279,6 @@ export function TasksList() {
             onChange={(e) => dispatch({ type: "SET_SEARCH", query: e.target.value })}
             className="h-9 w-full rounded-md border border-sahara-border bg-sahara-surface pl-9 pr-3 text-sm text-sahara-text outline-none transition-colors duration-150 placeholder:text-sahara-text-muted focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
           />
-        </div>
-
-        <div className="flex items-center gap-2 self-end sm:self-auto ml-auto">
-          <Button
-            variant={viewMode === "list" ? "solid" : "outline"}
-            intent={viewMode === "list" ? "sahara" : "default"}
-            size="icon"
-            aria-label="列表视图"
-            aria-pressed={viewMode === "list"}
-            onClick={() => dispatch({ type: "SET_VIEW_MODE", mode: "list" })}
-            className="border-sahara-border"
-          >
-            <ListTodo className="size-4" />
-          </Button>
-          <Button
-            variant={viewMode === "grid" ? "solid" : "outline"}
-            intent={viewMode === "grid" ? "sahara" : "default"}
-            size="icon"
-            aria-label="网格视图"
-            aria-pressed={viewMode === "grid"}
-            onClick={() => dispatch({ type: "SET_VIEW_MODE", mode: "grid" })}
-            className="border-sahara-border"
-          >
-            <LayoutGrid className="size-4" />
-          </Button>
-          <Button
-            variant="solid"
-            intent="sahara"
-            size="sm"
-            aria-label="添加专注任务"
-            onClick={() => dispatch({ type: "OPEN_ADD_MODAL" })}
-            className="ml-1 gap-1.5 px-3 text-xs font-medium md:ml-2"
-          >
-            <Plus className="size-3.5 md:size-4" />
-            <span className="hidden sm:inline">添加专注任务</span>
-          </Button>
         </div>
       </div>
 
@@ -353,13 +317,50 @@ export function TasksList() {
         onConvert={(todo) => dispatch({ type: "OPEN_CONVERT_MODAL", todo })}
       />
 
-      <div className="border-t border-sahara-border pt-8 md:pt-9">
+      <section aria-label="专注任务" className="border-t border-sahara-border pt-8 md:pt-9">
         <SectionHeader
           title="专注任务"
           meta={
             <span className="text-xs text-sahara-text-muted">
               {activeTasks.length + scheduledTasks.length}
             </span>
+          }
+          actions={
+            <div role="group" aria-label="专注任务操作" className="flex items-center gap-2">
+              <Button
+                variant={viewMode === "list" ? "solid" : "outline"}
+                intent={viewMode === "list" ? "sahara" : "default"}
+                size="icon"
+                aria-label="列表视图"
+                aria-pressed={viewMode === "list"}
+                onClick={() => dispatch({ type: "SET_VIEW_MODE", mode: "list" })}
+                className="border-sahara-border"
+              >
+                <ListTodo className="size-4" />
+              </Button>
+              <Button
+                variant={viewMode === "grid" ? "solid" : "outline"}
+                intent={viewMode === "grid" ? "sahara" : "default"}
+                size="icon"
+                aria-label="网格视图"
+                aria-pressed={viewMode === "grid"}
+                onClick={() => dispatch({ type: "SET_VIEW_MODE", mode: "grid" })}
+                className="border-sahara-border"
+              >
+                <LayoutGrid className="size-4" />
+              </Button>
+              <Button
+                variant="solid"
+                intent="sahara"
+                size="sm"
+                aria-label="添加专注任务"
+                onClick={() => dispatch({ type: "OPEN_ADD_MODAL" })}
+                className="ml-1 gap-1.5 px-3 text-xs font-medium md:ml-2"
+              >
+                <Plus className="size-3.5 md:size-4" />
+                <span className="hidden sm:inline">添加专注任务</span>
+              </Button>
+            </div>
           }
           className="mb-5"
         />
@@ -524,7 +525,7 @@ export function TasksList() {
           )}
         </div>
       )}
-      </div>
+      </section>
     </div>
   );
 }

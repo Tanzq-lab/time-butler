@@ -138,4 +138,72 @@ describe("IdleActions", () => {
     await waitFor(() => expect(useTimerStore.getState().phase).toBe("work"));
     expect(useTimerStore.getState().pendingFocusReview?.ready).toBe(true);
   });
+
+  it("starts focus directly from the break reminder", async () => {
+    useTimerStore.setState({
+      phase: "work",
+      secondsRemaining: DEFAULT_WORK_SEC,
+      totalSeconds: DEFAULT_WORK_SEC,
+      breakReminderActive: true,
+      pendingFocusReview: {
+        sessionId: 12,
+        durationSec: DEFAULT_WORK_SEC,
+        ready: true,
+      },
+    });
+
+    render(
+      <IdleActions
+        phase="work"
+        secondsRemaining={DEFAULT_WORK_SEC}
+        durations={{
+          work: DEFAULT_WORK_SEC,
+          short: DEFAULT_SHORT_BREAK_SEC,
+          long: DEFAULT_LONG_BREAK_SEC,
+        }}
+        isFullscreenFocus={false}
+        breakReminderActive
+      />,
+    );
+
+    expect(screen.getByText("休息结束")).toBeVisible();
+    expect(screen.getByText("准备好就开始下一轮专注")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "开始专注" }));
+
+    const { stopBreakOverSound } = await import("@/lib/notifications");
+    await waitFor(() => expect(useTimerStore.getState().status).toBe("running"));
+    expect(stopBreakOverSound).toHaveBeenCalledWith("start_next_phase");
+    expect(useTimerStore.getState().breakReminderActive).toBe(false);
+  });
+
+  it("silences the break reminder without starting focus", async () => {
+    useTimerStore.setState({
+      phase: "work",
+      secondsRemaining: DEFAULT_WORK_SEC,
+      totalSeconds: DEFAULT_WORK_SEC,
+      breakReminderActive: true,
+    });
+
+    render(
+      <IdleActions
+        phase="work"
+        secondsRemaining={DEFAULT_WORK_SEC}
+        durations={{
+          work: DEFAULT_WORK_SEC,
+          short: DEFAULT_SHORT_BREAK_SEC,
+          long: DEFAULT_LONG_BREAK_SEC,
+        }}
+        isFullscreenFocus={false}
+        breakReminderActive
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "稍后开始" }));
+
+    const { stopBreakOverSound } = await import("@/lib/notifications");
+    expect(stopBreakOverSound).toHaveBeenCalledWith("remind_later");
+    expect(useTimerStore.getState().status).toBe("idle");
+    expect(useTimerStore.getState().breakReminderActive).toBe(false);
+  });
 });

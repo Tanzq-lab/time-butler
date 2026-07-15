@@ -25,7 +25,21 @@ vi.mock("@/components/base/preset-selector", () => ({
 }));
 
 vi.mock("@/components/timer/idle-actions", () => ({
-  IdleActions: () => <div data-testid="idle-actions" />,
+  IdleActions: ({
+    canReviewPreviousFocus,
+    onReviewPreviousFocus,
+  }: {
+    canReviewPreviousFocus?: boolean;
+    onReviewPreviousFocus?: () => void;
+  }) => (
+    <div data-testid="idle-actions">
+      {canReviewPreviousFocus && (
+        <button type="button" onClick={onReviewPreviousFocus}>
+          快速复盘
+        </button>
+      )}
+    </div>
+  ),
   FullscreenButton: () => <button type="button">全屏</button>,
 }));
 
@@ -86,11 +100,11 @@ beforeEach(() => {
 });
 
 describe("TimerControls", () => {
-  it("opens the submit-record modal when a break leaves a focus review ready", () => {
+  it("keeps a ready focus review available without opening a blocking modal", () => {
     render(<TimerControls />);
 
-    expect(screen.getByText("这次专注有什么收获？")).toBeInTheDocument();
-    expect(screen.getByText("25 分钟")).toBeInTheDocument();
+    expect(screen.queryByText("这次专注有什么收获？")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "快速复盘" })).toBeVisible();
   });
 
   it("keeps the pending focus review hidden while the break reminder awaits acknowledgement", () => {
@@ -99,11 +113,23 @@ describe("TimerControls", () => {
     render(<TimerControls />);
 
     expect(screen.queryByText("这次专注有什么收获？")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "快速复盘" })).not.toBeInTheDocument();
     expect(screen.getByTestId("idle-actions")).toBeInTheDocument();
+  });
+
+  it("opens the completed focus review on request", () => {
+    render(<TimerControls />);
+
+    fireEvent.click(screen.getByRole("button", { name: "快速复盘" }));
+
+    expect(screen.getByText("这次专注有什么收获？")).toBeInTheDocument();
+    expect(screen.getByText("25 分钟")).toBeInTheDocument();
   });
 
   it("submits the ready focus review to the completed work session", async () => {
     render(<TimerControls />);
+
+    fireEvent.click(screen.getByRole("button", { name: "快速复盘" }));
 
     fireEvent.change(
       screen.getByPlaceholderText("写下这次的收获、卡点或分心原因…"),

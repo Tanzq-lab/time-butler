@@ -2,9 +2,11 @@ import { useTimerStore } from "@/features/timer/use-timer-store";
 import { useUIStore } from "@/features/ui/use-ui-store";
 import { Button } from "@/components/ui/button";
 import {
+  BellOff,
   Coffee,
   Maximize2,
   Minimize2,
+  NotebookPen,
   Play,
   Plus,
   RotateCcw,
@@ -17,6 +19,8 @@ interface IdleActionsProps {
   durations: { work: number; short: number; long: number };
   isFullscreenFocus: boolean;
   breakReminderActive: boolean;
+  canReviewPreviousFocus?: boolean;
+  onReviewPreviousFocus?: () => void;
 }
 
 export function IdleActions({
@@ -25,6 +29,8 @@ export function IdleActions({
   durations,
   isFullscreenFocus,
   breakReminderActive,
+  canReviewPreviousFocus = false,
+  onReviewPreviousFocus,
 }: IdleActionsProps) {
   const start = useTimerStore((s) => s.start);
   const reset = useTimerStore((s) => s.reset);
@@ -39,28 +45,32 @@ export function IdleActions({
     (phase === "work" && secondsRemaining !== durations.work) ||
     (phase === "short_break" && secondsRemaining !== durations.short) ||
     (phase === "long_break" && secondsRemaining !== durations.long);
-  const startLabel =
-    phase === "work" && breakReminderActive
-      ? "休息结束"
-      : phase === "work"
-        ? "开始专注"
-        : "开始休息";
+  const startLabel = phase === "work" ? "开始专注" : "开始休息";
+  const isBreakReminderActive = phase === "work" && breakReminderActive;
   const isBreakReady = phase !== "work" && !breakReminderActive;
 
   return (
     <>
+      {isBreakReminderActive && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="mb-1 basis-full text-center"
+        >
+          <p className="text-sm font-semibold text-sahara-text">休息结束</p>
+          <p className="mt-1 text-xs text-sahara-text-secondary">
+            准备好就开始下一轮专注
+          </p>
+        </div>
+      )}
+
       <Button
         variant="solid"
         intent="sahara"
         size="lg"
         shape="rounded-full"
         onClick={() => {
-          if (phase === "work" && breakReminderActive) {
-            acknowledgeBreakReminder("reminder_button");
-            return;
-          }
-
-          start();
+          void start();
           setFullscreenFocus(true);
         }}
         className="gap-1.5 md:gap-2 text-xs md:text-xs px-6 md:px-8 py-3 md:py-3.5"
@@ -72,6 +82,34 @@ export function IdleActions({
         )}
         {startLabel}
       </Button>
+
+      {isBreakReminderActive && (
+        <Button
+          variant="outline"
+          intent="slate"
+          size="sm"
+          shape="rounded-full"
+          onClick={() => acknowledgeBreakReminder("remind_later")}
+          className="min-h-11 gap-1.5 px-4 text-xs"
+        >
+          <BellOff className="size-4" />
+          稍后开始
+        </Button>
+      )}
+
+      {canReviewPreviousFocus && onReviewPreviousFocus && (
+        <Button
+          variant="outline"
+          intent="default"
+          size="sm"
+          shape="rounded-full"
+          onClick={onReviewPreviousFocus}
+          className="gap-1 md:gap-1.5 text-[10px]"
+        >
+          <NotebookPen className="size-3.5 md:size-4" />
+          快速复盘
+        </Button>
+      )}
 
       {isBreakReady && (
         <>

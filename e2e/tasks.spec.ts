@@ -8,7 +8,12 @@ test.describe("Tasks", () => {
 
   test("shows Tasks page with title and Add Focus Task button", async ({ page }) => {
     await expect(page.getByRole("heading", { name: "我的任务" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "添加专注任务" })).toBeVisible();
+    const focusSection = page.getByRole("region", { name: "专注任务" });
+    const focusActions = focusSection.getByRole("group", { name: "专注任务操作" });
+
+    await expect(focusActions.getByRole("button", { name: "添加专注任务" })).toBeVisible();
+    await expect(focusActions.getByRole("button", { name: "列表视图" })).toBeVisible();
+    await expect(focusActions.getByRole("button", { name: "网格视图" })).toBeVisible();
   });
 
   test("opens add task modal and creates a task", async ({ page }) => {

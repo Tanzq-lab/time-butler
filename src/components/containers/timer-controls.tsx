@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { m, AnimatePresence } from "framer-motion";
 import { useTimerStore } from "@/features/timer/use-timer-store";
 import { TimerDisplay } from "@/components/base/timer-display";
@@ -60,16 +60,11 @@ export function TimerControls() {
     "manual" | "pending-review"
   >("manual");
 
-  useEffect(() => {
+  const handleOpenPendingReview = () => {
     if (!pendingFocusReview?.ready) return;
-    if (breakReminderActive) return;
     setFinishModalMode("pending-review");
     setShowFinishModal(true);
-  }, [
-    breakReminderActive,
-    pendingFocusReview?.ready,
-    pendingFocusReview?.sessionId,
-  ]);
+  };
 
   const handleFinishWithReflection = async (data: {
     mood: SessionMood;
@@ -221,6 +216,10 @@ export function TimerControls() {
             durations={durations}
             isFullscreenFocus={isFullscreenFocus}
             breakReminderActive={breakReminderActive}
+            canReviewPreviousFocus={
+              Boolean(pendingFocusReview?.ready) && !breakReminderActive
+            }
+            onReviewPreviousFocus={handleOpenPendingReview}
           />
         ) : (
           <RunningActions
