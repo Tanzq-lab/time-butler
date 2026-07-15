@@ -5,6 +5,7 @@ import { Download, Loader2 } from "lucide-react";
 import { AnalyticsDashboard } from "@/components/containers/analytics";
 import { exportAnalyticsPdf } from "@/lib/export-pdf";
 import type { DatePeriod } from "@/lib/date-range";
+import { PageHeader } from "@/components/ui/page-header";
 
 export function AnalyticsPage() {
   const [period, setPeriod] = useState<DatePeriod>("last7days");
@@ -23,25 +24,20 @@ export function AnalyticsPage() {
 
   return (
     <MainLayout>
-      <div className="px-4 sm:px-6 md:px-12 py-6 md:py-12 max-w-6xl mx-auto">
-        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-8 md:mb-12">
-          <div>
-            <p className="text-[10px] font-bold text-sahara-text-muted uppercase tracking-[0.2em] mb-1">
-              表现概览
-            </p>
-            <h1 className="font-serif text-2xl md:text-4xl text-sahara-text">
-              专注洞察
-            </h1>
-          </div>
-          <div className="flex gap-2 md:gap-4 self-start sm:self-auto">
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 md:px-10 md:py-10">
+        <PageHeader
+          eyebrow="表现概览"
+          title="专注洞察"
+          description="用趋势、任务和复盘记录看见自己的工作节奏。"
+          className="mb-8 md:mb-10"
+          actions={<div className="flex gap-2">
             <Button
-              variant="solid"
-              intent="sahara"
+              variant="outline"
+              intent="default"
               size="sm"
-              shape="rounded-full"
               onClick={handleExportPdf}
               disabled={exporting}
-              className="gap-1.5 px-4 shadow-lg shadow-sahara-primary/20 hover:shadow-xl hover:shadow-sahara-primary/30 text-[10px] sm:text-xs font-bold tracking-widest uppercase transition-all"
+              className="gap-1.5 px-4"
               title="导出分析 PDF"
             >
               {exporting ? (
@@ -51,8 +47,8 @@ export function AnalyticsPage() {
               )}
               {exporting ? "导出中…" : "导出 PDF"}
             </Button>
-          </div>
-        </header>
+          </div>}
+        />
 
         <AnalyticsDashboard period={period} onPeriodChange={setPeriod} />
       </div>

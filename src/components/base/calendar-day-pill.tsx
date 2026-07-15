@@ -20,7 +20,7 @@ export function CalendarDayPill({
 
   return (
     <Button
-      variant={isSelected ? "solid" : "ghost"}
+      variant={isSelected ? "outline" : "ghost"}
       intent={isSelected || isToday ? "sahara" : "default"}
       size="icon-lg"
       shape="rounded-xl"
@@ -28,22 +28,23 @@ export function CalendarDayPill({
       onClick={onClick}
       className={cn(
         "flex-col gap-0.5 py-2 h-auto",
-        !isSelected && !isToday && "text-sahara-text-muted",
+        !isSelected && !isToday && "text-sahara-text-secondary",
+        isSelected && "border-sahara-text-muted bg-sahara-card text-sahara-text",
         isToday && !isSelected && "text-sahara-primary font-semibold",
       )}
     >
       <span
         className={cn(
-          "text-[9px] font-semibold uppercase tracking-wider leading-none",
-          isSelected ? "text-white/80" : "",
+          "text-[9px] font-semibold leading-none",
+          isSelected ? "text-sahara-text-secondary" : "",
         )}
       >
         {DAY_LABELS[dayOfWeek]}
       </span>
       <span
         className={cn(
-          "font-serif text-base leading-none font-bold",
-          isSelected ? "text-white" : "",
+          "font-mono text-base font-bold leading-none",
+          isSelected ? "text-sahara-text" : "",
         )}
       >
         {date.getDate()}

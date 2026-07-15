@@ -119,6 +119,7 @@ export function MarkdownEditor({
         {showEditor && (
           <textarea
             id={inputId}
+            name={inputId}
             aria-label={ariaLabel}
             value={value}
             onChange={(event) => onChange(event.target.value)}

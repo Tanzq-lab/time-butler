@@ -51,7 +51,7 @@ export function IdleActions({
     <>
       <Button
         variant="solid"
-        intent={isBreakReady ? "emerald" : "sahara"}
+        intent="sahara"
         size="lg"
         shape="rounded-full"
         onClick={() => {
@@ -144,6 +144,7 @@ export function FullscreenButton({
       intent="default"
       shape="rounded-full"
       onClick={onClick}
+      aria-label={isFullscreenFocus ? "退出专注模式" : "进入专注模式"}
       title={isFullscreenFocus ? "退出专注模式" : "进入专注模式"}
       className={
         size === "sm"

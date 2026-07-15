@@ -8,17 +8,17 @@ const SHORTCUTS = [
 export function SettingsHotkeysSection() {
   return (
     <section>
-      <h3 className="font-serif text-xl md:text-2xl text-sahara-text mb-6 md:mb-8">
+      <h3 className="mb-6 text-xl font-semibold text-sahara-text md:text-2xl">
         键盘快捷键
       </h3>
-      <div className="bg-sahara-bg/50 border border-sahara-border/15 rounded-xl md:rounded-2xl p-4 md:p-6">
+      <div className="border-y border-sahara-border py-2">
         <div className="space-y-4">
           {SHORTCUTS.map(({ keys, action }) => (
-            <div key={keys} className="flex items-center justify-between py-2">
+            <div key={keys} className="flex items-center justify-between border-b border-sahara-border py-3 last:border-b-0">
               <span className="text-sm text-sahara-text-secondary">
                 {action}
               </span>
-              <kbd className="px-2.5 py-1.5 bg-sahara-card border border-sahara-border/30 rounded-lg text-xs font-mono font-bold text-sahara-text-muted">
+              <kbd className="rounded-md border border-sahara-border bg-sahara-card px-2.5 py-1.5 font-mono text-xs font-medium text-sahara-text-muted">
                 {keys}
               </kbd>
             </div>

@@ -14,6 +14,7 @@ import { SessionNotes } from "@/components/base/session-notes";
 import { CompletedTasks } from "@/components/base/completed-tasks";
 import { formatTotalTime, formatDuration } from "@/lib/session-utils";
 import { type DatePeriod, getDateRange } from "@/lib/date-range";
+import { SectionHeader } from "@/components/ui/page-header";
 
 interface AnalyticsDashboardProps {
   period?: DatePeriod;
@@ -38,7 +39,15 @@ export function AnalyticsDashboard({ period: externalPeriod, onPeriodChange }: A
       getWeeklyData(range.startDate, range.endDate).catch(() => []),
     ]).then(([wd]) => {
       if (!cancelled) {
-        setWeekData(wd);
+        setWeekData(
+          wd
+            .filter((day) => Boolean(day.date && day.day_name))
+            .map((day) => ({
+              ...day,
+              total_seconds: Number.isFinite(day.total_seconds) ? day.total_seconds : 0,
+              session_count: Number.isFinite(day.session_count) ? day.session_count : 0,
+            })),
+        );
         loadingRef.current = false;
       }
     });
@@ -58,9 +67,9 @@ export function AnalyticsDashboard({ period: externalPeriod, onPeriodChange }: A
 
   if (loadingRef.current && weekData.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4">
+      <div className="flex h-64 flex-col items-center justify-center gap-4">
         <Loader2 className="size-8 text-sahara-primary animate-spin" />
-        <p className="text-xs font-semibold text-sahara-text-muted uppercase tracking-wider">
+        <p className="text-xs font-medium text-sahara-text-secondary">
           正在加载分析…
         </p>
       </div>
@@ -71,12 +80,7 @@ export function AnalyticsDashboard({ period: externalPeriod, onPeriodChange }: A
     <div className="space-y-6 md:space-y-10">
       {/* Overview Stats */}
       <section>
-        <div className="flex items-center justify-between mb-4 md:mb-6">
-          <h2 className="font-serif text-lg font-semibold tracking-wide md:text-2xl text-sahara-text">
-            概览
-          </h2>
-          <DateRangePicker value={period} onChange={setPeriod} />
-        </div>
+        <SectionHeader title="概览" actions={<DateRangePicker value={period} onChange={setPeriod} />} className="mb-4 md:mb-6" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
           <StatCard
             label="专注总时长"
@@ -103,22 +107,24 @@ export function AnalyticsDashboard({ period: externalPeriod, onPeriodChange }: A
 
       {/* Weekly Chart */}
       <section>
-        <h2 className="font-serif text-lg font-semibold tracking-wide md:text-2xl text-sahara-text mb-4 md:mb-6">
-          {range.label}
-        </h2>
-        <div className="bg-sahara-surface border border-sahara-border/20 rounded-xl md:rounded-2xl p-3.5 md:p-5">
-          <WeeklyChart data={weekData.map(d => ({
-            day_name: d.day_name || "",
-            focus_seconds: d.total_seconds,
-          }))} />
+        <SectionHeader title={range.label} className="mb-4 md:mb-6" />
+        <div className="border-y border-sahara-border bg-sahara-surface py-4 md:py-5">
+          {weekData.length > 0 ? (
+            <WeeklyChart data={weekData.map(d => ({
+              day_name: d.day_name || "",
+              focus_seconds: d.total_seconds,
+            }))} />
+          ) : (
+            <div className="flex h-24 items-center justify-center text-sm text-sahara-text-secondary md:h-28">
+              这个时间范围还没有专注记录
+            </div>
+          )}
         </div>
       </section>
 
       {/* Badges */}
       <section>
-        <h2 className="font-serif text-lg font-semibold tracking-wide md:text-2xl text-sahara-text mb-4 md:mb-6">
-          成就
-        </h2>
+        <SectionHeader title="成就" className="mb-4 md:mb-6" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
           <BadgeCard
             title="早起专注者"
@@ -142,15 +148,11 @@ export function AnalyticsDashboard({ period: externalPeriod, onPeriodChange }: A
       <section>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
           <div>
-            <h2 className="font-serif text-lg font-semibold tracking-wide md:text-2xl text-sahara-text mb-4 md:mb-6">
-              分类分布
-            </h2>
+            <SectionHeader title="分类分布" className="mb-4 md:mb-6" />
             <AnalyticsCategoryBreakdown startDate={range.startDate} endDate={range.endDate} />
           </div>
           <div>
-            <h2 className="font-serif text-lg font-semibold tracking-wide md:text-2xl text-sahara-text mb-4 md:mb-6">
-              任务
-            </h2>
+            <SectionHeader title="任务" className="mb-4 md:mb-6" />
             <CompletedTasks startDate={range.startDate} endDate={range.endDate} />
           </div>
         </div>
@@ -158,17 +160,13 @@ export function AnalyticsDashboard({ period: externalPeriod, onPeriodChange }: A
 
       {/* Mood Distribution */}
       <section>
-        <h2 className="font-serif text-lg font-semibold tracking-wide md:text-2xl text-sahara-text mb-4 md:mb-6">
-          状态洞察
-        </h2>
+        <SectionHeader title="状态洞察" className="mb-4 md:mb-6" />
         <MoodDistribution startDate={range.startDate} endDate={range.endDate} />
       </section>
 
       {/* Session Notes */}
       <section>
-        <h2 className="font-serif text-lg font-semibold tracking-wide md:text-2xl text-sahara-text mb-4 md:mb-6">
-          专注笔记
-        </h2>
+        <SectionHeader title="专注笔记" className="mb-4 md:mb-6" />
         <SessionNotes startDate={range.startDate} endDate={range.endDate} />
       </section>
     </div>

@@ -2,7 +2,7 @@ import { test as base, expect as pwExpect, type Page } from "@playwright/test";
 
 export async function waitForApp(page: Page) {
   await page.waitForURL(/#\/$/);
-  await page.waitForSelector("text=START SESSION", { timeout: 15_000 });
+  await page.getByRole("textbox", { name: "设置计时时长" }).waitFor({ timeout: 15_000 });
 }
 
 export const test = base.extend<{ page: Page }>({

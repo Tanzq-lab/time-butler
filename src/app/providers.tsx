@@ -63,7 +63,7 @@ export function Providers({ children }: ProvidersProps) {
       <div className="flex items-center justify-center h-screen bg-sahara-bg">
         <div className="flex flex-col items-center gap-4">
           <div className="size-8 border-2 border-sahara-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-sahara-text-muted text-sm tracking-widest uppercase font-bold">
+          <p className="text-sm font-medium text-sahara-text-secondary">
             加载中…
           </p>
         </div>
@@ -79,7 +79,7 @@ export function Providers({ children }: ProvidersProps) {
           <p className="text-sahara-text-muted text-xs">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-sahara-primary text-white rounded-xl text-xs font-bold tracking-widest uppercase cursor-pointer"
+            className="cursor-pointer rounded-md bg-sahara-primary px-4 py-2 text-xs font-semibold text-sahara-bg"
           >
             重试
           </button>

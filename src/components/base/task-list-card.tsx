@@ -7,11 +7,15 @@ import {
   Trash2,
   Edit3,
   Play,
+  MoreHorizontal,
 } from "lucide-react";
+import { useState } from "react";
 import type { Task } from "@/features/tasks/task-types";
 import { isTaskDone } from "@/features/tasks/task-completion";
 import { cn } from "@/lib/cn";
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
+import { Button } from "@/components/ui/button";
+import { ModalOverlay } from "@/components/ui/modal-overlay";
 
 interface TaskListCardProps {
   task: Task;
@@ -22,6 +26,7 @@ interface TaskListCardProps {
   onDelete: () => void;
   onCompleteTask: () => void;
   isScheduled?: boolean;
+  layout?: "list" | "grid";
 }
 
 function formatScheduledFor(value?: string | null): string {
@@ -47,45 +52,36 @@ export function TaskListCard({
   onDelete,
   onCompleteTask,
   isScheduled = false,
+  layout = "list",
 }: TaskListCardProps) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isDone = isTaskDone(task);
   const canActivate = !isDone && !isScheduled;
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={() => canActivate && onToggleActive()}
-      onKeyDown={(e) => {
-        if ((e.key === "Enter" || e.key === " ") && canActivate) {
-          e.preventDefault();
-          onToggleActive();
-        }
-      }}
+    <article
       className={cn(
-        "group relative bg-sahara-surface border border-sahara-border/15 rounded-xl md:rounded-2xl p-3.5 md:p-5 transition-all",
-        canActivate ? "cursor-pointer" : "cursor-default",
+        "group relative border border-sahara-border bg-sahara-surface transition-[border-color,background-color,opacity] duration-150",
+        layout === "grid" ? "rounded-[10px] p-4" : "rounded-md px-3 py-2.5 md:px-4",
         isDone
-          ? "opacity-60 hover:opacity-80 border-sahara-border/10"
+          ? "opacity-65 hover:opacity-90"
           : isScheduled
-            ? "border-amber-200/60 bg-amber-50/30"
-          : "hover:border-sahara-primary/25 hover:shadow-sm",
+            ? "border-amber-300/60"
+          : "hover:border-sahara-text-muted",
         isActive && !isDone &&
-          "border-sahara-primary shadow-lg shadow-sahara-primary/5",
+          "border-sahara-text-muted bg-sahara-card",
       )}
     >
-      <div className="flex items-start justify-between gap-2 mb-2 md:mb-3">
+      <div className="mb-1.5 flex items-start justify-between gap-2">
         <span
           className={cn(
-            "px-2 py-0.5 rounded-md text-[9px] md:text-[10px] font-bold uppercase tracking-wider",
-            isActive
-              ? "bg-sahara-primary-light text-sahara-primary"
-              : "bg-sahara-card text-sahara-text-muted",
+            "rounded-md bg-sahara-card px-2 py-0.5 text-[10px] font-medium text-sahara-text-muted",
+            isActive ? "bg-sahara-surface text-sahara-text" : "",
           )}
         >
           {task.project || "通用"}
         </span>
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+        <div className="hidden shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-150 md:flex md:group-hover:opacity-100 md:group-focus-within:opacity-100">
           {!isDone && !isScheduled && (
             <>
               {onFocus && (
@@ -94,10 +90,11 @@ export function TaskListCard({
                     e.stopPropagation();
                     onFocus();
                   }}
-                  className="p-1 rounded-lg hover:bg-sahara-primary/10 transition-colors cursor-pointer group/play"
+                  aria-label={`开始专注：${task.name}`}
+                  className="group/play rounded-md p-1.5 text-sahara-text-muted transition-colors hover:bg-sahara-card hover:text-sahara-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sahara-focus"
                   title="开始专注"
                 >
-                  <Play className="size-3.5 text-sahara-primary fill-sahara-primary group-hover/play:scale-110 transition-transform" />
+                  <Play className="size-3.5 fill-current" />
                 </button>
               )}
               <button
@@ -105,10 +102,11 @@ export function TaskListCard({
                   e.stopPropagation();
                   onCompleteTask();
                 }}
-                className="p-1 rounded-lg hover:bg-sahara-card transition-colors cursor-pointer"
+                aria-label={`完成任务：${task.name}`}
+                className="rounded-md p-1.5 text-sahara-text-muted transition-colors hover:bg-sahara-card hover:text-sahara-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sahara-focus"
                 title="完成任务"
               >
-                <CircleCheckBig className="size-3.5 text-sahara-primary" />
+                <CircleCheckBig className="size-3.5" />
               </button>
             </>
           )}
@@ -117,7 +115,8 @@ export function TaskListCard({
               e.stopPropagation();
               onEdit();
             }}
-            className="p-1 rounded-lg hover:bg-sahara-card transition-colors cursor-pointer"
+            aria-label={`编辑任务：${task.name}`}
+            className="rounded-md p-1.5 text-sahara-text-muted transition-colors hover:bg-sahara-card hover:text-sahara-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sahara-focus"
             title="编辑任务"
           >
             <Edit3 className="size-3.5 text-sahara-text-muted hover:text-sahara-text" />
@@ -127,27 +126,49 @@ export function TaskListCard({
               e.stopPropagation();
               onDelete();
             }}
-            className="p-1 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+            aria-label={`删除任务：${task.name}`}
+            className="rounded-md p-1.5 text-red-500 transition-colors hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:hover:bg-red-950/30"
             title="删除任务"
           >
             <Trash2 className="size-3.5 text-red-400" />
           </button>
         </div>
+        <button
+          type="button"
+          aria-label={`更多操作：${task.name}`}
+          onClick={() => setMobileMenuOpen(true)}
+          className="rounded-md p-1.5 text-sahara-text-secondary outline-none hover:bg-sahara-card focus-visible:ring-2 focus-visible:ring-sahara-focus md:hidden"
+        >
+          <MoreHorizontal aria-hidden="true" className="size-4" />
+        </button>
       </div>
 
-      <h3
-        className={cn(
-          "font-serif text-base md:text-lg leading-snug",
-          isDone
-            ? "line-through text-sahara-text-muted"
-            : "text-sahara-text",
-        )}
-      >
-        {task.name}
-      </h3>
+      {canActivate ? (
+        <button
+          type="button"
+          aria-pressed={isActive}
+          onClick={onToggleActive}
+          className="block w-full rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-sahara-focus focus-visible:ring-offset-2 focus-visible:ring-offset-sahara-surface"
+        >
+          <span className="block text-sm font-medium leading-snug text-sahara-text md:text-base">{task.name}</span>
+          <span className="mt-1.5 flex flex-wrap items-center gap-3">
+            <span className="inline-flex items-center gap-1.5 text-xs text-sahara-text-secondary">
+              <Target className="size-3.5" />
+              <span className="font-mono tabular-nums">{task.completed_pomos}/{task.estimated_pomos}</span> 个番茄
+            </span>
+            {isActive && (
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-sahara-text">
+                <Clock className="size-3.5" />进行中
+              </span>
+            )}
+          </span>
+        </button>
+      ) : (
+        <h3 className={cn("text-sm font-medium leading-snug md:text-base", isDone ? "text-sahara-text-muted line-through" : "text-sahara-text")}>{task.name}</h3>
+      )}
 
       {isDone && task.completion_review && (
-        <div className="mt-2 max-h-20 overflow-hidden rounded-xl border border-sahara-border/10 bg-sahara-bg/35 px-3 py-2">
+        <div className="mt-2 max-h-20 overflow-hidden border-l-2 border-sahara-border pl-3">
           <MarkdownRenderer
             content={task.completion_review}
             variant="compact"
@@ -156,44 +177,37 @@ export function TaskListCard({
         </div>
       )}
 
-      <div className="flex items-center gap-3 mt-2 md:mt-3 flex-wrap">
-        <div className="flex items-center gap-1.5">
+      {!canActivate && <div className="mt-2 flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-1.5 text-xs text-sahara-text-secondary">
           <Target className="size-3 md:w-3.5 md:h-3.5 text-sahara-primary" />
-          <span className="text-[10px] md:text-xs font-bold text-sahara-text-secondary tabular-nums">
+          <span className="font-mono tabular-nums">
             {task.completed_pomos}/{task.estimated_pomos}{" "}
-            <span className="text-sahara-text-muted font-normal">
+            <span className="font-sans text-sahara-text-muted">
               个番茄
             </span>
           </span>
         </div>
 
-        {isActive && !isDone && (
-          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 text-[9px] md:text-[10px] font-bold uppercase tracking-wider">
-            <Clock className="size-2.5 md:w-3 md:h-3 animate-pulse" />
-            进行中
-          </div>
-        )}
-
         {isScheduled && task.scheduled_for && (
-          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[9px] md:text-[10px] font-bold tracking-wider">
+          <div className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
             <CalendarClock className="size-2.5 md:w-3 md:h-3" />
             {formatScheduledFor(task.scheduled_for)}
           </div>
         )}
 
         {isDone && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sahara-bg text-sahara-text-muted text-[9px] md:text-[10px] font-bold uppercase tracking-wider">
+          <span className="inline-flex items-center gap-1 rounded-md bg-sahara-card px-2 py-0.5 text-[10px] font-medium text-sahara-text-muted">
             <CheckCircle2 className="size-2.5 md:w-3 md:h-3" />
             已完成
           </span>
         )}
-      </div>
+      </div>}
 
       {task.estimated_pomos > 0 && (
-        <div className="mt-2 md:mt-3 h-1.5 bg-sahara-bg/60 rounded-full overflow-hidden">
+        <div className="mt-2 h-1 overflow-hidden rounded-full bg-sahara-card">
           <div
             className={cn(
-              "h-full rounded-full transition-all duration-500",
+              "h-full rounded-full transition-[width] duration-200",
               isDone ? "bg-green-500" : "bg-sahara-primary",
             )}
             style={{
@@ -207,6 +221,77 @@ export function TaskListCard({
           />
         </div>
       )}
-    </div>
+
+      <ModalOverlay
+        open={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+        placement="bottom"
+        maxWidth="max-w-md"
+        ariaLabel={`任务操作：${task.name}`}
+        showCloseButton
+      >
+        <div className="px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-5">
+          <p className="pr-10 text-sm font-semibold text-sahara-text">{task.name}</p>
+          <div className="mt-4 space-y-1">
+            {!isDone && !isScheduled && onFocus && (
+              <Button
+                variant="ghost"
+                intent="default"
+                fullWidth
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onFocus();
+                }}
+                className="justify-start gap-3 px-3 py-3"
+              >
+                <Play aria-hidden="true" className="size-4" />
+                开始专注
+              </Button>
+            )}
+            {!isDone && !isScheduled && (
+              <Button
+                variant="ghost"
+                intent="default"
+                fullWidth
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onCompleteTask();
+                }}
+                className="justify-start gap-3 px-3 py-3"
+              >
+                <CircleCheckBig aria-hidden="true" className="size-4" />
+                完成任务
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              intent="default"
+              fullWidth
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onEdit();
+              }}
+              className="justify-start gap-3 px-3 py-3"
+            >
+              <Edit3 aria-hidden="true" className="size-4" />
+              编辑任务
+            </Button>
+            <Button
+              variant="ghost"
+              intent="red"
+              fullWidth
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onDelete();
+              }}
+              className="justify-start gap-3 px-3 py-3"
+            >
+              <Trash2 aria-hidden="true" className="size-4" />
+              删除任务
+            </Button>
+          </div>
+        </div>
+      </ModalOverlay>
+    </article>
   );
 }

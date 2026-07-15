@@ -30,6 +30,8 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
         size="sm"
         className="gap-1.5 text-xs font-medium"
         onClick={() => setOpen(!open)}
+        aria-haspopup="menu"
+        aria-expanded={open}
       >
         {activeLabel}
         <ChevronDown
@@ -39,8 +41,8 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
 
       {open && (
         <>
-          <div className="fixed inset-0 z-10" role="button" tabIndex={-1} onClick={() => setOpen(false)} onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }} />
-          <div className="absolute right-0 top-full mt-1 z-20 bg-sahara-surface border border-sahara-border/20 rounded-xl shadow-lg p-1 w-36 animate-in fade-in slide-in-from-top-2 duration-150">
+          <button type="button" className="fixed inset-0 z-10 cursor-default" aria-label="关闭日期范围菜单" onClick={() => setOpen(false)} />
+          <div role="menu" className="absolute right-0 top-full z-20 mt-1 w-36 animate-in rounded-[10px] border border-sahara-border bg-sahara-surface p-1 shadow-lg fade-in slide-in-from-top-2 duration-150">
             {PERIOD_OPTIONS.map((opt) => (
               <Button
                 key={opt.value}
@@ -49,6 +51,8 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
                 fullWidth
                 intent="default"
                 active={opt.value === value}
+                role="menuitemradio"
+                aria-checked={opt.value === value}
                 onClick={() => {
                   onChange(opt.value);
                   setOpen(false);

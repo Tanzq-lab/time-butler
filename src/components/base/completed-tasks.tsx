@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { CheckCircle2, ClipboardList } from "lucide-react";
 import { getCompletedTasksForPeriod, type CompletedTaskEntry } from "@/lib/db";
 import { formatTotalTime } from "@/lib/session-utils";
@@ -10,37 +10,35 @@ interface CompletedTasksProps {
 
 export function CompletedTasks({ startDate, endDate }: CompletedTasksProps) {
   const [tasks, setTasks] = useState<CompletedTaskEntry[]>([]);
-  const loadingRef = useRef(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadingRef.current = true;
+    setLoading(true);
     getCompletedTasksForPeriod(startDate, endDate)
-      .then(setTasks)
+      .then((entries) => setTasks(entries.filter((task) =>
+        Number.isFinite(task.task_id) && Boolean(task.task_name),
+      )))
       .catch(() => setTasks([]))
-      .finally(() => { loadingRef.current = false; });
+      .finally(() => setLoading(false));
   }, [startDate, endDate]);
 
-  if (loadingRef.current) {
+  if (loading) {
     return (
-      <div className="bg-sahara-surface border border-sahara-border/20 rounded-xl md:rounded-2xl p-3.5 md:p-5">
+      <div className="rounded-[10px] border border-sahara-border bg-sahara-surface p-3.5 md:p-5">
         <p className="text-xs text-sahara-text-muted">加载中…</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-sahara-surface border border-sahara-border/20 rounded-xl md:rounded-2xl p-3.5 md:p-5">
-      {/* <h3 className="text-xs md:text-sm font-bold text-sahara-text-muted uppercase tracking-wider mb-4 md:mb-5">
-        完成过的任务
-      </h3> */}
-
+    <div className="rounded-[10px] border border-sahara-border bg-sahara-surface p-3.5 md:p-5">
       {tasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 gap-2">
           <ClipboardList className="size-8 text-sahara-text-muted/40" />
-          <p className="text-[15px] text-sahara-text-muted text-center">
+          <p className="text-center text-[15px] text-sahara-text-secondary">
             这个时间段还没有任务
           </p>
-          <p className="text-xs text-sahara-text-muted/60">
+          <p className="text-xs text-sahara-text-secondary">
             关联到专注记录的任务会显示在这里
           </p>
         </div>
@@ -60,7 +58,7 @@ export function CompletedTasks({ startDate, endDate }: CompletedTasksProps) {
             return (
               <div
                 key={task.task_id}
-                className="group flex items-center gap-3 md:gap-4 bg-sahara-bg/30 border border-sahara-border/10 rounded-xl p-3 md:p-3.5 hover:border-sahara-border/25 transition-all"
+                className="group flex items-center gap-3 rounded-[10px] border border-sahara-border bg-sahara-surface p-3 transition-colors duration-150 hover:border-sahara-text-muted md:gap-4 md:p-3.5"
               >
                 <div className="size-9 md:w-10 md:h-10 rounded-lg bg-sahara-primary-light/60 flex items-center justify-center shrink-0">
                   <CheckCircle2 className="size-4.5 text-sahara-primary" />
@@ -92,7 +90,7 @@ export function CompletedTasks({ startDate, endDate }: CompletedTasksProps) {
                   <div className="flex items-center gap-3">
                     <div className="flex-1 h-1.75 bg-sahara-bg/60 rounded-full overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-sahara-primary transition-all duration-500 ease-out"
+                        className="h-full rounded-full bg-sahara-primary transition-[width] duration-200 ease-out"
                         style={{ width: `${progress}%` }}
                       />
                     </div>
@@ -106,7 +104,7 @@ export function CompletedTasks({ startDate, endDate }: CompletedTasksProps) {
                   <p className="text-sm font-bold text-sahara-text-secondary tabular-nums">
                     {formatTotalTime(task.total_seconds)}
                   </p>
-                  <p className="text-[11px] font-bold text-sahara-text-muted uppercase tracking-wider">
+                  <p className="text-[11px] font-medium text-sahara-text-secondary">
                     {task.session_count}
                     条记录
                   </p>

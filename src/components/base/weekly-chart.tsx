@@ -93,11 +93,11 @@ export function WeeklyChart({ data }: WeeklyChartProps) {
           <YAxis hide domain={[0, Math.ceil(maxVal / 15) * 15 || 15]} />
           <Tooltip
             content={<CustomTooltip />}
-            cursor={{ fill: "rgba(194, 101, 42, 0.06)", radius: 6 }}
+            cursor={{ fill: "rgba(120, 119, 116, 0.08)", radius: 4 }}
           />
           <Bar
             dataKey="minutes"
-            radius={[6, 6, 0, 0]}
+            radius={[3, 3, 0, 0]}
             maxBarSize={48}
             animationDuration={800}
             animationEasing="ease-out"
@@ -105,7 +105,7 @@ export function WeeklyChart({ data }: WeeklyChartProps) {
             {chartData.map((entry, index) => (
               <Cell
                 key={`cell-${index}`}
-                fill={entry.minutes > 0 ? "#c2652a" : "#374151"}
+                fill={entry.minutes > 0 ? "var(--color-sahara-primary)" : "var(--color-sahara-border)"}
                 fillOpacity={entry.minutes > 0 ? 1 : 0.3}
               />
             ))}

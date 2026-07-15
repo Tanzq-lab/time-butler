@@ -35,11 +35,11 @@ export function CategoryBreakdown({ breakdowns }: CategoryBreakdownProps) {
         const color = item.category_color || "#94a3b8";
 
         return (
-          <div key={`${item.category_id}-${item.intention}`} className="group relative">
+          <div key={`${item.category_id}-${item.intention}`} className="relative">
             <div className="flex items-center justify-between mb-2.5">
               <div className="flex items-center gap-3 min-w-0">
                 <div 
-                  className="size-2.5 rounded-full ring-offset-0 transition-all duration-300 group-hover:scale-125"
+                  className="size-2.5 rounded-full"
                   style={{ 
                     backgroundColor: color, 
                     boxShadow: `0 0 0 4px ${color}20` 
@@ -50,10 +50,10 @@ export function CategoryBreakdown({ breakdowns }: CategoryBreakdownProps) {
                 </span>
               </div>
               <div className="flex items-center gap-2.5 shrink-0 ml-4">
-                <span className="text-sm md:text-base font-black text-sahara-text-secondary tabular-nums">
+                <span className="text-sm font-semibold text-sahara-text-secondary tabular-nums md:text-base">
                   {formatTotalTime(item.total_seconds)}
                 </span>
-                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-md bg-sahara-card/80 text-[10px] font-bold text-sahara-text-muted uppercase tracking-wider border border-sahara-border/10">
+                <span className="hidden items-center rounded-md border border-sahara-border bg-sahara-card px-2 py-0.5 text-[10px] font-medium text-sahara-text-secondary sm:inline-flex">
                   {item.session_count} 条记录
                 </span>
               </div>
@@ -61,25 +61,12 @@ export function CategoryBreakdown({ breakdowns }: CategoryBreakdownProps) {
             
             <div className="relative h-2.5 w-full bg-sahara-bg/50 rounded-full overflow-hidden border border-sahara-border/5">
               <div
-                className={cn(
-                  "h-full rounded-full transition-all duration-500 ease-out relative",
-                  "group-hover:brightness-110 shadow-[0_0_10px_rgba(0,0,0,0.05)]"
-                )}
+                className={cn("relative h-full rounded-full transition-[width] duration-200 ease-out")}
                 style={{
                   width: `${percentage}%`,
                   backgroundColor: color,
                 }}
-              >
-                {/* Subtle glow effect */}
-                <div 
-                  className="absolute inset-0 opacity-20 bg-white"
-                  style={{ 
-                    maskImage: 'linear-gradient(to right, transparent, white, transparent)',
-                    maskSize: '200% 100%',
-                    animation: 'shimmer 800ms infinite linear'
-                  }}
-                />
-              </div>
+              />
             </div>
           </div>
         );

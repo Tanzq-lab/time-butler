@@ -65,25 +65,16 @@ export function FinishSessionModal({
       open={open}
       onClose={onClose}
       backdropClassName="bg-sahara-text/25"
+      showCloseButton
+      ariaLabel="专注复盘"
     >
-      <Button
-        variant="ghost"
-        size="icon-lg"
-        intent="default"
-        shape="rounded-lg"
-        onClick={onClose}
-        className="absolute top-4 right-4 z-10 text-sahara-text-muted hover:text-sahara-text hover:bg-sahara-bg"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-      </Button>
-
       <div className="px-8 pt-8 pb-6 space-y-7">
         {/* Header */}
         <div className="text-center space-y-1.5">
-          <p className="text-[11px] font-bold text-sahara-text-muted uppercase tracking-[0.2em]">
+          <p className="text-[11px] font-medium text-sahara-text-secondary">
             停一下，做个小复盘。
           </p>
-          <h2 className="font-serif text-2xl text-sahara-text font-semibold leading-snug">
+          <h2 className="text-2xl font-semibold leading-snug text-sahara-text">
             这次专注有什么收获？
           </h2>
         </div>
@@ -98,21 +89,22 @@ export function FinishSessionModal({
               size="md"
               shape="rounded-2xl"
               active={mood === opt.id}
+              aria-pressed={mood === opt.id}
               onClick={() => setMood(opt.id)}
               className={cn(
                 "flex-col gap-2 px-5 py-4",
                 mood === opt.id
-                  ? "scale-105"
+                  ? "border-sahara-text-muted bg-sahara-card"
                   : "border-transparent hover:bg-sahara-card/50",
               )}
             >
               <span className="text-3xl">{opt.emoji}</span>
               <span
                 className={cn(
-                  "text-xs font-bold tracking-wider uppercase flex items-center gap-1",
+                  "flex items-center gap-1 text-xs font-semibold",
                   mood === opt.id
                     ? "text-sahara-text"
-                    : "text-sahara-text-muted",
+                    : "text-sahara-text-secondary",
                 )}
               >
                 {opt.label}
@@ -132,7 +124,7 @@ export function FinishSessionModal({
         <div className="space-y-0 divide-y divide-sahara-border/15">
           {/* Category */}
           <div className="flex items-center py-3.5">
-            <span className="w-24 shrink-0 text-[11px] font-bold text-sahara-text-muted uppercase tracking-wider">
+            <span className="w-24 shrink-0 text-[11px] font-medium text-sahara-text-secondary">
               分类
             </span>
             {category ? (
@@ -157,7 +149,7 @@ export function FinishSessionModal({
 
           {/* Intent */}
           <div className="flex items-center py-3.5">
-            <span className="w-24 shrink-0 text-[11px] font-bold text-sahara-text-muted uppercase tracking-wider">
+            <span className="w-24 shrink-0 text-[11px] font-medium text-sahara-text-secondary">
               意图
             </span>
             <span className="text-sm text-sahara-text-secondary">
@@ -167,7 +159,7 @@ export function FinishSessionModal({
 
           {/* 专注时长 */}
           <div className="flex items-center py-3.5">
-            <span className="w-24 shrink-0 text-[11px] font-bold text-sahara-text-muted uppercase tracking-wider">
+            <span className="w-24 shrink-0 text-[11px] font-medium text-sahara-text-secondary">
               专注
             </span>
             <span className="text-sm font-medium text-sahara-text tabular-nums">
@@ -189,7 +181,7 @@ export function FinishSessionModal({
         {/* Notes */}
         <div>
           {requiresNotes && (
-            <p className="mb-2 rounded-xl border border-amber-200/70 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
+            <p className="mb-2 rounded-[10px] border border-amber-200/70 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
               {notesRequirementText ||
                 "本次完成后会产生预估偏差，请写下原因，方便后续任务制定。"}
             </p>
@@ -200,8 +192,8 @@ export function FinishSessionModal({
             ariaLabel="专注笔记"
             placeholder={
               requiresNotes
-                ? "必须写明本次偏差原因..."
-                : "写下这次的收获、卡点或分心原因..."
+                ? "必须写明本次偏差原因…"
+                : "写下这次的收获、卡点或分心原因…"
             }
             minRows={3}
             variant="compact"
@@ -214,7 +206,6 @@ export function FinishSessionModal({
           variant="solid"
           intent="green"
           fullWidth
-          shape="rounded-2xl"
           onClick={handleSubmit}
           disabled={!canSubmit}
         >

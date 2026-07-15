@@ -12,11 +12,9 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { useOnboardingStore } from "@/features/onboarding/use-onboarding-store";
 
-const STEP_ICON_COLOR = "bg-sahara-primary-light text-sahara-primary";
-
 const steps = [
   {
-    title: "欢迎使用 Time-butler",
+    title: "欢迎使用 Time Butler",
     subtitle: "把注意力安放在该做的事上。",
     description:
       "Time-butler 帮助你用有意图的专注时段收回注意力，进入更稳定的工作节奏。",
@@ -58,93 +56,68 @@ export function OnboardingPage() {
   };
 
   return (
-    <div className="h-screen bg-sahara-bg flex items-center justify-center p-4 md:p-8 overflow-hidden">
-      <div className="max-w-3xl md:max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 bg-sahara-surface rounded-3xl md:rounded-[40px] shadow-2xl shadow-sahara-primary/10 overflow-hidden border border-sahara-border/20 min-h-auto md:min-h-150">
-        {/* Brand panel */}
-        <div className="bg-sahara-primary p-6 sm:p-10 md:p-16 flex flex-col justify-between text-white relative order-last md:order-first">
-          <div className="absolute inset-0 opacity-10 pointer-events-none hidden md:block">
-            <div className="absolute top-[-10%] right-[-10%] size-[60%] rounded-full border-40 border-white"></div>
-            <div className="absolute bottom-[10%] left-[-20%] size-[80%] rounded-full border-20 border-white"></div>
+    <main className="min-h-dvh overflow-y-auto bg-sahara-bg p-4 text-sahara-text sm:p-6 md:flex md:items-center md:justify-center md:p-10">
+      <div className="mx-auto grid w-full max-w-4xl overflow-hidden border border-sahara-border bg-sahara-surface md:min-h-145 md:grid-cols-[15rem_1fr]">
+        <aside className="border-b border-sahara-border bg-sahara-card p-5 md:border-b-0 md:border-r md:p-7">
+          <div className="flex items-center gap-2.5">
+            <div className="flex size-8 items-center justify-center rounded-md bg-sahara-primary text-sm font-semibold text-sahara-bg">T</div>
+            <div>
+              <h1 className="text-sm font-semibold">Time Butler</h1>
+              <p className="text-xs text-sahara-text-muted">专注 · 记录 · 复盘</p>
+            </div>
           </div>
 
-          <div>
-            <h1 className="font-serif text-2xl md:text-4xl tracking-tight mb-1 md:mb-2">
-              Time-butler
-            </h1>
-            <p className="text-[9px] md:text-[10px] tracking-[0.2em] md:tracking-[0.3em] font-bold uppercase opacity-70">
-              专注 · 记录 · 复盘
-            </p>
-          </div>
-
-          <div className="relative z-10 py-4 md:py-0">
-            <h2 className="font-serif text-2xl sm:text-3xl md:text-5xl leading-tight mb-3 md:mb-6">
-              {currentStep.title}
-            </h2>
-            <p className="text-white/80 text-sm md:text-lg font-medium leading-relaxed">
-              {currentStep.subtitle}
-            </p>
-          </div>
-
-          <div className="flex gap-1.5 md:gap-2">
-            {steps.map((s, i) => (
-              <div
-                key={s.title}
-                className={cn(
-                  "h-1 rounded-full transition-all duration-300",
-                  i === step
-                    ? "w-6 md:w-8 bg-sahara-surface"
-                    : "w-1.5 md:w-2 bg-sahara-surface/30",
-                )}
-              />
+          <ol className="mt-6 grid grid-cols-4 gap-2 md:mt-12 md:grid-cols-1 md:gap-1">
+            {steps.map((item, index) => (
+              <li key={item.title}>
+                <button
+                  type="button"
+                  onClick={() => setStep(index)}
+                  aria-current={index === step ? "step" : undefined}
+                  aria-label={`第 ${index + 1} 步：${item.title}`}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-md p-2 text-left text-xs outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-sahara-focus",
+                    index === step ? "bg-sahara-surface font-medium text-sahara-text" : "text-sahara-text-muted hover:bg-sahara-surface/70 hover:text-sahara-text",
+                  )}
+                >
+                  <span className={cn("flex size-6 shrink-0 items-center justify-center rounded-md border font-mono text-[10px]", index === step ? "border-sahara-primary bg-sahara-primary text-sahara-bg" : "border-sahara-border")}>{index + 1}</span>
+                  <span className="hidden truncate md:block">{item.title}</span>
+                </button>
+              </li>
             ))}
-          </div>
-        </div>
+          </ol>
+        </aside>
 
-        {/* Content and actions */}
-        <div className="p-6 sm:p-8 md:p-16 flex flex-col justify-between">
+        <section className="flex min-h-120 flex-col justify-between p-6 sm:p-9 md:p-12">
           <div className="flex justify-end">
             <Button
               variant="link"
               intent="default"
-              size="xs"
-              className="text-[9px] md:text-[10px] tracking-widest uppercase"
+              size="sm"
               onClick={() => completeOnboarding()}
             >
               跳过引导
             </Button>
           </div>
 
-          <div className="space-y-5 md:space-y-8">
-            <div
-              className={cn(
-                "size-14 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-2xl md:rounded-3xl flex items-center justify-center shadow-lg shadow-sahara-primary/10",
-                STEP_ICON_COLOR,
-              )}
-            >
-              <currentStep.icon className="size-7 sm:w-8 sm:h-8 md:w-10 md:h-10" />
+          <div className="max-w-xl py-8">
+            <div className="flex size-11 items-center justify-center rounded-md bg-sahara-primary text-sahara-bg">
+              <currentStep.icon className="size-5" strokeWidth={1.8} />
             </div>
 
-            <div className="space-y-3 md:space-y-4">
-              <h3 className="font-serif text-xl sm:text-2xl md:text-3xl text-sahara-text">
-                {currentStep.title}
-              </h3>
-              <p className="text-sm md:text-base text-sahara-text-secondary leading-relaxed">
-                {currentStep.description}
-              </p>
-            </div>
+            <p className="mt-7 text-sm font-medium text-sahara-text-muted">{currentStep.subtitle}</p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-sahara-text md:text-4xl">{currentStep.title}</h2>
+            <p className="mt-5 text-base leading-7 text-sahara-text-secondary">{currentStep.description}</p>
           </div>
 
-          <div className="flex items-center justify-between pt-5 md:pt-8 border-t border-sahara-border/10 mt-5 md:mt-0">
+          <div className="flex items-center justify-between border-t border-sahara-border pt-5">
             <Button
               variant="ghost"
               size="sm"
               intent="default"
               onClick={() => setStep((s) => Math.max(0, s - 1))}
               disabled={step === 0}
-              className={cn(
-                "gap-1.5 md:gap-2 text-[10px] md:text-xs tracking-widest",
-                step === 0 && "text-sahara-border",
-              )}
+              className="gap-1.5"
             >
               <ChevronLeft className="size-3.5 md:w-4 md:h-4" />
               上一步
@@ -154,10 +127,9 @@ export function OnboardingPage() {
               <Button
                 variant="solid"
                 intent="sahara"
-                size="lg"
-                shape="rounded-full"
+                size="md"
                 onClick={() => completeOnboarding()}
-                className="hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-sahara-primary/20 text-[10px] sm:text-xs tracking-widest font-bold uppercase px-5 md:px-7 py-2.5 md:py-3 transition-all"
+                className="px-5"
               >
                 开始使用
               </Button>
@@ -166,19 +138,18 @@ export function OnboardingPage() {
                 variant="solid"
                 intent="sahara"
                 size="md"
-                shape="rounded-full"
                 onClick={() =>
                   setStep((s) => Math.min(steps.length - 1, s + 1))
                 }
-                className="gap-1.5 md:gap-2 shadow-lg shadow-sahara-primary/20 hover:shadow-xl hover:shadow-sahara-primary/30 group text-[10px] sm:text-xs tracking-widest font-bold uppercase px-5 md:px-7 py-2.5 md:py-3 transition-all"
+                className="group gap-1.5 px-5"
               >
                 继续
                 <ChevronRight className="size-3.5 md:w-4 md:h-4 transition-transform group-hover:translate-x-1" />
               </Button>
             )}
           </div>
-        </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }

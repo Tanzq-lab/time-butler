@@ -84,18 +84,18 @@ export function SettingsFocusSection() {
   return (
     <section>
       <div className="flex items-center justify-between mb-6 md:mb-8">
-        <h3 className="font-serif text-xl md:text-2xl text-sahara-text">
+        <h3 className="text-xl font-semibold text-sahara-text md:text-2xl">
           专注节奏
         </h3>
         <Button
-          variant="link"
+          variant="solid"
           intent="sahara"
-          size="xs"
+          size="sm"
           onClick={handleSave}
           className="gap-2"
         >
           <Save className="size-3.5 md:w-4 md:h-4" />
-          <span className="text-[9px] md:text-[10px] font-bold tracking-widest uppercase hidden sm:inline">
+          <span className="hidden sm:inline">
             保存修改
           </span>
         </Button>
@@ -105,7 +105,7 @@ export function SettingsFocusSection() {
         {DURATION_CONFIGS.map(({ key, label, desc, max }) => (
           <div
             key={key}
-            className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 group"
+            className="group flex flex-col gap-2 border-b border-sahara-border py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
           >
             <div>
               <h4 className="font-semibold text-sahara-text-secondary text-sm">
@@ -116,6 +116,8 @@ export function SettingsFocusSection() {
             <div className="flex items-center gap-2 sm:gap-4 self-end sm:self-center">
               <input
                 type="number"
+                name={`focus-duration-${key}`}
+                aria-label={label}
                 min={1}
                 max={max}
                 value={state[key]}
@@ -126,9 +128,9 @@ export function SettingsFocusSection() {
                     value: Math.min(max, Math.max(1, parseInt(e.target.value, 10) || 1)),
                   })
                 }
-                className="w-18 bg-sahara-card border border-sahara-border/20 rounded-xl px-3 md:px-4 py-2 text-center text-sm font-bold text-sahara-primary outline-none focus:border-sahara-primary/40 transition-colors"
+                className="h-9 w-20 rounded-md border border-sahara-border bg-sahara-surface px-3 text-center font-mono text-sm font-medium tabular-nums text-sahara-text outline-none transition-colors focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
               />
-              <span className="text-[9px] md:text-[10px] font-bold text-sahara-text-muted uppercase tracking-widest">
+              <span className="text-xs text-sahara-text-muted">
                 分钟
               </span>
             </div>

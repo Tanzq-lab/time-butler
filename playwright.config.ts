@@ -1,5 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
+const e2ePort = 1422;
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
@@ -8,7 +10,7 @@ export default defineConfig({
   workers: 1,
   reporter: "list",
   use: {
-    baseURL: "http://localhost:1420",
+    baseURL: `http://localhost:${e2ePort}`,
     trace: "retain-on-failure",
     viewport: { width: 1280, height: 720 },
   },
@@ -19,9 +21,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "E2E=true bun run dev",
-    url: "http://localhost:1420",
-    reuseExistingServer: !process.env.CI,
+    command: `E2E=true npm run dev -- --port ${e2ePort}`,
+    url: `http://localhost:${e2ePort}`,
+    reuseExistingServer: false,
     timeout: 30_000,
   },
 });

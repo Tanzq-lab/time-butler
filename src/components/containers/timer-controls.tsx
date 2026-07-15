@@ -100,8 +100,8 @@ export function TimerControls() {
   return (
     <m.div
       layout="position"
-      transition={{ type: "spring", damping: 30, stiffness: 200 }}
-      className="flex flex-col items-center gap-5 md:gap-8 w-full"
+      transition={{ duration: 0.18, ease: "easeOut" }}
+      className="flex w-full flex-col items-center gap-5 md:gap-7"
     >
       {/* Task & Category label in fullscreen */}
       {isFullscreenFocus && <FullscreenTaskLabel />}
@@ -113,48 +113,47 @@ export function TimerControls() {
             initial={{ opacity: 0, height: 0, y: -20 }}
             animate={{ opacity: 1, height: "auto", y: 0 }}
             exit={{ opacity: 0, height: 0, y: -20 }}
-            className="flex flex-col items-center gap-4 md:gap-5 w-full overflow-hidden"
+            className="flex w-full flex-col items-center gap-3 overflow-hidden"
           >
             {/* Top Controls */}
-            <div className="flex items-center gap-3">
-              <div className="flex bg-sahara-card p-1 rounded-full border border-sahara-border/20">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  intent="default"
-                  shape="rounded-full"
-                  active={isFocus}
-                  onClick={() => setPhase("work")}
-                  disabled={status !== "idle"}
-                  className="px-3 sm:px-4 md:px-6 py-2 text-[10px] sm:text-xs font-bold tracking-wider"
-                >
-                  专注
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  intent="default"
-                  shape="rounded-full"
-                  active={isBreak}
-                  onClick={() => setPhase(detectedBreakPhase)}
-                  disabled={status !== "idle"}
-                  className="px-3 sm:px-4 md:px-6 py-2 text-[10px] sm:text-xs font-bold tracking-wider"
-                >
-                  休息
-                </Button>
+            <div className="flex w-full max-w-md flex-col items-center gap-1.5 rounded-[10px] border border-sahara-border bg-sahara-card p-1.5 sm:w-auto sm:max-w-none sm:flex-row sm:gap-2">
+              <div className="flex items-center gap-1.5">
+                <div className="flex items-center rounded-md bg-sahara-surface p-0.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    intent="default"
+                    active={isFocus}
+                    onClick={() => setPhase("work")}
+                    disabled={status !== "idle"}
+                    className="h-7 rounded-md px-3 text-xs font-medium"
+                  >
+                    专注
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    intent="default"
+                    active={isBreak}
+                    onClick={() => setPhase(detectedBreakPhase)}
+                    disabled={status !== "idle"}
+                    className="h-7 rounded-md px-3 text-xs font-medium"
+                  >
+                    休息
+                  </Button>
+                </div>
+                <div className="h-5 w-px bg-sahara-border" />
+                <PresetSelector />
               </div>
-              <div className="w-px h-6 bg-sahara-border/20" />
-              <PresetSelector />
-            </div>
-
-            {/* Task & Intention Selectors */}
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <TaskSelector disabled={status !== "idle"} />
-              <IntentionSelector
-                selectedCategory={selectedCategory}
-                onSelect={setSelectedCategory}
-                disabled={status !== "idle"}
-              />
+              <div className="hidden h-5 w-px bg-sahara-border sm:block" />
+              <div className="flex min-w-0 max-w-full items-center justify-center gap-1.5">
+                <TaskSelector disabled={status !== "idle"} />
+                <IntentionSelector
+                  selectedCategory={selectedCategory}
+                  onSelect={setSelectedCategory}
+                  disabled={status !== "idle"}
+                />
+              </div>
             </div>
           </m.div>
         )}
@@ -175,25 +174,25 @@ export function TimerControls() {
       {/* Duration Adjuster with Time Range */}
       <m.div
         layout="position"
-        className="flex items-center gap-2 md:gap-3"
+        className="flex items-center gap-2"
       >
         <Button
           variant="outline"
           size="icon"
           intent="default"
-          shape="rounded-full"
           onClick={() => adjustDuration(-5)}
-          className="border-sahara-border/30 text-sahara-text-secondary hover:border-sahara-primary/40 hover:text-sahara-primary shrink-0"
+          aria-label="减少 5 分钟"
+          className="shrink-0 border-sahara-border text-sahara-text-secondary hover:text-sahara-text"
         >
           <Minus className="size-3 md:w-3.5 md:h-3.5" />
         </Button>
 
-        <div className="inline-flex items-center gap-1.5 md:gap-2.5 px-2.5 sm:px-4 py-1.5 md:py-2 rounded-full border border-sahara-border/30 bg-sahara-surface shadow-sm">
-          <span className="text-xs md:text-sm font-semibold text-sahara-text tabular-nums tracking-wide">
+        <div className="inline-flex items-center gap-2 rounded-md border border-sahara-border bg-sahara-surface px-3 py-1.5 font-mono">
+          <span className="text-xs font-medium tabular-nums text-sahara-text">
             {startTimeAmPm}
           </span>
           <ArrowRight className="size-2.5 md:w-3.5 md:h-3.5 text-sahara-text-muted" />
-          <span className="text-xs md:text-sm font-semibold text-sahara-text tabular-nums tracking-wide">
+          <span className="text-xs font-medium tabular-nums text-sahara-text">
             {endTimeAmPm}
           </span>
         </div>
@@ -202,9 +201,9 @@ export function TimerControls() {
           variant="outline"
           size="icon"
           intent="default"
-          shape="rounded-full"
           onClick={() => adjustDuration(5)}
-          className="border-sahara-border/30 text-sahara-text-secondary hover:border-sahara-primary/40 hover:text-sahara-primary shrink-0"
+          aria-label="增加 5 分钟"
+          className="shrink-0 border-sahara-border text-sahara-text-secondary hover:text-sahara-text"
         >
           <Plus className="size-3 md:w-3.5 md:h-3.5" />
         </Button>
@@ -213,7 +212,7 @@ export function TimerControls() {
       {/* Action Buttons */}
       <m.div
         layout="position"
-        className="flex items-center gap-2 md:gap-4 flex-wrap justify-center max-w-lg md:max-w-none"
+        className="flex max-w-lg flex-wrap items-center justify-center gap-2 md:max-w-none"
       >
         {status === "idle" ? (
           <IdleActions

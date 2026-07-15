@@ -35,7 +35,7 @@ export function CalendarWeekNav({
         variant="outline"
         size="icon"
         intent="default"
-        shape="rounded-full"
+        aria-label="上一周"
         onClick={onPrev}
         className="border-sahara-border/30"
       >
@@ -52,7 +52,7 @@ export function CalendarWeekNav({
         variant="outline"
         size="icon"
         intent="default"
-        shape="rounded-full"
+        aria-label="下一周"
         onClick={onNext}
         className="border-sahara-border/30"
       >
@@ -64,7 +64,7 @@ export function CalendarWeekNav({
         size="sm"
         intent="default"
         onClick={onToday}
-        className="ml-1 text-[10px] md:text-xs font-bold tracking-wider uppercase text-sahara-primary hover:text-sahara-primary/80"
+        className="ml-1 text-[10px] font-semibold text-sahara-text hover:text-sahara-text-secondary md:text-xs"
       >
         今天
       </Button>

@@ -38,22 +38,13 @@ export function TaskCard({
   };
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={() => !menuOpen && onToggleActive()}
-      onKeyDown={(e) => {
-        if ((e.key === "Enter" || e.key === " ") && !menuOpen) {
-          e.preventDefault();
-          onToggleActive();
-        }
-      }}
+    <article
       className={cn(
-        "group relative bg-sahara-surface border rounded-2xl p-6 transition-all cursor-pointer hover:shadow-md border-l-4",
+        "group relative rounded-[10px] border border-l-4 bg-sahara-surface p-6 transition-[border-color,background-color,opacity] duration-150",
         isComplete
           ? "border-sahara-border/15 opacity-70"
           : isActive
-            ? "border-sahara-primary ring-1 ring-sahara-primary/20 shadow-lg shadow-sahara-primary/5 border-l-sahara-primary"
+            ? "border-sahara-text-muted border-l-sahara-text-muted bg-sahara-card"
             : "border-sahara-border/20 hover:border-sahara-primary/30",
         task.priority && !isComplete ? priorityColors[task.priority] || "" : "",
       )}
@@ -83,6 +74,7 @@ export function TaskCard({
               e.stopPropagation();
               setMenuOpen(!menuOpen);
             }}
+            aria-label={`任务操作：${task.name}`}
             className="text-sahara-text-muted hover:text-sahara-text"
           >
             <MoreVertical className="size-4" />
@@ -90,24 +82,19 @@ export function TaskCard({
 
           {menuOpen && (
             <>
-              <div
+              <button
+                type="button"
+                aria-label="关闭任务操作菜单"
                 className="fixed inset-0 z-10"
-                role="button"
-                tabIndex={-1}
                 onClick={(e) => {
                   e.stopPropagation();
                   setMenuOpen(false);
                 }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.stopPropagation();
-                    setMenuOpen(false);
-                  }
-                }}
               />
-              <div className="absolute right-0 top-8 z-20 bg-sahara-surface border border-sahara-border/20 rounded-xl shadow-lg py-1 w-36 animate-in fade-in slide-in-from-top-2 duration-150">
+              <div role="menu" className="absolute right-0 top-8 z-20 w-36 animate-in rounded-[10px] border border-sahara-border bg-sahara-surface py-1 shadow-lg fade-in slide-in-from-top-2 duration-150">
                 {onEdit && (
                   <Button
+                    role="menuitem"
                     variant="ghost"
                     size="xs"
                     fullWidth
@@ -124,6 +111,7 @@ export function TaskCard({
                 )}
                 {onDelete && (
                   <Button
+                    role="menuitem"
                     variant="ghost"
                     size="xs"
                     fullWidth
@@ -144,9 +132,16 @@ export function TaskCard({
         </div>
       </div>
 
+      <button
+        type="button"
+        aria-pressed={isActive}
+        onClick={onToggleActive}
+        className="block w-full rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-sahara-focus focus-visible:ring-offset-2 focus-visible:ring-offset-sahara-surface"
+      >
+
       <h3
         className={cn(
-          "font-serif text-xl mb-2 leading-tight",
+          "mb-2 text-xl font-semibold leading-tight",
           isComplete
             ? "text-sahara-text-muted line-through"
             : "text-sahara-text",
@@ -158,14 +153,14 @@ export function TaskCard({
       {(task.project || task.priority) && (
         <div className="flex items-center gap-2 mb-4">
           {task.project && (
-            <span className="text-[10px] font-bold tracking-widest text-sahara-text-muted uppercase">
+            <span className="text-[10px] font-medium text-sahara-text-secondary">
               {task.project}
             </span>
           )}
           {task.priority && (
             <span
               className={cn(
-                "text-[9px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded-md",
+                "rounded-md px-1.5 py-0.5 text-[9px] font-semibold",
                 task.priority === "high"
                   ? "bg-red-50 text-red-500"
                   : task.priority === "medium"
@@ -184,7 +179,7 @@ export function TaskCard({
           <Clock className="size-3.5 text-sahara-text-muted" />
           <span className="text-xs font-bold text-sahara-text-secondary tabular-nums">
             {task.completed_pomos}/{task.estimated_pomos}{" "}
-            <span className="text-[10px] text-sahara-text-muted uppercase tracking-widest ml-1">
+            <span className="ml-1 text-[10px] font-normal text-sahara-text-secondary">
               个番茄
             </span>
           </span>
@@ -193,12 +188,12 @@ export function TaskCard({
         {isActive ? (
           <div className="flex items-center gap-1.5 text-sahara-primary">
             <Target className="size-3.5" />
-            <span className="text-[10px] font-bold tracking-widest uppercase">
+            <span className="text-[10px] font-semibold">
               进行中
             </span>
           </div>
         ) : (
-          <span className="text-[10px] font-bold tracking-widest uppercase text-sahara-text-muted group-hover:text-sahara-primary transition-colors">
+          <span className="text-[10px] font-medium text-sahara-text-secondary transition-colors group-hover:text-sahara-text">
             关联专注
           </span>
         )}
@@ -226,6 +221,7 @@ export function TaskCard({
           </div>
         )}
       </div>
-    </div>
+      </button>
+    </article>
   );
 }

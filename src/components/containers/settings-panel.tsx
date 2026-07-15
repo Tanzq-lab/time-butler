@@ -60,6 +60,7 @@ export function SettingsPanel() {
         <div className="flex items-center justify-between">
           <Text variant="body">自动开始休息</Text>
           <Switch
+            ariaLabel="自动开始休息"
             checked={settings.autoStartBreaks}
             onCheckedChange={(v) => updateSetting("autoStartBreaks", v)}
           />
@@ -67,6 +68,7 @@ export function SettingsPanel() {
         <div className="flex items-center justify-between">
           <Text variant="body">声音提醒</Text>
           <Switch
+            ariaLabel="声音提醒"
             checked={settings.soundEnabled}
             onCheckedChange={(v) => updateSetting("soundEnabled", v)}
           />

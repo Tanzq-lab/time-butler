@@ -19,25 +19,26 @@ export function SettingsSidebar({
   onTabChange,
 }: SettingsSidebarProps) {
   return (
-    <nav className="hidden md:flex flex-col gap-1 w-36 shrink-0 pt-1">
+    <nav aria-label="设置分组" className="hidden w-40 shrink-0 flex-col gap-0.5 pt-1 md:flex">
       {tabs.map((tab) => (
         <button
           key={tab.id}
+          type="button"
           onClick={() => onTabChange(tab.id)}
+          aria-current={activeTab === tab.id ? "page" : undefined}
           className={cn(
-            "flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-all duration-150",
+            "flex items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-sahara-focus",
             activeTab === tab.id
-              ? "bg-sahara-primary text-white shadow-sm shadow-sahara-primary/20"
-              : "text-sahara-text-muted hover:bg-sahara-card hover:text-sahara-text-secondary",
+              ? "bg-sahara-card font-medium text-sahara-text"
+              : "text-sahara-text-secondary hover:bg-sahara-card/70 hover:text-sahara-text",
           )}
         >
           <tab.icon
             className={cn(
-              "size-4.5 shrink-0",
-              activeTab === tab.id ? "text-white" : "",
+              "size-4 shrink-0",
             )}
           />
-          <span className="text-[10px] tracking-widest font-bold uppercase leading-none">
+          <span className="leading-none">
             {tab.label}
           </span>
         </button>

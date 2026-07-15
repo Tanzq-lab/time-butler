@@ -128,7 +128,7 @@ function WavyRing({
           ref={dotRef}
           cx={cx + r * Math.cos((progress / 100) * 2 * Math.PI)}
           cy={cy + r * Math.sin((progress / 100) * 2 * Math.PI)}
-          r="6"
+          r="5"
           className="fill-sahara-primary"
           style={{ transition: "opacity 1000ms ease" }}
         />
@@ -278,6 +278,8 @@ export function TimerDisplay({
             <span className="sr-only">设置计时时长</span>
             <input
               type="text"
+              name="timer-duration"
+              autoComplete="off"
               inputMode="numeric"
               pattern="[0-9:]{0,2}(:[0-9]{0,2})?"
               aria-label="设置计时时长"
@@ -322,10 +324,10 @@ export function TimerDisplay({
                 }
               }}
               className={cn(
-                "w-[5.5ch] rounded-2xl border border-transparent bg-transparent px-3 md:px-4 text-center font-serif leading-none tracking-tight text-sahara-primary outline-none transition-all [font-variant-numeric:tabular-nums]",
+                "w-[5.5ch] rounded-lg border border-transparent bg-transparent px-3 text-center font-mono font-medium leading-none tracking-[-0.06em] text-sahara-text outline-none transition-[background-color,border-color] duration-150 [font-variant-numeric:tabular-nums] md:px-4",
                 "text-[76px] md:text-[120px]",
-                "hover:border-sahara-primary/20 hover:bg-sahara-primary/5",
-                "focus:border-sahara-primary/30 focus:bg-sahara-primary/8 focus:shadow-[0_0_0_1px_rgba(194,101,42,0.12)]",
+                "hover:border-sahara-border hover:bg-sahara-card",
+                "focus:border-sahara-text focus:bg-sahara-card",
               )}
             />
           </label>
@@ -333,14 +335,14 @@ export function TimerDisplay({
           <Text
             variant="timer"
             className={cn(
-              isComplete ? "text-amber-600" : "text-sahara-primary",
-              "md:text-[120px] text-[76px]",
+              isComplete ? "text-green-600" : "text-sahara-text",
+              "font-mono text-[76px] font-medium tracking-[-0.06em] md:text-[120px]",
             )}
           >
             {formatSeconds(secondsRemaining)}
           </Text>
         )}
-        <p className="text-[10px] tracking-[0.3em] font-bold text-sahara-text-muted mt-1 md:mt-2 uppercase">
+        <p className="mt-1 text-xs font-medium text-sahara-text-secondary md:mt-2">
           {phase === "work"
               ? "专注剩余"
               : phase === "short_break"

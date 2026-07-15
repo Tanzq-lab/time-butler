@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { FileText } from "lucide-react";
 import { getSessionNotes, type SessionNoteEntry } from "@/lib/db";
 import { formatDuration } from "@/lib/session-utils";
@@ -33,37 +33,35 @@ interface SessionNotesProps {
 
 export function SessionNotes({ startDate, endDate }: SessionNotesProps) {
   const [notes, setNotes] = useState<SessionNoteEntry[]>([]);
-  const loadingRef = useRef(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadingRef.current = true;
+    setLoading(true);
     getSessionNotes(startDate, endDate)
-      .then(setNotes)
+      .then((entries) => setNotes(entries.filter((entry) =>
+        Number.isFinite(entry.id) && Boolean(entry.started_at && entry.notes),
+      )))
       .catch(() => setNotes([]))
-      .finally(() => { loadingRef.current = false; });
+      .finally(() => setLoading(false));
   }, [startDate, endDate]);
 
-  if (loadingRef.current) {
+  if (loading) {
     return (
-      <div className="bg-sahara-surface border border-sahara-border/20 rounded-xl md:rounded-2xl p-3.5 md:p-5">
+      <div className="rounded-[10px] border border-sahara-border bg-sahara-surface p-3.5 md:p-5">
         <p className="text-[15px] text-sahara-text-muted">加载中…</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-sahara-surface border border-sahara-border/20 rounded-xl md:rounded-2xl p-3.5 md:p-5">
-      {/* <h3 className="text-xs md:text-sm font-bold text-sahara-text-muted uppercase tracking-wider mb-4 md:mb-5">
-        Session Notes
-      </h3> */}
-
+    <div className="rounded-[10px] border border-sahara-border bg-sahara-surface p-3.5 md:p-5">
       {notes.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 gap-2">
           <FileText className="size-8 text-sahara-text-muted/40" />
-          <p className="text-[15px] text-sahara-text-muted text-center">
+          <p className="text-center text-[15px] text-sahara-text-secondary">
             还没有专注笔记
           </p>
-          <p className="text-[15px] text-sahara-text-muted/60">
+          <p className="text-[15px] text-sahara-text-secondary">
             完成专注后填写的笔记会显示在这里
           </p>
         </div>
@@ -72,7 +70,7 @@ export function SessionNotes({ startDate, endDate }: SessionNotesProps) {
           {notes.map((entry) => (
             <div
               key={entry.id}
-              className="group bg-sahara-bg/30 border border-sahara-border/10 rounded-xl p-3.5 md:p-4 hover:border-sahara-border/25 transition-all"
+              className="group rounded-[10px] border border-sahara-border bg-sahara-surface p-3.5 transition-colors duration-150 hover:border-sahara-text-muted md:p-4"
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -94,7 +92,7 @@ export function SessionNotes({ startDate, endDate }: SessionNotesProps) {
                     </div>
                   ) : null}
                   {entry.task_name && (
-                    <span className="text-[17px] font-bold text-sahara-text-muted uppercase tracking-wider">
+                    <span className="text-[15px] font-medium text-sahara-text-secondary">
                       → {entry.task_name}
                     </span>
                   )}

@@ -96,7 +96,7 @@ export function UpdateProvider({ children }: UpdateProviderProps) {
       {children}
 
       <div className="fixed bottom-4 right-4 z-200 max-w-sm animate-in slide-in-from-right-4 fade-in duration-300">
-        <div className="bg-sahara-surface border border-sahara-border/30 rounded-2xl shadow-xl p-5 space-y-4">
+        <div className="space-y-4 rounded-[10px] border border-sahara-border bg-sahara-surface p-5 shadow-xl">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <div className="size-8 rounded-full bg-sahara-primary-light flex items-center justify-center">
@@ -127,7 +127,7 @@ export function UpdateProvider({ children }: UpdateProviderProps) {
           )}
 
           {installError && (
-            <div className="flex items-start gap-2 p-2.5 bg-red-500/10 border border-red-500/20 rounded-xl">
+            <div className="flex items-start gap-2 rounded-[10px] border border-red-500/20 bg-red-500/10 p-2.5">
               <AlertCircle className="size-3.5 text-red-400 shrink-0 mt-0.5" />
               <p className="text-[11px] text-red-400 leading-relaxed">
                 更新失败。请重试，或前往 GitHub 手动下载。

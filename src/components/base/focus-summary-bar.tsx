@@ -10,9 +10,9 @@ interface FocusSummaryBarProps {
 
 const ICON_STYLES = {
   clock: "bg-sahara-primary/10 text-sahara-primary",
-  target: "bg-[#6b9080]/15 text-[#6b9080]",
-  flame: "bg-[#c4956a]/15 text-[#c4956a]",
-  timer: "bg-[#c45c4a]/15 text-[#c45c4a]",
+  target: "bg-sahara-card text-sahara-text-secondary",
+  flame: "bg-sahara-card text-sahara-text-secondary",
+  timer: "bg-sahara-card text-sahara-text-secondary",
 } as const;
 
 function StatBox({
@@ -31,10 +31,10 @@ function StatBox({
   iconColor?: string;
 }) {
   return (
-    <div className="group relative bg-sahara-surface/40 backdrop-blur-md rounded-2xl border border-sahara-border/10 p-3.5 md:p-4 flex items-center gap-3.5 transition-all duration-300 hover:border-sahara-primary/30 hover:bg-sahara-surface/60 shadow-sm">
+    <div className="relative flex items-center gap-3 rounded-[10px] border border-sahara-border bg-sahara-surface p-3 md:p-4">
       <div
         className={cn(
-          "size-10 md:size-11 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-110",
+          "flex size-9 shrink-0 items-center justify-center rounded-md md:size-10",
           styleKey === "flame" && iconColor ? "" : ICON_STYLES[styleKey],
         )}
         style={
@@ -43,15 +43,15 @@ function StatBox({
             : {}
         }
       >
-        <Icon className="size-5 md:size-5.5" />
+        <Icon aria-hidden="true" className="size-4.5 md:size-5" />
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-black text-sahara-text-muted uppercase tracking-widest mb-0.5">
+        <p className="mb-0.5 text-xs font-medium text-sahara-text-secondary">
           {label}
         </p>
         <div className="flex flex-col">
-          <p className="text-base md:text-lg font-black text-sahara-text truncate leading-tight">
+          <p className="truncate text-base font-semibold leading-tight text-sahara-text md:text-lg">
             {value}
           </p>
           {extra && <div className="mt-1">{extra}</div>}
@@ -73,7 +73,7 @@ export function FocusSummaryBar({
   const sessionCount = workSessions.length;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+    <div className="grid grid-cols-2 gap-2.5 md:gap-4 lg:grid-cols-4">
       <StatBox 
         label="专注时长" 
         value={formatTotalTime(totalFocusSec)} 
@@ -100,7 +100,7 @@ export function FocusSummaryBar({
                 className="size-1.5 rounded-full"
                 style={{ backgroundColor: topCategory.color }}
               />
-              <span className="text-[9px] font-bold text-sahara-text-muted tabular-nums uppercase">
+              <span className="text-[10px] font-medium tabular-nums text-sahara-text-secondary">
                 已记录 {topCategory.count} 次
               </span>
           </div>

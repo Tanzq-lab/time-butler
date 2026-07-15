@@ -24,14 +24,14 @@ export function TaskItem({
   return (
     <div
       className={cn(
-        "group flex items-center gap-3 rounded-lg px-3 py-2 transition-colors cursor-pointer",
+        "group flex items-center gap-3 rounded-md px-3 py-2 transition-colors",
         isActive
           ? "bg-sahara-primary-light border border-sahara-primary/30"
           : "hover:bg-sahara-card",
       )}
-      onClick={onSelect}
     >
       <button
+        aria-label={isComplete ? `取消完成：${task.name}` : `完成任务：${task.name}`}
         onClick={(e) => {
           e.stopPropagation();
           onToggle();
@@ -39,7 +39,7 @@ export function TaskItem({
         className={cn(
           "flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors",
           isComplete
-            ? "border-sahara-primary bg-sahara-primary text-white"
+            ? "border-sahara-primary bg-sahara-primary text-sahara-bg"
             : "border-sahara-border/40",
         )}
       >
@@ -57,7 +57,12 @@ export function TaskItem({
         )}
       </button>
 
-      <div className="flex-1 min-w-0">
+      <button
+        type="button"
+        aria-pressed={isActive}
+        onClick={onSelect}
+        className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-sahara-focus"
+      >
         <Text
           variant="body"
           className={cn(
@@ -67,11 +72,10 @@ export function TaskItem({
         >
           {task.name}
         </Text>
-      </div>
-
-      <span className="text-xs text-sahara-text-muted tabular-nums shrink-0">
-        {task.completed_pomos}/{task.estimated_pomos}
-      </span>
+        <span className="shrink-0 text-xs text-sahara-text-secondary tabular-nums">
+          {task.completed_pomos}/{task.estimated_pomos}
+        </span>
+      </button>
 
       <Button
         variant="ghost"
@@ -80,7 +84,8 @@ export function TaskItem({
           e.stopPropagation();
           onDelete();
         }}
-        className="shrink-0 opacity-0 group-hover:opacity-100 text-sahara-text-muted hover:text-sahara-primary"
+        aria-label={`删除任务：${task.name}`}
+        className="shrink-0 text-sahara-text-muted opacity-0 hover:text-sahara-text group-focus-within:opacity-100 group-hover:opacity-100"
       >
         <svg
           width="14"

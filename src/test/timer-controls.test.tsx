@@ -106,7 +106,7 @@ describe("TimerControls", () => {
     render(<TimerControls />);
 
     fireEvent.change(
-      screen.getByPlaceholderText("写下这次的收获、卡点或分心原因..."),
+      screen.getByPlaceholderText("写下这次的收获、卡点或分心原因…"),
       {
         target: { value: "休息后补交，状态不错。" },
       },

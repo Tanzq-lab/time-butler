@@ -11,7 +11,7 @@ export function BadgeCard({ title, description, earned }: BadgeCardProps) {
   return (
     <div
       className={cn(
-        "flex items-center gap-3 md:gap-4 p-3.5 md:p-5 rounded-xl border transition-all",
+        "flex items-center gap-3 rounded-[10px] border p-3.5 transition-colors duration-150 md:gap-4 md:p-5",
         earned
           ? "bg-sahara-primary-light/20 border-sahara-primary/30"
           : "bg-sahara-surface border-sahara-border/15 opacity-60",
@@ -19,9 +19,9 @@ export function BadgeCard({ title, description, earned }: BadgeCardProps) {
     >
       <div
         className={cn(
-          "size-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center shrink-0",
+          "flex size-10 shrink-0 items-center justify-center rounded-[10px] md:size-12",
           earned
-            ? "bg-sahara-primary text-white shadow-md shadow-sahara-primary/30"
+            ? "bg-sahara-primary text-sahara-bg"
             : "bg-sahara-card text-sahara-text-muted",
         )}
       >
@@ -30,7 +30,7 @@ export function BadgeCard({ title, description, earned }: BadgeCardProps) {
       <div>
         <h4
           className={cn(
-            "font-serif text-sm md:text-base font-semibold",
+            "text-sm font-semibold md:text-base",
             earned ? "text-sahara-primary" : "text-sahara-text-muted",
           )}
         >

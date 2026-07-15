@@ -27,6 +27,8 @@ export function SliderField({
       </div>
       <input
         type="range"
+        name={`slider-${label}`}
+        aria-label={label}
         min={min}
         max={max}
         step={step}

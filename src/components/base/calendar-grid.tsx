@@ -3,7 +3,6 @@ import { cn } from "@/lib/cn";
 import type { WeekSession } from "@/lib/db";
 import { formatTimeAmPm, parseLocalDateTime } from "@/lib/time";
 import { CalendarSessionBlock } from "./calendar-session-block";
-import { CalendarDayPill } from "./calendar-day-pill";
 
 interface CalendarGridProps {
   sessions: WeekSession[];
@@ -183,8 +182,6 @@ export function computeDayLayout(
 interface CalendarMobileViewProps {
   weekDays: Date[];
   allDayLayouts: DayLayout[];
-  selectedMobileDay: number;
-  onSelectMobileDay: (idx: number) => void;
   hours: number[];
   formatHour: (h: number) => string;
   currentTimePos: number | null;
@@ -192,41 +189,69 @@ interface CalendarMobileViewProps {
 }
 
 function CalendarMobileView({
-  weekDays, allDayLayouts, selectedMobileDay, onSelectMobileDay,
-  hours, formatHour, currentTimePos, sessions,
+  weekDays, allDayLayouts, hours, formatHour, currentTimePos, sessions,
 }: CalendarMobileViewProps) {
-  const layout = allDayLayouts[selectedMobileDay];
-  const dayDate = weekDays[selectedMobileDay];
-  const today = isToday(dayDate);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const todayIdx = weekDays.findIndex(isToday);
+  const totalHeight = Math.max(...allDayLayouts.map((layout) => layout.totalHeight));
+  const gridTemplateColumns = `48px repeat(${weekDays.length}, 9rem)`;
+
+  useEffect(() => {
+    const viewport = scrollRef.current;
+    if (!viewport || todayIdx < 0) return;
+
+    const dayWidth = 144;
+    const targetLeft = 48 + todayIdx * dayWidth - (viewport.clientWidth - dayWidth) / 2;
+    viewport.scrollLeft = Math.max(0, targetLeft);
+  }, [todayIdx, weekDays]);
 
   return (
-    <div className="md:hidden flex flex-col">
-      <div className="grid grid-cols-7 border-b border-sahara-border/30 px-1">
-        {weekDays.map((day, idx) => (
-          <CalendarDayPill
-            key={day.toDateString()}
-            date={day}
-            isSelected={idx === selectedMobileDay}
-            isToday={isToday(day)}
-            onClick={() => onSelectMobileDay(idx)}
-          />
-        ))}
-      </div>
+    <div
+      ref={scrollRef}
+      role="region"
+      aria-label="日历时间轴"
+      tabIndex={0}
+      className="relative min-h-[30rem] flex-1 overflow-auto overscroll-contain focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sahara-focus md:hidden"
+    >
+      <div className="relative w-max min-w-full">
+        <div
+          className="sticky top-0 z-20 grid border-b border-sahara-border bg-sahara-surface"
+          style={{ gridTemplateColumns }}
+        >
+          <div className="sticky left-0 z-30 border-r border-sahara-border bg-sahara-surface" />
+          {weekDays.map((day) => {
+            const dayIdx = day.getDay() === 0 ? 6 : day.getDay() - 1;
+            const today = isToday(day);
+            return (
+              <div
+                key={day.toDateString()}
+                data-today={today || undefined}
+                className={cn(
+                  "relative border-r border-sahara-border px-2 py-2.5 text-center last:border-r-0",
+                  today && "bg-sahara-card",
+                )}
+              >
+                <span className="block text-[10px] font-medium text-sahara-text-secondary">
+                  {DAY_LABELS_FULL[dayIdx]}
+                </span>
+                <span className="mt-0.5 block font-mono text-base font-medium text-sahara-text">
+                  {day.getDate()}
+                </span>
+                {today && <div className="absolute inset-x-5 bottom-0 h-0.5 rounded-full bg-sahara-primary" />}
+              </div>
+            );
+          })}
+        </div>
 
-      <div className="flex-1 overflow-y-auto relative pt-8">
-        <div className="flex" style={{ minHeight: layout.totalHeight }}>
-          <div className="w-12 shrink-0 border-r border-sahara-border/15 bg-sahara-bg/20 relative">
+        <div className="grid" style={{ gridTemplateColumns, minHeight: totalHeight }}>
+          <div className="sticky left-0 z-10 border-r border-sahara-border bg-sahara-card">
             {hours.map((hour, hIdx) => {
               const maxH = Math.max(
-                layout.hourTopPx[hIdx + 1] - layout.hourTopPx[hIdx],
+                ...allDayLayouts.map((layout) => layout.hourTopPx[hIdx + 1] - layout.hourTopPx[hIdx]),
               );
               return (
-                <div
-                  key={hour}
-                  className="pr-2 text-right border-b border-sahara-border/10"
-                  style={{ height: maxH }}
-                >
-                  <span className="text-[10px] font-medium text-sahara-text-muted tabular-nums leading-none inline-block mt-2">
+                <div key={hour} className="border-b border-sahara-border/15 pr-2 text-right" style={{ height: maxH }}>
+                  <span className="mt-2 inline-block font-mono text-[10px] leading-none text-sahara-text-secondary">
                     {formatHour(hour)}
                   </span>
                 </div>
@@ -234,38 +259,51 @@ function CalendarMobileView({
             })}
           </div>
 
-          <div className={cn("flex-1 relative", today && "bg-sahara-primary-light/10")} style={{ minHeight: layout.totalHeight }}>
-            {hours.map((_, hIdx) => (
+          {weekDays.map((day, idx) => {
+            const layout = allDayLayouts[idx];
+            const today = isToday(day);
+            return (
               <div
-                key={hIdx}
-                className="border-b border-sahara-border/8"
-                style={{ height: layout.hourTopPx[hIdx + 1] - layout.hourTopPx[hIdx] }}
-              />
-            ))}
-
-            {layout.idleGaps.map((gap) => (
-              <CalendarIdleGap key={gap.id} gap={gap} />
-            ))}
-
-            {layout.positioned.map(({ session, topPx, heightPx, compact }) => (
-              <CalendarSessionBlock key={session.id} session={session} topPx={topPx} heightPx={heightPx} compact={compact} />
-            ))}
-
-            {currentTimePos !== null && today && (
-              <div className="absolute left-0 right-0 z-30 pointer-events-none flex items-center" style={{ top: currentTimePos }}>
-                <div className="size-1.5 rounded-full bg-sahara-primary -ml-1 shadow-sm" />
-                <div className="flex-1 border-t border-sahara-primary/50" />
+                key={day.toDateString()}
+                className={cn(
+                  "relative border-r border-sahara-border last:border-r-0",
+                  today && "bg-sahara-card/70",
+                )}
+                style={{ minHeight: totalHeight }}
+              >
+                {hours.map((_, hIdx) => (
+                  <div
+                    key={hIdx}
+                    className="border-b border-sahara-border/10"
+                    style={{ height: layout.hourTopPx[hIdx + 1] - layout.hourTopPx[hIdx] }}
+                  />
+                ))}
+                {layout.idleGaps.map((gap) => (
+                  <CalendarIdleGap key={gap.id} gap={gap} />
+                ))}
+                {layout.positioned.map(({ session, topPx, heightPx, compact }) => (
+                  <CalendarSessionBlock
+                    key={session.id}
+                    session={session}
+                    topPx={topPx}
+                    heightPx={heightPx}
+                    compact={compact}
+                  />
+                ))}
+                {currentTimePos !== null && today && (
+                  <div className="pointer-events-none absolute left-0 right-0 z-30 flex items-center" style={{ top: currentTimePos }}>
+                    <div className="-ml-1 size-1.5 rounded-full bg-sahara-primary" />
+                    <div className="flex-1 border-t border-sahara-primary/50" />
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            );
+          })}
         </div>
 
         {sessions.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="text-center opacity-30">
-              <p className="text-xs font-semibold text-sahara-text-muted uppercase tracking-wider">这天还没有记录</p>
-              <p className="text-[11px] text-sahara-text-muted mt-1">完成后的记录会显示在这里</p>
-            </div>
+          <div className="pointer-events-none sticky bottom-6 left-14 w-[calc(100vw-6rem)] rounded-md bg-sahara-surface/90 px-4 py-3 text-center text-xs text-sahara-text-secondary">
+            本周还没有记录，完成后的专注会显示在这里
           </div>
         )}
       </div>
@@ -290,24 +328,29 @@ function CalendarDesktopView({
 }: CalendarDesktopViewProps) {
   return (
     <div className="hidden md:flex flex-col flex-1 min-h-0">
-      <div className="grid border-b border-sahara-border/30" style={{ gridTemplateColumns: `64px repeat(${weekDays.length}, 1fr)` }}>
-        <div className="p-4 border-r border-sahara-border/20" />
+      <div className="sticky top-0 z-20 grid border-b border-sahara-border bg-sahara-surface" style={{ gridTemplateColumns: `64px repeat(${weekDays.length}, 1fr)` }}>
+        <div className="sticky left-0 z-30 border-r border-sahara-border bg-sahara-surface p-4" />
         {weekDays.map((day) => {
           const dayIdx = day.getDay() === 0 ? 6 : day.getDay() - 1;
           const today = isToday(day);
           return (
-            <div key={day.toDateString()} className={cn("px-2 pt-3 pb-2 text-center border-r last:border-r-0 border-sahara-border/20 relative", today && "bg-sahara-primary-light/20")}>
-              <span className={cn("text-[10px] font-medium tracking-[0.15em] block mb-0.5", today ? "text-sahara-primary" : "text-sahara-text-muted")}>{DAY_LABELS_FULL[dayIdx]}</span>
-              <p className={cn("font-serif text-2xl leading-none", today ? "text-sahara-primary font-bold" : "text-sahara-text")}>{day.getDate()}</p>
-              {today && <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-sahara-primary rounded-full" />}
+            <div key={day.toDateString()} className={cn("relative border-r border-sahara-border px-2 pb-2 pt-3 text-center last:border-r-0", today && "bg-sahara-card")}>
+              <span className={cn("mb-0.5 block text-[10px] font-medium", today ? "text-sahara-text" : "text-sahara-text-muted")}>{DAY_LABELS_FULL[dayIdx]}</span>
+              <p className={cn("font-mono text-xl leading-none", today ? "font-semibold text-sahara-text" : "text-sahara-text")}>{day.getDate()}</p>
+              {today && <div className="absolute bottom-0 left-4 right-4 h-0.5 rounded-full bg-sahara-primary" />}
             </div>
           );
         })}
       </div>
 
-      <div className="flex-1 overflow-y-auto relative">
+      <div
+        role="region"
+        aria-label="日历时间轴"
+        tabIndex={0}
+        className="relative flex-1 overflow-y-auto focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sahara-focus"
+      >
         <div className="grid" style={{ gridTemplateColumns: `64px repeat(${weekDays.length}, 1fr)`, minHeight: desktopGridTotalHeight }}>
-          <div className="border-r border-sahara-border/20 bg-sahara-bg/30 relative shrink-0 w-16">
+          <div className="sticky left-0 z-10 w-16 shrink-0 border-r border-sahara-border bg-sahara-card">
             {hours.map((hour, hIdx) => {
               const maxH = Math.max(
                 ...allDayLayouts.map((l) => l.hourTopPx[hIdx + 1] - l.hourTopPx[hIdx]),
@@ -324,7 +367,7 @@ function CalendarDesktopView({
             const layout = allDayLayouts[idx];
             const today = isToday(day);
             return (
-              <div key={day.toDateString()} className={cn("relative border-r last:border-r-0 border-sahara-border/15", today && "bg-sahara-primary-light/30")} style={{ minHeight: desktopGridTotalHeight }}>
+              <div key={day.toDateString()} className={cn("relative border-r border-sahara-border last:border-r-0", today && "bg-sahara-card/70")} style={{ minHeight: desktopGridTotalHeight }}>
                 {hours.map((_, hIdx) => (
                   <div key={hIdx} className="border-b border-sahara-border/10" style={{ height: layout.hourTopPx[hIdx + 1] - layout.hourTopPx[hIdx] }} />
                 ))}
@@ -336,7 +379,7 @@ function CalendarDesktopView({
                 ))}
                 {currentTimePos !== null && idx === todayIdx && (
                   <div className="absolute left-0 right-0 z-30 pointer-events-none flex items-center" style={{ top: currentTimePos }}>
-                    <div className="size-1.5 rounded-full bg-sahara-primary -ml-1 shadow-sm" />
+                    <div className="-ml-1 size-1.5 rounded-full bg-sahara-primary" />
                     <div className="flex-1 border-t border-sahara-primary/40" />
                   </div>
                 )}
@@ -348,7 +391,7 @@ function CalendarDesktopView({
         {sessions.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center opacity-30">
-              <p className="text-xs font-semibold text-sahara-text-muted uppercase tracking-wider">本周还没有记录</p>
+              <p className="text-xs font-medium text-sahara-text-secondary">本周还没有记录</p>
               <p className="text-[11px] text-sahara-text-muted mt-1">完成后的记录会显示在这里</p>
             </div>
           </div>
@@ -388,14 +431,6 @@ export function CalendarGrid({
 
   const todayIdx = weekDays.findIndex(isToday);
 
-  const [selectedMobileDay, setSelectedMobileDay] = useState(
-    todayIdx >= 0 ? todayIdx : 0,
-  );
-
-  useEffect(() => {
-    if (todayIdx >= 0) setSelectedMobileDay(todayIdx);
-  }, [todayIdx]);
-
   const allDayLayouts = useMemo(
     () =>
       weekDays.map((day) =>
@@ -426,12 +461,10 @@ export function CalendarGrid({
   );
 
   return (
-    <div className="bg-sahara-surface rounded-2xl overflow-hidden shadow-sm border border-sahara-border/40 flex flex-col">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden border border-sahara-border bg-sahara-surface">
       <CalendarMobileView
         weekDays={weekDays}
         allDayLayouts={allDayLayouts}
-        selectedMobileDay={selectedMobileDay}
-        onSelectMobileDay={setSelectedMobileDay}
         hours={hours}
         formatHour={formatHour}
         currentTimePos={currentTimePos}

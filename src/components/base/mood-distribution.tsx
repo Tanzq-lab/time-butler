@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { getMoodDistribution, type MoodStat } from "@/lib/db";
 import { cn } from "@/lib/cn";
 
@@ -15,20 +15,22 @@ interface MoodDistributionProps {
 
 export function MoodDistribution({ startDate, endDate }: MoodDistributionProps) {
   const [moods, setMoods] = useState<MoodStat[]>([]);
-  const loadingRef = useRef(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadingRef.current = true;
+    setLoading(true);
     getMoodDistribution(startDate, endDate)
-      .then(setMoods)
+      .then((entries) => setMoods(entries.filter((mood) =>
+        Boolean(mood.mood) && Number.isFinite(mood.count) && mood.count > 0,
+      )))
       .catch(() => setMoods([]))
-      .finally(() => { loadingRef.current = false; });
+      .finally(() => setLoading(false));
   }, [startDate, endDate]);
 
-  if (loadingRef.current) {
+  if (loading) {
     return (
-      <div className="bg-sahara-surface border border-sahara-border/20 rounded-xl md:rounded-2xl p-3.5 md:p-5">
-        <p className="text-[15px] text-sahara-text-muted">加载中…</p>
+      <div className="rounded-[10px] border border-sahara-border bg-sahara-surface p-3.5 md:p-5">
+        <p className="text-[15px] text-sahara-text-secondary">加载中…</p>
       </div>
     );
   }
@@ -37,13 +39,10 @@ export function MoodDistribution({ startDate, endDate }: MoodDistributionProps) 
   const maxCount = Math.max(...moods.map((m) => m.count), 1);
 
   return (
-    <div className="bg-sahara-surface border border-sahara-border/20 rounded-xl md:rounded-2xl p-3.5 md:p-5">
-      {/* <h3 className="text-xs md:text-sm font-bold text-sahara-text-muted uppercase tracking-wider mb-4 md:mb-5">
-        Mood Distribution
-      </h3> */}
+    <div className="rounded-[10px] border border-sahara-border bg-sahara-surface p-3.5 md:p-5">
 
       {moods.length === 0 ? (
-        <p className="text-[15px] text-sahara-text-muted text-center py-6">
+        <p className="py-6 text-center text-[15px] text-sahara-text-secondary">
           还没有状态数据
         </p>
       ) : (
@@ -78,7 +77,7 @@ export function MoodDistribution({ startDate, endDate }: MoodDistributionProps) 
                 <div className="h-3 bg-sahara-bg/40 rounded-full overflow-hidden">
                   <div
                     className={cn(
-                      "h-full rounded-full transition-all duration-500 ease-out",
+                      "h-full rounded-full transition-[width,filter] duration-200 ease-out",
                       "group-hover:brightness-110",
                     )}
                     style={{
@@ -95,7 +94,7 @@ export function MoodDistribution({ startDate, endDate }: MoodDistributionProps) 
 
       {totalMoods > 0 && (
         <div className="mt-4 pt-3 border-t border-sahara-border/15 flex items-center justify-between">
-          <span className="text-sm font-bold text-sahara-text-muted uppercase tracking-wider">
+          <span className="text-sm font-medium text-sahara-text-secondary">
             已评分总数
           </span>
           <span className="text-[17px] font-bold text-sahara-text tabular-nums">

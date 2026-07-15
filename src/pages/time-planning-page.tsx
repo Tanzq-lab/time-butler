@@ -4,7 +4,7 @@ import { MainLayout } from "@/components/template/main-layout";
 export function TimePlanningPage() {
   return (
     <MainLayout>
-      <div className="px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 py-6 md:py-10 max-w-7xl mx-auto h-full">
+      <div className="mx-auto h-full max-w-7xl px-4 py-6 sm:px-6 md:px-8 md:py-8 lg:px-10">
         <TimePlanningWorkspace />
       </div>
     </MainLayout>

@@ -33,17 +33,18 @@ export function TodaySessions() {
     .reduce((acc, s) => acc + s.duration_sec, 0);
 
   return (
-    <div className="w-full border-t border-sahara-border/30 pt-6 md:pt-8 mt-6 md:mt-8">
+    <section className="mt-7 w-full border-t border-sahara-border pt-7 md:mt-9 md:pt-9">
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="w-full flex items-center justify-between mb-4 md:mb-6 group"
+        aria-expanded={!isCollapsed}
+        className="group mb-4 flex w-full items-center justify-between rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-sahara-focus md:mb-6"
       >
         <div className="flex items-center gap-2 md:gap-3">
-          <Text variant="h3" className="font-serif text-xl md:text-2xl">
+          <Text variant="h3" className="text-lg font-semibold md:text-xl">
             今日记录
           </Text>
           {sessions.length > 0 && (
-            <span className="px-2 py-0.5 md:px-2.5 md:py-1 rounded-full bg-sahara-primary/10 text-sahara-primary text-[9px] md:text-[10px] font-bold tracking-wider">
+            <span className="rounded-md bg-sahara-card px-2 py-0.5 text-xs text-sahara-text-secondary">
               已完成 {sessions.length} 条
             </span>
           )}
@@ -79,6 +80,6 @@ export function TodaySessions() {
           )}
         </>
       )}
-    </div>
+    </section>
   );
 }

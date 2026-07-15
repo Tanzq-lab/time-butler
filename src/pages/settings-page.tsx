@@ -12,6 +12,7 @@ import { SettingsFocusSection } from "@/components/settings/settings-focus-secti
 import { SettingsNotifications } from "@/components/settings/settings-notifications-section";
 import { SettingsHotkeysSection } from "@/components/settings/settings-hotkeys-section";
 import { SettingsPrivacySection } from "@/components/settings/settings-privacy-section";
+import { PageHeader } from "@/components/ui/page-header";
 
 const TABS: SidebarTab[] = [
   { id: "general", label: "通用", icon: Monitor },
@@ -36,15 +37,8 @@ export function SettingsPage() {
 
   return (
     <MainLayout>
-      <div className="px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 py-8 md:py-12 max-w-6xl xl:max-w-7xl mx-auto h-full flex flex-col">
-        <header className="mb-8 md:mb-12">
-          <p className="text-[10px] font-bold text-sahara-text-muted uppercase tracking-[0.2em] mb-1">
-            配置
-          </p>
-          <h1 className="font-serif text-2xl md:text-4xl text-sahara-text">
-            应用设置
-          </h1>
-        </header>
+      <div className="mx-auto flex h-full max-w-6xl flex-col px-4 py-7 sm:px-6 md:px-8 md:py-10 lg:px-10">
+        <PageHeader eyebrow="配置" title="应用设置" description="调整主题、专注节奏、通知和本地数据。" className="mb-8" />
 
         <SettingsMobileTabs
           tabs={TABS}
@@ -52,15 +46,15 @@ export function SettingsPage() {
           onTabChange={setActiveTab}
         />
 
-        <div className="flex-1 flex gap-6 lg:gap-8 min-h-0">
+        <div className="flex min-h-0 flex-1 gap-7 lg:gap-10">
           <SettingsSidebar
             tabs={TABS}
             activeTab={activeTab}
             onTabChange={setActiveTab}
           />
 
-          <main className="flex-1 bg-sahara-surface border border-sahara-border/20 rounded-2xl md:rounded-3xl p-5 md:p-8 lg:p-10 overflow-y-auto shadow-sm shadow-sahara-primary/5">
-            <div className="max-w-2xl lg:max-w-3xl xl:max-w-4xl space-y-8 md:space-y-10">
+          <div className="flex-1 overflow-y-auto border-t border-sahara-border bg-sahara-surface py-6 md:py-8">
+            <div className="max-w-3xl space-y-8 px-1 md:px-6">
               {activeTab === "general" && (
                 <SettingsGeneralSection
                   currentTheme={settings.theme}
@@ -97,7 +91,7 @@ export function SettingsPage() {
 
               {activeTab === "privacy" && <SettingsPrivacySection />}
             </div>
-          </main>
+          </div>
         </div>
       </div>
     </MainLayout>

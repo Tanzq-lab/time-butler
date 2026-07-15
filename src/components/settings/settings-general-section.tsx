@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/cn";
-import { Moon, Sun, Monitor, Circle, Activity } from "lucide-react";
+import { Moon, Sun, Monitor, Circle, Activity, Check } from "lucide-react";
 import type { ThemeMode } from "@/features/settings/settings-types";
 
 const THEME_OPTIONS: { id: ThemeMode; label: string; icon: typeof Sun }[] = [
@@ -48,7 +48,7 @@ export function SettingsGeneralSection({
 }: SettingsGeneralProps) {
   return (
     <section>
-      <h3 className="font-serif text-xl md:text-2xl text-sahara-text mb-6 md:mb-8">
+      <h3 className="mb-6 text-xl font-semibold text-sahara-text md:text-2xl">
         外观
       </h3>
       <div className="grid grid-cols-3 gap-3 md:gap-4">
@@ -58,18 +58,21 @@ export function SettingsGeneralSection({
             variant="outline"
             intent="sahara"
             size="md"
-            shape="rounded-2xl"
+            aria-pressed={currentTheme === theme.id}
             active={currentTheme === theme.id}
             onClick={() => onThemeChange(theme.id)}
             className={cn(
-              "flex-col gap-2 md:gap-3 p-4 md:p-6",
+              "relative flex-col gap-2 rounded-md p-3.5 md:gap-3 md:p-5",
               currentTheme === theme.id
                 ? ""
-                : "bg-sahara-surface border-sahara-border/20 text-sahara-text-muted hover:border-sahara-primary/30",
+                : "border-sahara-border bg-sahara-surface text-sahara-text-muted hover:border-sahara-text-muted",
             )}
           >
+            {currentTheme === theme.id && (
+              <Check aria-hidden="true" className="absolute right-2 top-2 size-3.5" />
+            )}
             <theme.icon className="size-5 md:w-6 md:h-6" />
-            <span className="text-[9px] md:text-[10px] font-bold tracking-widest uppercase">
+            <span className="text-xs font-medium">
               {theme.label}
             </span>
           </Button>
@@ -77,7 +80,7 @@ export function SettingsGeneralSection({
       </div>
 
       <div className="mt-12">
-        <h3 className="font-serif text-xl md:text-2xl text-sahara-text mb-6 md:mb-8">
+        <h3 className="mb-6 text-xl font-semibold text-sahara-text md:text-2xl">
           计时动画样式
         </h3>
         <div className="grid grid-cols-2 gap-3 md:gap-4">
@@ -87,18 +90,21 @@ export function SettingsGeneralSection({
               variant="outline"
               intent="sahara"
               size="md"
-              shape="rounded-2xl"
+              aria-pressed={timerStyle === style.id}
               active={timerStyle === style.id}
               onClick={() => onTimerStyleChange(style.id)}
               className={cn(
-                "flex-col gap-2 md:gap-3 p-4 md:p-6",
+                "relative flex-col gap-2 rounded-md p-3.5 md:gap-3 md:p-5",
                 timerStyle === style.id
                   ? ""
-                  : "bg-sahara-surface border-sahara-border/20 text-sahara-text-muted hover:border-sahara-primary/30",
+                  : "border-sahara-border bg-sahara-surface text-sahara-text-muted hover:border-sahara-text-muted",
               )}
             >
+              {timerStyle === style.id && (
+                <Check aria-hidden="true" className="absolute right-2 top-2 size-3.5" />
+              )}
               <style.icon className="size-5 md:w-6 md:h-6" />
-              <span className="text-[9px] md:text-[10px] font-bold tracking-widest uppercase">
+              <span className="text-xs font-medium">
                 {style.label}
               </span>
             </Button>
@@ -108,16 +114,17 @@ export function SettingsGeneralSection({
 
       <div className="mt-8 space-y-5">
         {TOGGLE_ITEMS.map(({ label, desc, key }) => (
-          <div key={key} className="flex items-center justify-between py-2">
+          <div key={key} className="flex items-center justify-between border-t border-sahara-border py-4">
             <div className="flex-1">
-              <span className="font-bold text-sahara-text-secondary text-sm block">
+              <span className="block text-sm font-medium text-sahara-text">
                 {label}
               </span>
-              <span className="text-[11px] text-sahara-text-muted mt-0.5 block">
+              <span className="mt-0.5 block text-xs text-sahara-text-secondary">
                 {desc}
               </span>
             </div>
             <Switch
+              ariaLabel={label}
               checked={settings[key]}
               onCheckedChange={(v) => onToggle(key, v)}
               className="ml-4"

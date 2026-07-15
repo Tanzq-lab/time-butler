@@ -16,7 +16,7 @@ export function FullscreenTaskLabel() {
         <span className="text-sahara-border">--</span>
       )}
       {selectedCategory && (
-        <span className="inline-flex items-center rounded-full bg-sahara-primary-light px-2.5 py-0.5 text-[11px] md:text-sm font-semibold tracking-wider text-sahara-primary uppercase">
+        <span className="inline-flex items-center rounded-full bg-sahara-card px-2.5 py-0.5 text-[11px] font-semibold text-sahara-text md:text-sm">
           {selectedCategory.name}
         </span>
       )}

@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Timer,
@@ -44,19 +44,21 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
       initial={{ x: -300, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: -300, opacity: 0 }}
-      transition={{ type: "spring", damping: 30, stiffness: 200 }}
+      transition={{ duration: 0.18, ease: "easeOut" }}
       className={cn(
-        "hidden md:flex border-r border-sahara-border/30 flex-col py-8 bg-sahara-bg/50 backdrop-blur-sm relative z-10",
-        isCollapsed ? "w-20" : "w-64",
+        "relative z-10 hidden shrink-0 flex-col border-r border-sahara-border bg-sahara-card pb-4 md:flex",
+        isCollapsed ? "w-16" : "w-56",
       )}
     >
+      <div className="h-8 shrink-0" data-tauri-drag-region />
+
       <Button
-        variant="outline"
-        size="icon-lg"
+        variant="ghost"
+        size="icon"
         intent="default"
-        shape="rounded-full"
         onClick={onToggleCollapse}
-        className="absolute -right-3.5 top-20 z-50 size-7 bg-sahara-surface shadow-sm hover:text-sahara-primary hover:border-sahara-primary/40 hover:shadow-md"
+        aria-label={isCollapsed ? "展开侧边栏" : "收起侧边栏"}
+        className="absolute -right-3 top-10 z-50 size-6 rounded-md border border-sahara-border bg-sahara-surface text-sahara-text-muted hover:text-sahara-text"
       >
         {isCollapsed ? (
           <PanelLeftOpen className="size-3.5" />
@@ -67,69 +69,52 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
 
       <div
         className={cn(
-          "mb-12 transition-all duration-300",
-          isCollapsed ? "px-4 flex justify-center" : "px-8",
+          "mb-6 flex h-10 items-center",
+          isCollapsed ? "justify-center px-3" : "gap-2.5 px-4",
         )}
       >
-        {isCollapsed ? (
-          <div className="size-10 rounded-full border-2 border-sahara-primary flex items-center justify-center font-serif text-xl font-bold text-sahara-primary shadow-sm bg-sahara-surface">
-            时
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sahara-primary text-sm font-semibold text-sahara-bg">
+          T
+        </div>
+        {!isCollapsed && (
+          <div className="min-w-0">
+            <h1 className="truncate text-sm font-semibold text-sahara-text">Time Butler</h1>
+            <p className="truncate text-xs text-sahara-text-secondary">专注工作台</p>
           </div>
-        ) : (
-          <>
-            <h1 className="font-serif text-2xl tracking-tight text-sahara-primary">
-              Time-butler
-            </h1>
-            <p className="text-[10px] tracking-[0.2em] font-bold text-sahara-text-muted mt-1 uppercase whitespace-nowrap">
-              把时间交还给你
-            </p>
-          </>
         )}
       </div>
 
-      <nav className="flex-1 px-3 space-y-1">
+      <nav aria-label="主要导航" className="flex-1 space-y-0.5 px-2">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
-          const isActive = location.pathname === item.path;
           return (
-            <Button
+            <NavLink
               key={item.path}
-              variant="nav"
-              active={isActive}
-              onClick={() => navigate(item.path)}
               title={isCollapsed ? item.label : undefined}
-              className={cn(
-                "overflow-hidden justify-start",
-                isCollapsed ? "justify-center p-3" : "gap-4 px-4 py-3",
+              to={item.path}
+              end={item.path === "/"}
+              className={({ isActive }) => cn(
+                "group flex h-9 items-center rounded-md text-sm outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-sahara-focus focus-visible:ring-offset-2 focus-visible:ring-offset-sahara-card",
+                isCollapsed ? "justify-center px-2" : "gap-3 px-2.5",
                 isActive
-                  ? ""
-                  : "text-sahara-text-secondary hover:bg-sahara-card hover:text-sahara-text",
+                  ? "bg-sahara-surface text-sahara-text shadow-[inset_0_0_0_1px_var(--color-sahara-border)]"
+                  : "text-sahara-text-secondary hover:bg-sahara-surface/70 hover:text-sahara-text",
               )}
             >
-              <Icon
-                className={cn(
-                  "size-5 shrink-0 transition-colors",
-                  isActive
-                    ? "text-sahara-primary"
-                    : "text-sahara-text-muted group-hover:text-sahara-text-secondary",
-                )}
-              />
+              <Icon aria-hidden="true" className="size-4 shrink-0" strokeWidth={1.8} />
               {!isCollapsed && (
-                <span className="text-xs tracking-widest font-bold uppercase whitespace-nowrap">
-                  {item.label}
-                </span>
+                <span className="truncate">{item.label}</span>
               )}
-            </Button>
+            </NavLink>
           );
         })}
       </nav>
 
-      <div className="px-3 mb-8">
+      <div className="mb-4 px-2">
         <Button
-          variant="solid"
-          intent="sahara"
+          variant="outline"
+          intent="default"
           fullWidth
-          shape="rounded-full"
           disabled={isRunning}
           onClick={() => {
             if (location.pathname !== "/") {
@@ -145,9 +130,9 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
               : undefined
           }
           className={cn(
-            "tracking-widest text-[10px] sm:text-xs font-bold shadow-lg shadow-sahara-primary/20 hover:shadow-xl transition-all",
-            isCollapsed ? "h-12" : "py-4 gap-2",
-            isRunning && "opacity-50 cursor-not-allowed shadow-none",
+            "h-9 border-sahara-border bg-sahara-surface text-xs font-medium text-sahara-text hover:bg-sahara-card",
+            isCollapsed ? "px-0" : "gap-2 px-3",
+            isRunning && "cursor-not-allowed opacity-50",
           )}
         >
           <Play
@@ -162,57 +147,32 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
         </Button>
       </div>
 
-      <div className="px-3 space-y-1 border-t border-sahara-border/20 pt-6">
-        <Button
-          variant="nav"
-          intent="default"
-          onClick={() => navigate("/onboarding")}
+      <nav aria-label="辅助导航" className="space-y-0.5 border-t border-sahara-border px-2 pt-3">
+        <NavLink
+          to="/onboarding"
           title={isCollapsed ? "帮助" : undefined}
-          className={cn(
-            "rounded-none justify-start",
-            isCollapsed ? "justify-center p-3" : "gap-4 px-4 py-3",
+          className={({ isActive }) => cn(
+            "flex h-9 items-center rounded-md text-sm outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-sahara-focus",
+            isCollapsed ? "justify-center px-2" : "gap-3 px-2.5",
+            isActive ? "bg-sahara-surface text-sahara-text" : "text-sahara-text-secondary hover:bg-sahara-surface/70 hover:text-sahara-text",
           )}
         >
-          <HelpCircle
-            className={cn(
-              "size-5 shrink-0",
-              isCollapsed
-                ? "text-sahara-text-muted group-hover:text-sahara-text-secondary"
-                : "",
-            )}
-          />
-          {!isCollapsed && (
-            <span className="text-xs tracking-widest font-bold">帮助</span>
-          )}
-        </Button>
-        <Button
-          variant="nav"
-          active={location.pathname === "/settings"}
-          onClick={() => navigate("/settings")}
+          <HelpCircle aria-hidden="true" className="size-4 shrink-0" strokeWidth={1.8} />
+          {!isCollapsed && <span>帮助</span>}
+        </NavLink>
+        <NavLink
+          to="/settings"
           title={isCollapsed ? "设置" : undefined}
-          className={cn(
-            "justify-start",
-            isCollapsed ? "justify-center p-3" : "gap-4 px-4 py-3",
-            location.pathname === "/settings"
-              ? ""
-              : "text-sahara-text-muted hover:text-sahara-text-secondary",
+          className={({ isActive }) => cn(
+            "flex h-9 items-center rounded-md text-sm outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-sahara-focus",
+            isCollapsed ? "justify-center px-2" : "gap-3 px-2.5",
+            isActive ? "bg-sahara-surface text-sahara-text" : "text-sahara-text-secondary hover:bg-sahara-surface/70 hover:text-sahara-text",
           )}
         >
-          <Settings
-            className={cn(
-              "size-5 shrink-0",
-              location.pathname === "/settings"
-                ? "text-sahara-primary"
-                : "text-sahara-text-muted group-hover:text-sahara-text-secondary",
-            )}
-          />
-          {!isCollapsed && (
-            <span className="text-xs tracking-widest font-bold">
-              设置
-            </span>
-          )}
-        </Button>
-      </div>
+          <Settings aria-hidden="true" className="size-4 shrink-0" strokeWidth={1.8} />
+          {!isCollapsed && <span>设置</span>}
+        </NavLink>
+      </nav>
     </m.aside>
   );
 }

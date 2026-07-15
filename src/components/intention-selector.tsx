@@ -45,10 +45,11 @@ export function IntentionSelector({
         active={!!selectedCategory}
         onClick={() => { if (!disabled) { loadCategories(); setIsOpen(true); } }}
         disabled={disabled}
+        aria-pressed={!!selectedCategory}
+        title={selectedCategory?.name}
         className={cn(
-          "text-left gap-1.5",
-          !selectedCategory && "border border-sahara-border/20 bg-sahara-surface/30 hover:border-sahara-primary/30 hover:bg-sahara-surface/50",
-          selectedCategory && "hover:shadow-md",
+          "min-w-0 max-w-40 gap-1.5 text-left",
+          !selectedCategory && "border border-sahara-border bg-sahara-surface hover:bg-sahara-card",
         )}
       >
         {selectedCategory ? (
@@ -57,24 +58,24 @@ export function IntentionSelector({
               className="size-2.5 rounded-full shrink-0"
               style={{ backgroundColor: selectedCategory.color }}
             />
-            <span className="text-xs font-bold text-sahara-text tracking-wide">
+            <span className="truncate text-xs font-semibold text-current">
               {selectedCategory.name}
             </span>
-            <ChevronDown className="size-3 text-sahara-text-muted" />
+            <ChevronDown className="size-3 shrink-0 text-current opacity-65" />
           </>
         ) : (
           <>
-            <span className="text-[11px] font-medium text-sahara-text-muted tracking-wide">
+            <span className="text-[11px] font-medium text-sahara-text-secondary">
               设置意图
             </span>
-            <ChevronDown className="size-3 text-sahara-text-muted" />
+            <ChevronDown className="size-3 text-sahara-text-secondary" />
           </>
         )}
       </Button>
 
       <ModalOverlay open={isOpen} onClose={() => setIsOpen(false)} showCloseButton>
         <div className="px-6 py-5 border-b border-sahara-border/20">
-          <h2 className="font-serif text-xl text-sahara-text">
+          <h2 className="text-xl font-semibold text-sahara-text">
             设置意图
           </h2>
         </div>
@@ -83,10 +84,13 @@ export function IntentionSelector({
           <div className="relative">
             <input
               type="text"
+              name="category-search"
+              autoComplete="off"
+              aria-label="筛选分类"
               placeholder="筛选分类"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-sahara-border/30 bg-sahara-bg/50 text-sm font-medium placeholder:text-sahara-text-muted focus:outline-none focus:border-sahara-primary/50 focus:ring-2 focus:ring-sahara-primary/10 transition-all"
+              className="w-full rounded-md border border-sahara-border bg-sahara-surface px-4 py-3 text-sm font-medium outline-none transition-colors duration-150 placeholder:text-sahara-text-muted focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
             />
           </div>
         </div>
@@ -118,14 +122,14 @@ export function IntentionSelector({
                   className={cn(
                     "text-sm font-medium",
                     selectedCategory?.id === category.id
-                      ? "text-sahara-primary font-bold"
+                      ? "font-semibold text-sahara-text"
                       : "text-sahara-text",
                   )}
                 >
                   {category.name}
                 </span>
                 {selectedCategory?.id === category.id && (
-                  <span className="text-[10px] font-bold tracking-wider uppercase text-sahara-primary bg-sahara-primary/10 px-2 py-0.5 rounded-full">
+                  <span className="rounded-md bg-sahara-card px-2 py-0.5 text-[10px] font-medium text-sahara-text-secondary">
                     已选择
                   </span>
                 )}
@@ -134,7 +138,7 @@ export function IntentionSelector({
           ))}
 
           {filteredCategories.length === 0 && (
-            <p className="text-center text-sm text-sahara-text-muted py-6">
+            <p className="py-6 text-center text-sm text-sahara-text-secondary">
               没有找到分类
             </p>
           )}
@@ -143,13 +147,13 @@ export function IntentionSelector({
         <div className="px-6 pb-6">
           <Button
             variant="solid"
-            intent="green"
+            intent="sahara"
             fullWidth
             onClick={() => {
               setIsOpen(false);
               setShowManager(true);
             }}
-            className="gap-2 bg-green-500/90 hover:bg-green-500"
+            className="gap-2"
           >
             <Plus className="size-4" />
             管理分类

@@ -1162,7 +1162,7 @@ export default function DocumentNoteEditor({
           contentEditable
           suppressContentEditableWarning
           spellCheck
-          data-placeholder="开始记录..."
+          data-placeholder="开始记录…"
           onFocus={() => {
             isFocusedRef.current = true;
           }}

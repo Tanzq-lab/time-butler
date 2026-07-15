@@ -21,6 +21,10 @@ import {
   Save,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AddTaskModal, type AddTaskData } from "@/components/base/add-task-modal";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ModalOverlay } from "@/components/ui/modal-overlay";
+import { PageHeader } from "@/components/ui/page-header";
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
 import { cn } from "@/lib/cn";
 import type { TimePage } from "@/lib/db";
@@ -29,6 +33,7 @@ import { getWeekDateRangeFromKey, toLocalISODate } from "@/lib/time-pages";
 import { isTaskDone } from "@/features/tasks/task-completion";
 import type { Task } from "@/features/tasks/task-types";
 import { useTaskStore } from "@/features/tasks/use-task-store";
+import { useCategoriesStore } from "@/features/categories/use-categories-store";
 import { useTimerStore } from "@/features/timer/use-timer-store";
 import { useTimePageStore } from "@/features/time-pages/use-time-page-store";
 
@@ -143,10 +148,10 @@ function PageTreeButton({
       onClick={onClick}
       title={collapsed ? `${page.title} · ${formatPageType(page.type)}` : undefined}
       className={cn(
-        "w-full flex items-center gap-2 rounded-xl text-left text-sm transition-colors",
-        collapsed ? "justify-start px-2 py-2 text-xs" : "px-3 py-2",
+        "flex w-full items-center gap-2 rounded-md text-left text-sm outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-sahara-focus",
+        collapsed ? "justify-start px-2 py-2 text-xs" : "px-3 py-1.5",
         active
-          ? "bg-sahara-primary-light text-sahara-primary font-bold"
+          ? "bg-sahara-surface font-medium text-sahara-text"
           : "text-sahara-text-secondary hover:bg-sahara-card hover:text-sahara-text",
       )}
       style={collapsed ? undefined : { paddingLeft: `${12 + depth * 18}px` }}
@@ -162,7 +167,7 @@ function PageTreeButton({
       )}
       <span className="min-w-0 flex-1 truncate">{page.title}</span>
       {!collapsed && (
-        <span className="text-[10px] text-sahara-text-muted shrink-0">
+        <span className="shrink-0 text-[10px] text-sahara-text-secondary">
           {formatPageType(page.type)}
         </span>
       )}
@@ -196,7 +201,7 @@ function TaskCard({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-sahara-border/20 bg-sahara-surface p-4 shadow-sm shadow-sahara-primary/5",
+        "border-b border-sahara-border bg-sahara-surface px-1 py-4",
         done && "opacity-70",
       )}
     >
@@ -205,7 +210,8 @@ function TaskCard({
           type="button"
           onClick={onComplete}
           disabled={done}
-          className="mt-1 text-sahara-primary disabled:text-green-500 disabled:cursor-default cursor-pointer"
+          aria-label={done ? `已完成：${task.name}` : `完成任务：${task.name}`}
+          className="mt-1 cursor-pointer rounded-md text-sahara-text-muted outline-none hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus disabled:cursor-default disabled:text-green-600"
           title={done ? "已完成" : "完成任务"}
         >
           {done ? <CheckCircle2 className="size-5" /> : <Circle className="size-5" />}
@@ -214,20 +220,20 @@ function TaskCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             {task.project && (
-              <span className="rounded-full bg-sahara-card px-2 py-0.5 text-[10px] font-bold text-sahara-text-muted">
+              <span className="rounded-md bg-sahara-card px-2 py-0.5 text-[10px] font-medium text-sahara-text-muted">
                 {task.project}
               </span>
             )}
           </div>
           <h4
             className={cn(
-              "mt-2 font-serif text-lg leading-snug text-sahara-text",
+              "mt-2 text-base font-medium leading-snug text-sahara-text",
               done && "line-through text-sahara-text-muted",
             )}
           >
             {task.name}
           </h4>
-          <div className="mt-2 flex items-center gap-3 text-xs font-bold text-sahara-text-muted">
+          <div className="mt-2 flex items-center gap-3 text-xs text-sahara-text-muted">
             <span className="inline-flex items-center gap-1">
               <Clock3 className="size-3.5" />
               {task.completed_pomos}/{task.estimated_pomos} 个番茄
@@ -235,7 +241,7 @@ function TaskCard({
             {task.scheduled_for && <span>{dateKeyFromValue(task.scheduled_for)}</span>}
           </div>
           {done && task.completion_review && (
-            <div className="mt-3 max-h-24 overflow-hidden rounded-xl border border-sahara-border/10 bg-sahara-card/45 px-3 py-2">
+            <div className="mt-3 max-h-24 overflow-hidden rounded-[10px] border border-sahara-border bg-sahara-card px-3 py-2">
               <MarkdownRenderer
                 content={task.completion_review}
                 variant="compact"
@@ -249,24 +255,24 @@ function TaskCard({
       <div className="mt-4 flex flex-wrap gap-2 pl-8">
         {!done && (
           <>
-            <Button variant="outline" intent="sahara" size="xs" shape="rounded-full" onClick={onFocus}>
+            <Button variant="outline" intent="sahara" size="xs" onClick={onFocus}>
               专注
             </Button>
-            <Button variant="outline" intent="default" size="xs" shape="rounded-full" onClick={onMoveToday}>
+            <Button variant="outline" intent="default" size="xs" onClick={onMoveToday}>
               迁移到今天
             </Button>
-            <Button variant="outline" intent="default" size="xs" shape="rounded-full" onClick={onMoveTomorrow}>
+            <Button variant="outline" intent="default" size="xs" onClick={onMoveTomorrow}>
               迁移到明天
             </Button>
-            <Button variant="outline" intent="default" size="xs" shape="rounded-full" onClick={onMoveCustomDate}>
+            <Button variant="outline" intent="default" size="xs" onClick={onMoveCustomDate}>
               指定日期
             </Button>
           </>
         )}
-        <Button variant="ghost" intent="default" size="xs" shape="rounded-full" onClick={onEdit}>
+        <Button variant="ghost" intent="default" size="xs" onClick={onEdit}>
           编辑
         </Button>
-        <Button variant="ghost" intent="red" size="xs" shape="rounded-full" onClick={onDelete}>
+        <Button variant="ghost" intent="red" size="xs" onClick={onDelete}>
           删除
         </Button>
       </div>
@@ -302,8 +308,8 @@ function PlanningTaskList({
 
   if (tasks.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-sahara-border/40 bg-sahara-card/40 p-8 text-center">
-        <p className="text-sm font-bold text-sahara-text-muted">{emptyLabel}</p>
+      <div className="rounded-md border border-dashed border-sahara-border p-8 text-center">
+        <p className="text-sm text-sahara-text-muted">{emptyLabel}</p>
       </div>
     );
   }
@@ -343,13 +349,13 @@ function MarkdownSection({
   onBlur,
 }: MarkdownSectionProps) {
   return (
-    <section className="flex h-[calc(100vh-14rem)] min-h-[30rem] flex-1 flex-col overflow-hidden rounded-2xl bg-sahara-surface">
-      <div className="shrink-0 px-5 pt-5 md:px-8 md:pt-7">
+    <section className="flex h-[calc(100dvh-13rem)] min-h-[26rem] flex-1 flex-col overflow-hidden bg-sahara-surface lg:h-[calc(100vh-12rem)] lg:min-h-[30rem]">
+      <div className="shrink-0 px-4 pt-4 md:px-8 md:pt-7">
         <div className="mx-auto flex max-w-3xl items-start justify-between gap-3">
-          <h2 className="min-w-0 flex-1 truncate text-2xl font-bold text-sahara-text md:text-3xl">
+          <h2 className="min-w-0 flex-1 truncate text-2xl font-semibold tracking-tight text-sahara-text md:text-3xl">
             {activePage.title}
           </h2>
-          <div className="mt-2 flex shrink-0 items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-sahara-text-muted">
+          <div aria-live="polite" className="mt-2 flex shrink-0 items-center gap-1.5 text-xs text-sahara-text-secondary">
             <Save className="size-3.5" />
             <span>{saveLabel}</span>
           </div>
@@ -400,6 +406,14 @@ export function TimePlanningWorkspace() {
   const [loadedDraftContent, setLoadedDraftContent] = useState("");
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [isPageTreeCollapsed, setIsPageTreeCollapsed] = useState(false);
+  const [pageTreeOpen, setPageTreeOpen] = useState(false);
+  const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+  const [taskToMove, setTaskToMove] = useState<Task | null>(null);
+  const [moveDate, setMoveDate] = useState("");
+  const [moveDateError, setMoveDateError] = useState("");
+  const categories = useCategoriesStore((state) => state.categories);
+  const loadCategories = useCategoriesStore((state) => state.loadCategories);
 
   const activePage = useMemo(
     () => pages.find((page) => page.id === activePageId) ?? null,
@@ -410,6 +424,18 @@ export function TimePlanningWorkspace() {
     Boolean(activePage) &&
     draftPageId === activePage?.id &&
     draftContent !== loadedDraftContent;
+
+  useEffect(() => {
+    if (!hasUnsavedDraft) return;
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedDraft]);
 
   const pageTree = useMemo(() => {
     return buildPageTree(pages, overviewPageId);
@@ -451,7 +477,8 @@ export function TimePlanningWorkspace() {
   useEffect(() => {
     void loadWorkspace();
     void loadTasks();
-  }, [loadTasks, loadWorkspace]);
+    void loadCategories();
+  }, [loadCategories, loadTasks, loadWorkspace]);
 
   const refreshWorkspace = useCallback(async () => {
     if (hasUnsavedDraft) return;
@@ -529,22 +556,32 @@ export function TimePlanningWorkspace() {
     await setActiveTask(null);
   };
 
-  const handleEditTask = async (task: Task) => {
-    const nextName = window.prompt("修改任务名称", task.name);
-    if (nextName === null) return;
-    const trimmedName = nextName.trim();
-    if (!trimmedName) return;
-
-    const nextPomosText = window.prompt("修改预计番茄数", String(task.estimated_pomos));
-    if (nextPomosText === null) return;
-    const nextPomos = Math.max(1, Number(nextPomosText) || task.estimated_pomos);
-
-    await updateTask(task.id, trimmedName, nextPomos);
+  const handleEditTask = (task: Task) => {
+    setTaskToEdit(task);
   };
 
-  const handleDeleteTask = async (task: Task) => {
-    if (!window.confirm(`删除任务「${task.name}」？`)) return;
-    await deleteTask(task.id);
+  const handleSubmitEditTask = async (data: AddTaskData) => {
+    if (!taskToEdit) return;
+    await updateTask(
+      taskToEdit.id,
+      data.name,
+      data.estimatedPomos,
+      data.project || null,
+      data.priority || null,
+      data.categoryId,
+      taskToEdit.scheduled_for,
+    );
+    setTaskToEdit(null);
+  };
+
+  const handleDeleteTask = (task: Task) => {
+    setTaskToDelete(task);
+  };
+
+  const confirmDeleteTask = async () => {
+    if (!taskToDelete) return;
+    await deleteTask(taskToDelete.id);
+    setTaskToDelete(null);
   };
 
   const handleFocusTask = async (task: Task) => {
@@ -567,13 +604,20 @@ export function TimePlanningWorkspace() {
   };
 
   const handleMoveTaskCustomDate = async (task: Task) => {
-    const nextDate = window.prompt("迁移到哪一天？请输入 YYYY-MM-DD", workspaceKeys.day);
-    if (!nextDate) return;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDate)) {
-      window.alert("日期格式需要是 YYYY-MM-DD");
+    setTaskToMove(task);
+    setMoveDate(workspaceKeys.day);
+    setMoveDateError("");
+  };
+
+  const confirmMoveTask = async () => {
+    if (!taskToMove) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(moveDate)) {
+      setMoveDateError("请选择有效日期");
       return;
     }
-    await handleMoveTask(task, nextDate);
+    await handleMoveTask(taskToMove, moveDate);
+    setTaskToMove(null);
+    setMoveDateError("");
   };
 
   const saveLabel = saveState === "saving" ? "保存中" : saveState === "saved" ? "已保存" : "";
@@ -597,19 +641,96 @@ export function TimePlanningWorkspace() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-8rem)] flex-col">
-      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-sahara-text-muted">
-            记录
+    <>
+      <AddTaskModal
+        open={!!taskToEdit}
+        onClose={() => setTaskToEdit(null)}
+        onSubmit={handleSubmitEditTask}
+        editTask={taskToEdit}
+        categories={categories}
+      />
+      <ConfirmDialog
+        open={!!taskToDelete}
+        title="删除任务？"
+        description={taskToDelete ? `“${taskToDelete.name}”将被永久删除。` : ""}
+        confirmLabel="删除任务"
+        destructive
+        onClose={() => setTaskToDelete(null)}
+        onConfirm={confirmDeleteTask}
+      />
+      <ModalOverlay
+        open={!!taskToMove}
+        onClose={() => setTaskToMove(null)}
+        maxWidth="max-w-sm"
+        ariaLabel="指定迁移日期"
+      >
+        <div className="p-5 md:p-6">
+          <h2 className="text-lg font-semibold text-sahara-text">迁移任务</h2>
+          <p className="mt-1 text-sm text-sahara-text-secondary">
+            {taskToMove ? `为“${taskToMove.name}”选择新的日期。` : "选择新的日期。"}
           </p>
-          <h1 className="mt-1 truncate text-base font-bold text-sahara-text md:text-lg">
-            时间计划工作台
-          </h1>
+          <label htmlFor="move-task-date" className="mt-5 block text-xs font-medium text-sahara-text-secondary">
+            日期
+          </label>
+          <input
+            id="move-task-date"
+            type="date"
+            name="move-task-date"
+            value={moveDate}
+            onChange={(event) => {
+              setMoveDate(event.target.value);
+              setMoveDateError("");
+            }}
+            className="mt-1.5 h-10 w-full rounded-md border border-sahara-border bg-sahara-surface px-3 font-mono text-sm text-sahara-text outline-none focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
+          />
+          {moveDateError && <p role="alert" className="mt-2 text-xs text-red-600">{moveDateError}</p>}
+          <div className="mt-6 flex justify-end gap-2">
+            <Button variant="outline" intent="default" size="sm" onClick={() => setTaskToMove(null)}>取消</Button>
+            <Button variant="solid" intent="sahara" size="sm" onClick={() => void confirmMoveTask()}>迁移</Button>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2 md:justify-end">
+      </ModalOverlay>
+
+      <ModalOverlay
+        open={pageTreeOpen}
+        onClose={() => setPageTreeOpen(false)}
+        placement="bottom"
+        maxWidth="max-w-lg"
+        ariaLabel="选择记录页面"
+        showCloseButton
+      >
+        <div className="px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-5">
+          <div className="pr-10">
+            <h2 className="text-base font-semibold text-sahara-text">页面</h2>
+            <p className="mt-1 text-xs text-sahara-text-secondary">
+              {workspaceKeys.week} / {workspaceKeys.day}
+            </p>
+          </div>
+          <div className="mt-4 max-h-[58dvh] space-y-1 overflow-y-auto overscroll-contain">
+            {pageTree.map(({ page, depth }) => (
+              <PageTreeButton
+                key={page.id}
+                page={page}
+                active={page.id === activePage.id}
+                depth={depth}
+                onClick={() => {
+                  void handleSelectPage(page.id).then(() => setPageTreeOpen(false));
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      </ModalOverlay>
+
+      <div className="flex min-h-[calc(100vh-8rem)] flex-col">
+        <PageHeader
+          eyebrow="记录"
+          title="时间计划工作台"
+          description="沿着年、月、周、日的链路记录，并把下一步直接带回任务。"
+          className="mb-5"
+          actions={<div className="flex flex-wrap gap-2 md:justify-end">
           {overviewPageId && (
-            <Button variant="outline" intent="default" size="sm" shape="rounded-full" onClick={() => void handleSelectPage(overviewPageId)}>
+            <Button variant="outline" intent="default" size="sm" onClick={() => void handleSelectPage(overviewPageId)}>
               总览
             </Button>
           )}
@@ -617,7 +738,6 @@ export function TimePlanningWorkspace() {
             variant="outline"
             intent="default"
             size="icon-sm"
-            shape="rounded-full"
             onClick={() => void refreshWorkspace()}
             disabled={hasUnsavedDraft || loading}
             title={hasUnsavedDraft ? "有未保存内容，保存后再刷新" : "刷新页面内容"}
@@ -626,29 +746,49 @@ export function TimePlanningWorkspace() {
             <RefreshCw className={cn("size-4", loading && "animate-spin")} />
           </Button>
           {dayPageId && (
-            <Button variant="solid" intent="sahara" size="sm" shape="rounded-full" onClick={() => void handleSelectPage(dayPageId)}>
+            <Button variant="solid" intent="sahara" size="sm" onClick={() => void handleSelectPage(dayPageId)}>
               进入今天
             </Button>
           )}
           {weekPageId && (
-            <Button variant="outline" intent="sahara" size="sm" shape="rounded-full" onClick={() => void handleSelectPage(weekPageId)}>
+            <Button variant="outline" intent="sahara" size="sm" onClick={() => void handleSelectPage(weekPageId)}>
               本周
             </Button>
           )}
+          </div>}
+        />
+
+        <div className="mb-3 flex min-w-0 items-center gap-3 lg:hidden">
+          <Button
+            variant="outline"
+            intent="default"
+            size="sm"
+            onClick={() => setPageTreeOpen(true)}
+            aria-haspopup="dialog"
+            aria-expanded={pageTreeOpen}
+          >
+            <FolderTree className="size-4" />
+            页面
+          </Button>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-sahara-text">{activePage.title}</p>
+            <p className="truncate font-mono text-[11px] text-sahara-text-secondary">
+              {workspaceKeys.week} / {workspaceKeys.day}
+            </p>
+          </div>
         </div>
-      </div>
 
       <div
         className={cn(
-          "grid min-h-0 flex-1 gap-5",
+          "grid min-h-0 flex-1 overflow-hidden border border-sahara-border bg-sahara-surface",
           isPageTreeCollapsed
-            ? "lg:grid-cols-[10rem_minmax(0,1fr)]"
-            : "lg:grid-cols-[20rem_minmax(0,1fr)]",
+            ? "lg:grid-cols-[9rem_minmax(0,1fr)]"
+            : "lg:grid-cols-[17rem_minmax(0,1fr)]",
         )}
       >
         <aside
           className={cn(
-            "min-h-64 rounded-3xl border border-sahara-border/20 bg-sahara-surface shadow-sm shadow-sahara-primary/5 transition-all lg:min-h-0",
+            "hidden min-h-0 border-r border-sahara-border bg-sahara-card transition-[width] duration-150 lg:block",
             isPageTreeCollapsed ? "p-2" : "p-3",
           )}
         >
@@ -661,7 +801,7 @@ export function TimePlanningWorkspace() {
             {!isPageTreeCollapsed && (
               <>
                 <FolderTree className="size-4 text-sahara-primary" />
-                <h2 className="min-w-0 flex-1 text-xs font-bold uppercase tracking-[0.2em] text-sahara-text-muted">
+                <h2 className="min-w-0 flex-1 text-xs font-semibold text-sahara-text-secondary">
                   页面树
                 </h2>
               </>
@@ -670,7 +810,6 @@ export function TimePlanningWorkspace() {
               variant="ghost"
               intent="default"
               size="icon-sm"
-              shape="rounded-full"
               onClick={() => setIsPageTreeCollapsed((collapsed) => !collapsed)}
               title={isPageTreeCollapsed ? "展开页面树" : "收起页面树"}
               aria-label={isPageTreeCollapsed ? "展开页面树" : "收起页面树"}
@@ -697,52 +836,39 @@ export function TimePlanningWorkspace() {
           </div>
 
           {!isPageTreeCollapsed && (
-            <div className="mt-5 rounded-2xl bg-sahara-card/50 p-4">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-sahara-text-muted">
-                当前链路
+            <div className="mt-5 border-t border-sahara-border px-3 pt-4">
+              <p className="text-xs text-sahara-text-secondary">当前链路</p>
+              <p className="mt-1 break-words font-mono text-[11px] leading-5 text-sahara-text-secondary">
+                {workspaceKeys.year} / {workspaceKeys.month} / {workspaceKeys.week} / {workspaceKeys.day}
               </p>
-              <div className="mt-3 space-y-2 text-sm text-sahara-text-secondary">
-                <div className="flex items-center justify-between gap-2">
-                  <span>今年</span>
-                  <span className="font-bold text-sahara-text">{workspaceKeys.year}</span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span>本月</span>
-                  <span className="font-bold text-sahara-text">{workspaceKeys.month}</span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span>本周</span>
-                  <span className="font-bold text-sahara-text">{workspaceKeys.week}</span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span>今天</span>
-                  <span className="font-bold text-sahara-text">{workspaceKeys.day}</span>
-                </div>
-              </div>
             </div>
           )}
         </aside>
 
-        <main className="flex min-h-0 min-w-0 max-w-full flex-col gap-4 overflow-x-hidden">
+        <div className="flex min-h-0 min-w-0 max-w-full flex-col gap-4 overflow-x-hidden bg-sahara-surface p-4 md:p-6">
           {activePage.type === "overview" && (
-            <section className="grid gap-4 md:grid-cols-2">
+            <section className="grid gap-2 md:grid-cols-2">
               <button
                 type="button"
                 onClick={() => dayPageId && void handleSelectPage(dayPageId)}
-                className="rounded-3xl border border-sahara-border/20 bg-sahara-surface p-5 text-left shadow-sm shadow-sahara-primary/5 transition-colors hover:border-sahara-primary/30"
+                className="rounded-md border border-sahara-border bg-sahara-surface p-4 text-left outline-none transition-colors duration-150 hover:bg-sahara-card focus-visible:ring-2 focus-visible:ring-sahara-focus"
               >
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-sahara-text-muted">Today</p>
-                <h3 className="mt-2 font-serif text-2xl text-sahara-text">今日任务</h3>
-                <p className="mt-2 text-sm font-bold text-sahara-primary">{currentDayTasks.length} 个待完成</p>
+                <p className="text-xs text-sahara-text-secondary">今天</p>
+                <div className="mt-1 flex items-baseline justify-between gap-3">
+                  <h3 className="text-base font-semibold text-sahara-text">今日任务</h3>
+                  <p className="text-sm text-sahara-text-secondary">{currentDayTasks.length} 个待完成</p>
+                </div>
               </button>
               <button
                 type="button"
                 onClick={() => weekPageId && void handleSelectPage(weekPageId)}
-                className="rounded-3xl border border-sahara-border/20 bg-sahara-surface p-5 text-left shadow-sm shadow-sahara-primary/5 transition-colors hover:border-sahara-primary/30"
+                className="rounded-md border border-sahara-border bg-sahara-surface p-4 text-left outline-none transition-colors duration-150 hover:bg-sahara-card focus-visible:ring-2 focus-visible:ring-sahara-focus"
               >
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-sahara-text-muted">Week</p>
-                <h3 className="mt-2 font-serif text-2xl text-sahara-text">本周完成</h3>
-                <p className="mt-2 text-sm font-bold text-green-600">{completedWeekTasks.length} 个已完成</p>
+                <p className="text-xs text-sahara-text-secondary">本周</p>
+                <div className="mt-1 flex items-baseline justify-between gap-3">
+                  <h3 className="text-base font-semibold text-sahara-text">本周完成</h3>
+                  <p className="text-sm text-green-600">{completedWeekTasks.length} 个已完成</p>
+                </div>
               </button>
             </section>
           )}
@@ -756,12 +882,12 @@ export function TimePlanningWorkspace() {
                 onChange={setDraftContent}
                 onBlur={() => void persistDraft()}
               />
-              <section className="rounded-3xl border border-sahara-border/20 bg-sahara-card/35 p-5 md:p-6">
+              <section className="border-t border-sahara-border p-5 md:p-6">
                 <div className="mb-4">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-sahara-text-muted">
-                    Done This Week
+                  <p className="text-xs text-sahara-text-muted">
+                    本周完成
                   </p>
-                  <h2 className="font-serif text-2xl text-sahara-text">本周完成任务</h2>
+                  <h2 className="mt-1 text-xl font-semibold text-sahara-text">本周完成任务</h2>
                   <p className="mt-1 text-xs text-sahara-text-muted">
                     统计范围：{weekRange.start} 至 {weekRange.end}
                   </p>
@@ -789,8 +915,9 @@ export function TimePlanningWorkspace() {
               onBlur={() => void persistDraft()}
             />
           )}
-        </main>
+        </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

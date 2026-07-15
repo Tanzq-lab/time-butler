@@ -1,13 +1,12 @@
 import {
   useReducer,
   useEffect,
-  useEffectEvent,
-  useCallback,
   useMemo,
 } from "react";
 import type React from "react";
-import { Edit3, Plus, Tag, X } from "lucide-react";
+import { Edit3, Plus, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ModalOverlay } from "@/components/ui/modal-overlay";
 import type { Task } from "@/features/tasks/task-types";
 import type { Category } from "@/lib/db/types";
 
@@ -91,30 +90,10 @@ export function AddTaskModal({
     initialStateForTask(editTask),
   );
 
-  const onCloseEvent = useEffectEvent(() => {
-    onClose();
-  });
-
   useEffect(() => {
     if (!open) return;
     dispatch({ type: "SET_ALL", payload: initialStateForTask(editTask) });
   }, [open, editTask]);
-
-  useEffect(() => {
-    if (!open) return;
-    window.addEventListener("app:escape", onCloseEvent);
-    return () => window.removeEventListener("app:escape", onCloseEvent);
-  }, [open, onCloseEvent]);
-
-  const handleOverlayKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        onClose();
-      }
-    },
-    [onClose],
-  );
 
   const matchedCategory = useMemo(
     () => categories.find((c) => c.id === form.categoryId) ?? null,
@@ -135,34 +114,18 @@ export function AddTaskModal({
     onClose();
   };
 
-  if (!open) return null;
-
   return (
-    <div
+    <ModalOverlay
       key={editTask?.id ?? "new"}
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      open={open}
+      onClose={onClose}
+      maxWidth="max-w-lg"
+      showCloseButton
+      ariaLabel={isEditing ? "编辑任务" : "新建任务"}
     >
-      <div
-        className="absolute inset-0 bg-sahara-text/30 backdrop-blur-sm"
-        role="button"
-        tabIndex={0}
-        onClick={onClose}
-        onKeyDown={handleOverlayKeyDown}
-      />
-      <div className="relative bg-sahara-surface rounded-2xl border border-sahara-border/20 shadow-xl w-full max-w-lg mx-4 p-6 md:p-8 animate-in fade-in zoom-in-95 duration-200">
-        <Button
-          variant="ghost"
-          size="icon-lg"
-          intent="default"
-          shape="rounded-lg"
-          onClick={onClose}
-          className="absolute top-4 right-4 text-sahara-text-muted hover:text-sahara-text hover:bg-sahara-bg"
-        >
-          <X className="size-4" />
-        </Button>
-
+      <div className="p-5 md:p-6">
         <div className="flex items-center gap-3 mb-6">
-          <div className="size-10 rounded-xl bg-sahara-primary-light flex items-center justify-center text-sahara-primary">
+          <div className="flex size-9 items-center justify-center rounded-md bg-sahara-primary text-sahara-bg">
             {isEditing ? (
               <Edit3 className="size-5" />
             ) : (
@@ -170,7 +133,7 @@ export function AddTaskModal({
             )}
           </div>
           <div>
-            <h3 className="font-serif text-xl text-sahara-text font-semibold">
+            <h3 className="text-lg font-semibold text-sahara-text">
               {isEditing ? "编辑任务" : "新建任务"}
             </h3>
             <p className="text-xs text-sahara-text-muted mt-0.5">
@@ -183,13 +146,15 @@ export function AddTaskModal({
           <div>
             <label
               htmlFor="task-name"
-              className="block text-[11px] font-bold text-sahara-text-muted uppercase tracking-wider mb-1.5"
+              className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
             >
               任务名称
             </label>
             <input
               id="task-name"
               type="text"
+              name="task-name"
+              autoComplete="off"
               value={form.name}
               onChange={(e) =>
                 dispatch({
@@ -199,7 +164,7 @@ export function AddTaskModal({
                 })
               }
               placeholder="你现在要做什么？"
-              className="w-full px-4 py-3 bg-sahara-bg/40 border border-sahara-border/20 rounded-xl text-sm text-sahara-text placeholder:text-sahara-text-muted/50 focus:outline-none focus:border-sahara-primary/50 focus:ring-2 focus:ring-sahara-primary/10 transition-all"
+              className="h-10 w-full rounded-md border border-sahara-border bg-sahara-surface px-3 text-sm text-sahara-text outline-none transition-colors duration-150 placeholder:text-sahara-text-muted focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
             />
           </div>
 
@@ -207,13 +172,14 @@ export function AddTaskModal({
             <div>
               <label
                 htmlFor="task-pomos"
-                className="block text-[11px] font-bold text-sahara-text-muted uppercase tracking-wider mb-1.5"
+                className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
               >
                 预计番茄数
               </label>
               <input
                 id="task-pomos"
                 type="number"
+                name="task-pomos"
                 min={1}
                 max={100}
                 value={form.estimatedPomos}
@@ -224,19 +190,20 @@ export function AddTaskModal({
                     value: Math.max(1, parseInt(e.target.value, 10) || 1),
                   })
                 }
-                className="w-full px-4 py-3 bg-sahara-bg/40 border border-sahara-border/20 rounded-xl text-sm text-sahara-text tabular-nums focus:outline-none focus:border-sahara-primary/50 focus:ring-2 focus:ring-sahara-primary/10 transition-all"
+                className="h-10 w-full rounded-md border border-sahara-border bg-sahara-surface px-3 font-mono text-sm tabular-nums text-sahara-text outline-none focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
               />
             </div>
 
             <div>
               <label
                 htmlFor="task-priority"
-                className="block text-[11px] font-bold text-sahara-text-muted uppercase tracking-wider mb-1.5"
+                className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
               >
                 优先级
               </label>
               <select
                 id="task-priority"
+                name="task-priority"
                 value={form.priority}
                 onChange={(e) =>
                   dispatch({
@@ -245,7 +212,7 @@ export function AddTaskModal({
                     value: e.target.value,
                   })
                 }
-                className="w-full px-4 py-3 bg-sahara-bg/40 border border-sahara-border/20 rounded-xl text-sm text-sahara-text focus:outline-none focus:border-sahara-primary/50 focus:ring-2 focus:ring-sahara-primary/10 transition-all appearance-none cursor-pointer"
+                className="h-10 w-full cursor-pointer appearance-none rounded-md border border-sahara-border bg-sahara-surface px-3 text-sm text-sahara-text outline-none focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
               >
                 {PRIORITY_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -259,13 +226,15 @@ export function AddTaskModal({
           <div>
             <label
               htmlFor="task-project"
-              className="block text-[11px] font-bold text-sahara-text-muted uppercase tracking-wider mb-1.5"
+              className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
             >
               项目（归属）
             </label>
             <input
               id="task-project"
               type="text"
+              name="task-project"
+              autoComplete="off"
               value={form.project}
               onChange={(e) =>
                 dispatch({
@@ -275,13 +244,13 @@ export function AddTaskModal({
                 })
               }
               placeholder="例如：Time-butler、客户项目"
-              className="w-full px-4 py-3 bg-sahara-bg/40 border border-sahara-border/20 rounded-xl text-sm text-sahara-text placeholder:text-sahara-text-muted/50 focus:outline-none focus:border-sahara-primary/50 focus:ring-2 focus:ring-sahara-primary/10 transition-all"
+              className="h-10 w-full rounded-md border border-sahara-border bg-sahara-surface px-3 text-sm text-sahara-text outline-none placeholder:text-sahara-text-muted focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
             />
           </div>
 
-          <details className="group rounded-xl border border-sahara-border/20 bg-sahara-bg/30">
+          <details className="group rounded-md border border-sahara-border bg-sahara-card/50">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm text-sahara-text marker:hidden">
-              <span className="inline-flex items-center gap-2 font-bold">
+              <span className="inline-flex items-center gap-2 font-medium">
                 <Tag className="size-4 text-sahara-text-muted" />
                 手动指定分类
               </span>
@@ -308,12 +277,13 @@ export function AddTaskModal({
             <div className="border-t border-sahara-border/10 px-4 pb-4 pt-3">
               <label
                 htmlFor="task-category"
-                className="block text-[11px] font-bold uppercase tracking-wider text-sahara-text-muted mb-1.5"
+                className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
               >
                 分类（可选）
               </label>
               <select
                 id="task-category"
+                name="task-category"
                 value={form.categoryId ?? ""}
                 onChange={(e) =>
                   dispatch({
@@ -322,7 +292,7 @@ export function AddTaskModal({
                     value: e.target.value ? Number(e.target.value) : null,
                   })
                 }
-                className="w-full px-4 py-3 bg-sahara-surface border border-sahara-border/20 rounded-xl text-sm text-sahara-text focus:outline-none focus:border-sahara-primary/50 focus:ring-2 focus:ring-sahara-primary/10 transition-all appearance-none cursor-pointer"
+                className="h-10 w-full cursor-pointer appearance-none rounded-md border border-sahara-border bg-sahara-surface px-3 text-sm text-sahara-text outline-none focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
               >
                 <option value="">未分类</option>
                 {categories.map((cat) => (
@@ -366,6 +336,6 @@ export function AddTaskModal({
           </div>
         </form>
       </div>
-    </div>
+    </ModalOverlay>
   );
 }

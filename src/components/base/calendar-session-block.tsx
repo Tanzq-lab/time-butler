@@ -48,13 +48,14 @@ export function CalendarSessionBlock({
   if (compact) {
     return (
       <div
+        role="group"
         className={cn(
-          "absolute left-1 right-1 md:left-1.5 md:right-1.5 shadow-sm border cursor-pointer z-10 overflow-hidden group transition-shadow hover:shadow-md",
+          "absolute left-1 right-1 z-10 overflow-hidden border md:left-1.5 md:right-1.5",
           isMicro
             ? "rounded-[4px]"
             : "rounded-md md:rounded-lg px-1.5 md:px-2 py-0.5",
           isWork
-            ? "bg-sahara-primary text-white border-sahara-primary/40"
+            ? "bg-sahara-primary text-sahara-bg border-sahara-primary/40"
             : "bg-sahara-card text-sahara-text border-sahara-border",
         )}
         style={{
@@ -94,10 +95,12 @@ export function CalendarSessionBlock({
 
   return (
     <div
+      role="group"
+      aria-label={`${phaseLabel}${title ? ` ${title}` : ""} ${timeRange}`}
       className={cn(
-        "absolute left-1 right-1 md:left-1.5 md:right-1.5 rounded-lg md:rounded-xl px-2.5 py-1.5 md:px-3 md:py-2.5 shadow-sm border cursor-pointer z-10 overflow-hidden group transition-shadow hover:shadow-md flex flex-col",
+        "absolute left-1 right-1 z-10 flex flex-col overflow-hidden rounded-md border px-2.5 py-1.5 md:left-1.5 md:right-1.5 md:rounded-[10px] md:px-3 md:py-2.5",
         isWork
-          ? "bg-sahara-primary text-white border-sahara-primary/40"
+          ? "bg-sahara-primary text-sahara-bg border-sahara-primary/40"
           : "bg-sahara-card text-sahara-text border-sahara-border",
       )}
       style={{
@@ -129,13 +132,13 @@ export function CalendarSessionBlock({
             {title}
           </span>
           {isWork && (
-            <CheckCircle2 className="size-3 md:w-4 md:h-4 shrink-0 mt-0.5 text-white/80" />
+            <CheckCircle2 aria-hidden="true" className="mt-0.5 size-3 shrink-0 text-white/80 md:size-4" />
           )}
         </div>
       )}
 
       {isBreak && (
-        <Circle className="size-3 md:w-3.5 md:h-3.5 mt-auto mb-0.5 md:mb-1 text-sahara-text-muted" />
+        <Circle aria-hidden="true" className="mb-0.5 mt-auto size-3 text-sahara-text-muted md:mb-1 md:size-3.5" />
       )}
 
       {showDescription && (
@@ -153,7 +156,7 @@ export function CalendarSessionBlock({
         <div className="mb-0.5 md:mb-1.5">
           <span
             className={cn(
-              "inline-flex items-center px-2 py-0.5 rounded-md text-[9px] md:text-[10px] font-semibold uppercase tracking-wide",
+              "inline-flex items-center rounded-md px-2 py-0.5 text-[9px] font-semibold md:text-[10px]",
               catColor ? "text-white" : "bg-white/20 text-white",
             )}
             style={
@@ -173,9 +176,9 @@ export function CalendarSessionBlock({
       {/* Time Range */}
       <div className="flex items-center gap-1 md:gap-1.5 mt-auto pt-0.5 md:pt-1">
         {isBreak ? (
-          <Tag className="size-2.5 md:w-3 md:h-3 text-sahara-text-muted" />
+          <Tag aria-hidden="true" className="size-2.5 text-sahara-text-muted md:size-3" />
         ) : (
-          <Clock className="size-2.5 md:w-3 md:h-3 text-white/70" />
+          <Clock aria-hidden="true" className="size-2.5 text-white/70 md:size-3" />
         )}
         <span
           className={cn(

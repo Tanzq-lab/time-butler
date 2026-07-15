@@ -24,6 +24,8 @@ import {
 } from "@/components/base/add-task-modal";
 import { TaskCompletionReviewModal } from "@/components/base/task-completion-review-modal";
 import { TaskListCard } from "@/components/base/task-list-card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { PageHeader, SectionHeader } from "@/components/ui/page-header";
 import type { Task } from "@/features/tasks/task-types";
 
 interface ListState {
@@ -32,7 +34,9 @@ interface ListState {
   showAddModal: boolean;
   taskToEdit: Task | null;
   taskToComplete: Task | null;
+  taskToDelete: Task | null;
   showDone: boolean;
+  doneVisibleCount: number;
 }
 
 type ListAction =
@@ -42,7 +46,10 @@ type ListAction =
   | { type: "CLOSE_ADD_MODAL" }
   | { type: "OPEN_COMPLETE_MODAL"; task: Task }
   | { type: "CLOSE_COMPLETE_MODAL" }
-  | { type: "TOGGLE_DONE" };
+  | { type: "OPEN_DELETE_DIALOG"; task: Task }
+  | { type: "CLOSE_DELETE_DIALOG" }
+  | { type: "TOGGLE_DONE" }
+  | { type: "SHOW_MORE_DONE" };
 
 const INITIAL_LIST_STATE: ListState = {
   searchQuery: "",
@@ -50,7 +57,9 @@ const INITIAL_LIST_STATE: ListState = {
   showAddModal: false,
   taskToEdit: null,
   taskToComplete: null,
-  showDone: true,
+  taskToDelete: null,
+  showDone: false,
+  doneVisibleCount: 20,
 };
 
 function listReducer(state: ListState, action: ListAction): ListState {
@@ -67,8 +76,14 @@ function listReducer(state: ListState, action: ListAction): ListState {
       return { ...state, taskToComplete: action.task };
     case "CLOSE_COMPLETE_MODAL":
       return { ...state, taskToComplete: null };
+    case "OPEN_DELETE_DIALOG":
+      return { ...state, taskToDelete: action.task };
+    case "CLOSE_DELETE_DIALOG":
+      return { ...state, taskToDelete: null };
     case "TOGGLE_DONE":
-      return { ...state, showDone: !state.showDone };
+      return { ...state, showDone: !state.showDone, doneVisibleCount: 20 };
+    case "SHOW_MORE_DONE":
+      return { ...state, doneVisibleCount: state.doneVisibleCount + 20 };
     default:
       return state;
   }
@@ -93,7 +108,9 @@ export function TasksList() {
     showAddModal,
     taskToEdit,
     taskToComplete,
+    taskToDelete,
     showDone,
+    doneVisibleCount,
   } = listState;
 
   const categories = useCategoriesStore((s) => s.categories);
@@ -133,6 +150,12 @@ export function TasksList() {
     tasks,
     searchQuery,
   );
+  const sortedDoneTasks = [...doneTasks].sort((a, b) => {
+    const aTime = a.completed_at ? new Date(a.completed_at).getTime() : 0;
+    const bTime = b.completed_at ? new Date(b.completed_at).getTime() : 0;
+    return bTime - aTime;
+  });
+  const visibleDoneTasks = sortedDoneTasks.slice(0, doneVisibleCount);
 
   const handleFocus = async (taskId: number) => {
     await setActiveTask(taskId);
@@ -181,28 +204,35 @@ export function TasksList() {
     dispatch({ type: "OPEN_COMPLETE_MODAL", task });
   };
 
+  const handleDeleteTask = async () => {
+    if (!taskToDelete) return;
+    await deleteTask(taskToDelete.id);
+    if (activeTaskId === taskToDelete.id) await setActiveTask(null);
+    dispatch({ type: "CLOSE_DELETE_DIALOG" });
+  };
+
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="mb-6 md:mb-10">
-        <p className="text-[10px] font-bold text-sahara-text-muted uppercase tracking-[0.2em] mb-1">
-          任务管理
-        </p>
-        <h1 className="font-serif text-2xl md:text-4xl text-sahara-text">
-          我的任务
-        </h1>
-      </div>
+      <PageHeader
+        eyebrow="任务管理"
+        title="我的任务"
+        description="选择下一件事，开始专注，完成后留下简短复盘。"
+        className="mb-6 md:mb-8"
+      />
 
       {/* Controls */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6 md:mb-8">
+      <div className="mb-7 flex flex-col items-stretch gap-3 border-b border-sahara-border pb-5 sm:flex-row sm:items-center md:mb-9">
         <div className="relative flex-1 sm:max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-sahara-text-muted" />
+          <Search aria-hidden="true" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-sahara-text-muted" />
           <input
             type="text"
-            placeholder="搜索任务..."
+            name="task-search"
+            autoComplete="off"
+            aria-label="搜索任务"
+            placeholder="搜索任务…"
             value={searchQuery}
             onChange={(e) => dispatch({ type: "SET_SEARCH", query: e.target.value })}
-            className="w-full bg-sahara-card border border-sahara-border/20 rounded-full pl-9 pr-4 py-2.5 text-sm text-sahara-text placeholder:text-sahara-text-muted/50 outline-none focus:border-sahara-primary/40 transition-colors"
+            className="h-9 w-full rounded-md border border-sahara-border bg-sahara-surface pl-9 pr-3 text-sm text-sahara-text outline-none transition-colors duration-150 placeholder:text-sahara-text-muted focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
           />
         </div>
 
@@ -211,9 +241,10 @@ export function TasksList() {
             variant={viewMode === "list" ? "solid" : "outline"}
             intent={viewMode === "list" ? "sahara" : "default"}
             size="icon"
-            shape="rounded-full"
+            aria-label="列表视图"
+            aria-pressed={viewMode === "list"}
             onClick={() => dispatch({ type: "SET_VIEW_MODE", mode: "list" })}
-            className="border-sahara-border/30"
+            className="border-sahara-border"
           >
             <ListTodo className="size-4" />
           </Button>
@@ -221,20 +252,20 @@ export function TasksList() {
             variant={viewMode === "grid" ? "solid" : "outline"}
             intent={viewMode === "grid" ? "sahara" : "default"}
             size="icon"
-            shape="rounded-full"
+            aria-label="网格视图"
+            aria-pressed={viewMode === "grid"}
             onClick={() => dispatch({ type: "SET_VIEW_MODE", mode: "grid" })}
-            className="border-sahara-border/30"
+            className="border-sahara-border"
           >
             <LayoutGrid className="size-4" />
           </Button>
-          <Filter className="size-4 text-sahara-text-muted hidden sm:block ml-1" />
           <Button
             variant="solid"
             intent="sahara"
             size="sm"
-            shape="rounded-full"
+            aria-label="添加任务"
             onClick={() => dispatch({ type: "OPEN_ADD_MODAL" })}
-            className="gap-1.5 ml-1 md:ml-2 px-4 shadow-lg shadow-sahara-primary/20 hover:shadow-xl hover:shadow-sahara-primary/30 text-[10px] sm:text-xs font-bold tracking-widest uppercase transition-all"
+            className="ml-1 gap-1.5 px-3 text-xs font-medium md:ml-2"
           >
             <Plus className="size-3.5 md:size-4" />
             <span className="hidden sm:inline">添加任务</span>
@@ -255,6 +286,15 @@ export function TasksList() {
         onClose={() => dispatch({ type: "CLOSE_COMPLETE_MODAL" })}
         onSubmit={handleCompleteTask}
       />
+      <ConfirmDialog
+        open={!!taskToDelete}
+        title="删除任务？"
+        description={taskToDelete ? `“${taskToDelete.name}”将从任务列表中移除，此操作无法撤销。` : ""}
+        confirmLabel="删除任务"
+        destructive
+        onClose={() => dispatch({ type: "CLOSE_DELETE_DIALOG" })}
+        onConfirm={handleDeleteTask}
+      />
 
       {/* Task Sections */}
       {activeTasks.length === 0 &&
@@ -263,24 +303,23 @@ export function TasksList() {
       searchQuery ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <Filter className="size-12 text-sahara-border mb-4" />
-          <p className="text-sm font-bold text-sahara-text-muted">
+          <p className="text-sm font-semibold text-sahara-text-secondary">
             没有找到任务
           </p>
-          <p className="text-xs text-sahara-text-muted/60 mt-1">
+          <p className="mt-1 text-xs text-sahara-text-secondary">
             换个关键词试试
           </p>
         </div>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-9">
           {/* Active Tasks */}
           {activeTasks.length > 0 && (
             <div>
-              <div className="flex items-center gap-2 mb-4">
-                <Target className="size-4 text-sahara-primary" />
-                <span className="text-xs font-bold text-sahara-text-muted uppercase tracking-wider">
-                  进行中（{activeTasks.length}）
-                </span>
-              </div>
+              <SectionHeader
+                title="进行中"
+                meta={<span className="text-xs text-sahara-text-muted">{activeTasks.length}</span>}
+                className="mb-3"
+              />
               <div
                 className={cn(
                   viewMode === "grid"
@@ -300,11 +339,9 @@ export function TasksList() {
                     onEdit={() =>
                       dispatch({ type: "OPEN_ADD_MODAL", taskToEdit: task })
                     }
-                    onDelete={async () => {
-                      await deleteTask(task.id);
-                      if (activeTaskId === task.id) setActiveTask(null);
-                    }}
+                    onDelete={() => dispatch({ type: "OPEN_DELETE_DIALOG", task })}
                     onCompleteTask={() => handleCompleteTaskRequest(task)}
+                    layout={viewMode}
                   />
                 ))}
               </div>
@@ -317,10 +354,10 @@ export function TasksList() {
             doneTasks.length > 0 && (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Target className="size-10 text-sahara-border mb-3" />
-              <p className="text-sm font-bold text-sahara-text-muted">
+              <p className="text-sm font-semibold text-sahara-text-secondary">
                 没有进行中的任务
               </p>
-              <p className="text-xs text-sahara-text-muted/60 mt-1">
+              <p className="mt-1 text-xs text-sahara-text-secondary">
                 所有任务都完成啦！
               </p>
             </div>
@@ -328,9 +365,9 @@ export function TasksList() {
 
           {scheduledTasks.length > 0 && (
             <div>
-              <div className="flex items-center gap-2 mb-4">
+              <div className="mb-3 flex items-center gap-2">
                 <CalendarClock className="size-4 text-amber-600" />
-                <span className="text-xs font-bold text-sahara-text-muted uppercase tracking-wider">
+                <span className="text-xs font-semibold text-sahara-text-secondary">
                   稍后提醒（{scheduledTasks.length}）
                 </span>
               </div>
@@ -351,10 +388,9 @@ export function TasksList() {
                     onEdit={() =>
                       dispatch({ type: "OPEN_ADD_MODAL", taskToEdit: task })
                     }
-                    onDelete={async () => {
-                      await deleteTask(task.id);
-                    }}
+                    onDelete={() => dispatch({ type: "OPEN_DELETE_DIALOG", task })}
                     onCompleteTask={() => handleCompleteTaskRequest(task)}
+                    layout={viewMode}
                   />
                 ))}
               </div>
@@ -366,7 +402,8 @@ export function TasksList() {
             <div>
               <button
                 onClick={() => dispatch({ type: "TOGGLE_DONE" })}
-                className="flex items-center gap-2 mb-4 w-full text-left"
+                aria-expanded={showDone}
+                className="mb-3 flex w-full items-center gap-2 rounded-md py-1 text-left text-sahara-text-secondary outline-none hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus"
               >
                 {showDone ? (
                   <ChevronDown className="size-4 text-sahara-text-muted" />
@@ -374,7 +411,7 @@ export function TasksList() {
                   <ChevronRight className="size-4 text-sahara-text-muted" />
                 )}
                 <CheckCircle2 className="size-4 text-green-500" />
-                <span className="text-xs font-bold text-sahara-text-muted uppercase tracking-wider">
+                <span className="text-xs font-semibold">
                   已完成（{doneTasks.length}）
                 </span>
               </button>
@@ -387,7 +424,7 @@ export function TasksList() {
                       : "space-y-2.5 md:space-y-3",
                   )}
                 >
-                  {doneTasks.map((task) => (
+                  {visibleDoneTasks.map((task) => (
                     <TaskListCard
                       key={task.id}
                       task={task}
@@ -396,12 +433,22 @@ export function TasksList() {
                       onEdit={() =>
                         dispatch({ type: "OPEN_ADD_MODAL", taskToEdit: task })
                       }
-                      onDelete={async () => {
-                        await deleteTask(task.id);
-                      }}
+                      onDelete={() => dispatch({ type: "OPEN_DELETE_DIALOG", task })}
                       onCompleteTask={() => handleCompleteTaskRequest(task)}
+                      layout={viewMode}
                     />
                   ))}
+                  {doneVisibleCount < sortedDoneTasks.length && (
+                    <Button
+                      variant="outline"
+                      intent="default"
+                      size="sm"
+                      onClick={() => dispatch({ type: "SHOW_MORE_DONE" })}
+                      className={cn(viewMode === "grid" ? "sm:col-span-2 lg:col-span-3" : "w-full")}
+                    >
+                      显示更多（还有 {sortedDoneTasks.length - doneVisibleCount} 条）
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

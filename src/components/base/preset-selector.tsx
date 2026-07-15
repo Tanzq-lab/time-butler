@@ -101,12 +101,12 @@ export function PresetSelector() {
       <Button
         variant="outline"
         size="sm"
-        shape="rounded-full"
+        aria-label="打开计时预设"
         onClick={() => dispatch({ type: "OPEN" })}
-        className="gap-1.5 border-sahara-border/30 cursor-pointer text-sahara-text-secondary hover:text-sahara-primary"
+        className="cursor-pointer gap-1.5 border-sahara-border text-sahara-text-secondary hover:text-sahara-text"
       >
-        <Settings2 className="size-3.5" />
-        <span className="text-[11px] font-bold uppercase tracking-wider">
+        <Settings2 aria-hidden="true" className="size-3.5" />
+        <span className="text-[11px] font-medium">
           预设
         </span>
       </Button>
@@ -115,23 +115,18 @@ export function PresetSelector() {
         open={ui.type !== "closed"}
         onClose={() => dispatch({ type: "CLOSE" })}
         maxWidth="max-w-md"
-        backdropClassName="bg-black/40"
+        showCloseButton
+        ariaLabel="计时预设"
       >
         <div className="px-6 py-5 border-b border-sahara-border/10 flex items-center justify-between">
           <div>
-            <h3 className="font-serif text-xl text-sahara-text">
+            <h3 className="text-lg font-semibold text-sahara-text">
               计时预设
             </h3>
-            <p className="text-[10px] text-sahara-text-muted uppercase tracking-widest font-bold">
+            <p className="text-[11px] text-sahara-text-secondary">
               快速切换配置
             </p>
           </div>
-          <button
-            onClick={() => dispatch({ type: "CLOSE" })}
-            className="p-2 hover:bg-sahara-card rounded-full transition-colors"
-          >
-            <Plus className="size-5 text-sahara-text-muted rotate-45" />
-          </button>
         </div>
 
         <div className="p-4 max-h-[60vh] overflow-y-auto space-y-2">
@@ -140,84 +135,86 @@ export function PresetSelector() {
             return (
               <div
                 key={preset.id}
-                role="button"
-                tabIndex={0}
                 className={cn(
-                  "group flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer",
+                  "group flex items-center rounded-md border transition-colors duration-150",
                   active
-                    ? "bg-sahara-primary/5 border-sahara-primary/30 shadow-sm"
+                    ? "border-sahara-text-muted/45 bg-sahara-card"
                     : "bg-sahara-card/50 border-sahara-border/10 hover:border-sahara-primary/20",
                 )}
-                onClick={() => {
-                  if (timerStatus !== "idle") return;
-                  applyPreset(preset);
-                  dispatch({ type: "CLOSE" });
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    if (timerStatus !== "idle") return;
+              >
+                <button
+                  type="button"
+                  disabled={timerStatus !== "idle"}
+                  aria-pressed={active}
+                  onClick={() => {
                     applyPreset(preset);
                     dispatch({ type: "CLOSE" });
-                  }
-                }}
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={cn(
-                      "size-10 rounded-xl flex items-center justify-center transition-colors",
-                      active
-                        ? "bg-sahara-primary text-white"
-                        : "bg-sahara-surface text-sahara-text-muted",
-                    )}
-                  >
-                    <Clock className="size-5" />
-                  </div>
-                  <div>
-                    <h4
+                  }}
+                  className="flex min-w-0 flex-1 items-center justify-between rounded-md p-3.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-sahara-focus disabled:cursor-not-allowed"
+                >
+                  <span className="flex min-w-0 items-center gap-3">
+                    <span
                       className={cn(
-                        "text-sm font-bold",
-                        active ? "text-sahara-primary" : "text-sahara-text",
+                        "flex size-10 shrink-0 items-center justify-center rounded-md transition-colors",
+                        active
+                          ? "bg-sahara-primary text-sahara-bg"
+                          : "bg-sahara-surface text-sahara-text-muted",
                       )}
                     >
-                      {preset.name}
-                    </h4>
-                    <div className="flex items-center gap-2 text-[10px] text-sahara-text-muted font-medium">
-                      <span>{preset.work_duration / 60} 分钟专注</span>
-                      <span className="size-1 rounded-full bg-sahara-border" />
-                      <span>{preset.short_break_duration / 60} 分钟休息</span>
-                    </div>
-                  </div>
-                </div>
+                      <Clock aria-hidden="true" className="size-5" />
+                    </span>
+                    <span className="min-w-0">
+                      <span
+                        className={cn(
+                          "block truncate text-sm font-semibold",
+                          active ? "text-sahara-text" : "text-sahara-text",
+                        )}
+                      >
+                        {preset.name}
+                      </span>
+                      <span className="flex flex-wrap items-center gap-2 text-[10px] font-medium text-sahara-text-muted">
+                        <span>{preset.work_duration / 60} 分钟专注</span>
+                        <span aria-hidden="true" className="size-1 rounded-full bg-sahara-border" />
+                        <span>{preset.short_break_duration / 60} 分钟休息</span>
+                      </span>
+                    </span>
+                  </span>
 
-                <div className="flex items-center gap-1">
                   {active ? (
-                    <div className="p-1.5 rounded-full bg-sahara-primary/10 text-sahara-primary">
-                      <Check className="size-4" />
-                    </div>
-                  ) : (
+                    <span className="ml-2 rounded-full bg-sahara-primary/10 p-1.5 text-sahara-primary">
+                      <Check aria-hidden="true" className="size-4" />
+                    </span>
+                  ) : null}
+                </button>
+
+                {!active && (
+                  <div className="flex items-center gap-1 pr-2">
                     <>
                       <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           dispatch({ type: "START_EDIT", preset });
                         }}
-                        className="p-2 text-sahara-text-muted hover:text-sahara-primary hover:bg-sahara-primary/5 rounded-xl opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+                        aria-label={`编辑预设：${preset.name}`}
+                        className="cursor-pointer rounded-md p-2 text-sahara-text-muted opacity-100 transition-colors hover:bg-sahara-card hover:text-sahara-text md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
                       >
                         <Pencil className="size-4" />
                       </button>
                       <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           removePreset(preset.id);
                         }}
-                        className="p-2 text-sahara-text-muted cursor-pointer hover:text-red-400 hover:bg-red-50 rounded-xl opacity-0 group-hover:opacity-100 transition-all"
+                        aria-label={`删除预设：${preset.name}`}
+                        className="cursor-pointer rounded-md p-2 text-sahara-text-muted opacity-100 transition-colors hover:bg-red-50 hover:text-red-500 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
                       >
                         <Trash2 className="size-4" />
                       </button>
                     </>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -225,13 +222,15 @@ export function PresetSelector() {
 
         <div className="p-5 bg-sahara-card/40 border-t border-sahara-border/10 space-y-4">
           {ui.type === "editing" ? (
-            <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-300">
+            <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-200">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-bold text-sahara-text-muted uppercase tracking-wider">
+                <span className="text-[10px] font-medium text-sahara-text-secondary">
                   编辑预设
                 </span>
                 <button
+                  type="button"
                   onClick={() => dispatch({ type: "END_EDIT" })}
+                  aria-label="取消编辑预设"
                   className="text-sahara-text-muted cursor-pointer hover:text-sahara-text transition-colors"
                 >
                   <Plus className="size-4 rotate-45" />
@@ -240,10 +239,13 @@ export function PresetSelector() {
 
               <input
                 type="text"
+                name="edit-preset-name"
+                autoComplete="off"
+                aria-label="预设名称"
                 value={ui.name}
                 onChange={(e) => dispatch({ type: "SET_EDIT_NAME", name: e.target.value })}
                 placeholder="预设名称"
-                className="w-full bg-sahara-surface border border-sahara-border/20 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-sahara-primary/50 transition-all shadow-inner"
+                className="h-10 w-full rounded-md border border-sahara-border bg-sahara-surface px-3 text-sm outline-none transition-colors focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
               />
 
               <div className="grid grid-cols-2 gap-3">
@@ -267,19 +269,21 @@ export function PresetSelector() {
                 fullWidth
                 onClick={handleSaveEdit}
                 disabled={!ui.name.trim()}
-                className="py-3 shadow-lg shadow-sahara-primary/20"
+                className="py-3"
               >
                 保存修改
               </Button>
             </div>
           ) : ui.type === "saving-new" ? (
-            <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-300">
+            <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-200">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-bold text-sahara-text-muted uppercase tracking-wider">
+                <span className="text-[10px] font-medium text-sahara-text-secondary">
                   新预设详情
                 </span>
                 <button
+                  type="button"
                   onClick={() => dispatch({ type: "END_SAVE" })}
+                  aria-label="取消新建预设"
                   className="text-sahara-text-muted hover:text-sahara-text transition-colors"
                 >
                   <Plus className="size-4 rotate-45" />
@@ -288,10 +292,13 @@ export function PresetSelector() {
 
               <input
                 type="text"
+                name="new-preset-name"
+                autoComplete="off"
+                aria-label="预设名称"
                 value={ui.name}
                 onChange={(e) => dispatch({ type: "SET_NEW_NAME", name: e.target.value })}
                 placeholder="名称（例如：深度工作）"
-                className="w-full bg-sahara-surface border border-sahara-border/20 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-sahara-primary/50 transition-all shadow-inner"
+                className="h-10 w-full rounded-md border border-sahara-border bg-sahara-surface px-3 text-sm outline-none transition-colors focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
               />
 
               <div className="grid grid-cols-2 gap-3">
@@ -323,24 +330,25 @@ export function PresetSelector() {
                 fullWidth
                 onClick={handleSave}
                 disabled={!ui.name.trim()}
-                className="py-3 shadow-lg shadow-sahara-primary/20 cursor-pointer"
+                className="cursor-pointer py-3"
               >
                 确认并保存预设
               </Button>
             </div>
           ) : (
             <button
+              type="button"
               onClick={() => dispatch({ type: "START_SAVE" })}
-              className="w-full py-4 flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest text-sahara-text-muted hover:text-sahara-primary transition-all border border-dashed border-sahara-border/30 rounded-2xl hover:border-sahara-primary/30 hover:bg-sahara-primary/5 group cursor-pointer"
+              className="group flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-sahara-border py-4 text-xs font-medium text-sahara-text-muted transition-colors hover:border-sahara-text-muted hover:bg-sahara-surface hover:text-sahara-text"
             >
-              <Plus className="size-4 group-hover:scale-110 transition-transform" />
+              <Plus aria-hidden="true" className="size-4" />
               新建预设
             </button>
           )}
         </div>
 
         {timerStatus !== "idle" && (
-          <div className="px-6 py-2.5 bg-amber-50 text-[10px] text-amber-700 font-black text-center uppercase tracking-widest border-t border-amber-100">
+          <div className="border-t border-amber-100 bg-amber-50 px-6 py-2.5 text-center text-[10px] font-medium text-amber-700">
             计时进行中，暂时不能切换模式
           </div>
         )}
@@ -361,8 +369,8 @@ function DurationControl({
   step: number;
 }) {
   return (
-    <div className="bg-sahara-surface/50 border border-sahara-border/10 rounded-xl p-3">
-      <p className="text-[9px] font-bold text-sahara-text-muted uppercase mb-1">
+    <div className="rounded-md border border-sahara-border bg-sahara-surface p-3">
+      <p className="mb-1 text-[10px] font-medium text-sahara-text-secondary">
         {label}
       </p>
       <div className="flex items-center justify-between">
@@ -371,12 +379,16 @@ function DurationControl({
         </span>
         <div className="flex gap-1">
           <button
+            type="button"
+            aria-label={`减少${label}时长`}
             onClick={() => onChange(Math.max(60, value - step))}
             className="size-5 flex items-center justify-center rounded bg-sahara-card cursor-pointer hover:bg-sahara-border/20 text-sahara-text-muted transition-colors"
           >
             -
           </button>
           <button
+            type="button"
+            aria-label={`增加${label}时长`}
             onClick={() => onChange(value + step)}
             className="size-5 flex items-center justify-center rounded bg-sahara-card cursor-pointer hover:bg-sahara-border/20 text-sahara-text-muted transition-colors"
           >

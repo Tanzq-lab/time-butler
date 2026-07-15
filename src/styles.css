@@ -1,55 +1,72 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Manrope", "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "EB Garamond", serif;
-  
-  --color-sahara-primary: #c2652a;
-  
-  --color-sahara-bg: #faf5ee;
-  --color-sahara-primary-light: #fbe8d8;
-  --color-sahara-text: #3a302a;
-  --color-sahara-text-secondary: #605850;
-  --color-sahara-text-muted: #9a9088;
-  --color-sahara-border: #d8d0c8;
-  --color-sahara-card: #f6f0e8;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", ui-monospace, monospace;
+
+  --color-canvas: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f7f7f5;
+  --color-ink: #37352f;
+  --color-ink-secondary: #5f5e5a;
+  --color-ink-muted: #72716d;
+  --color-line: #e9e9e7;
+  --color-control: #2f2f2f;
+
+  /* Compatibility aliases while components migrate to semantic names. */
+  --color-sahara-primary: #2f2f2f;
+  --color-sahara-bg: #ffffff;
+  --color-sahara-primary-light: #efefed;
+  --color-sahara-text: #37352f;
+  --color-sahara-text-secondary: #5f5e5a;
+  --color-sahara-text-muted: #72716d;
+  --color-sahara-border: #e9e9e7;
+  --color-sahara-card: #f7f7f5;
   --color-sahara-surface: #ffffff;
-  --color-sahara-ring-track: #f0e8df;
-  --color-sahara-ring-track-active: #faf5ee;
-  --color-sahara-ring-complete: #c17767;
+  --color-sahara-ring-track: #e9e9e7;
+  --color-sahara-ring-track-active: #ffffff;
+  --color-sahara-ring-complete: #37352f;
 }
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @variant dark {
-  --color-sahara-bg: #1a1714;
-  --color-sahara-primary-light: rgba(194, 101, 42, 0.15);
-  --color-sahara-text: #e8e0d8;
-  --color-sahara-text-secondary: #b0a8a0;
-  --color-sahara-text-muted: #7a726a;
-  --color-sahara-border: #3a3530;
-  --color-sahara-card: #242019;
-  --color-sahara-surface: #201c17;
-  --color-sahara-ring-track: #2e2820;
-  --color-sahara-ring-track-active: #1a1714;
-  --color-sahara-ring-complete: #c17767;
-}
+  --color-canvas: #191919;
+  --color-surface: #202020;
+  --color-surface-subtle: #252525;
+  --color-ink: #f7f7f5;
+  --color-ink-secondary: #b3b3af;
+  --color-ink-muted: #9b9b98;
+  --color-line: #343433;
+  --color-control: #f7f7f5;
 
-@font-face {
-  font-family: "Inter";
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-  src: url("https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfAZ9hiA.woff2") format("woff2");
+  --color-sahara-primary: #f7f7f5;
+  --color-sahara-bg: #191919;
+  --color-sahara-primary-light: #30302f;
+  --color-sahara-text: #f7f7f5;
+  --color-sahara-text-secondary: #b3b3af;
+  --color-sahara-text-muted: #9b9b98;
+  --color-sahara-border: #343433;
+  --color-sahara-card: #252525;
+  --color-sahara-surface: #202020;
+  --color-sahara-ring-track: #343433;
+  --color-sahara-ring-track-active: #202020;
+  --color-sahara-ring-complete: #f7f7f5;
 }
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
 }
 
 body {
   margin: 0;
-  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  background: var(--color-sahara-bg);
+  color: var(--color-sahara-text);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
@@ -68,12 +85,40 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d4d4d4;
+  background: color-mix(in srgb, var(--color-sahara-text-muted) 45%, transparent);
   border-radius: 2px;
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: #404040;
+  background: color-mix(in srgb, var(--color-sahara-text-muted) 55%, transparent);
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-sahara-text) 16%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-sahara-text) 55%, transparent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 input[type="range"]::-webkit-slider-thumb {
@@ -114,7 +159,7 @@ input[type="range"]::-webkit-slider-thumb {
 .markdown-renderer h2,
 .markdown-renderer h3 {
   color: var(--color-sahara-text);
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-weight: 700;
   line-height: 1.2;
 }
@@ -312,9 +357,9 @@ input[type="range"]::-webkit-slider-thumb {
   min-height: 0;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--color-sahara-border) 25%, transparent);
-  border-radius: 1rem;
-  background: color-mix(in srgb, var(--color-sahara-bg) 40%, transparent);
+  border: 1px solid var(--color-sahara-border);
+  border-radius: 0.625rem;
+  background: var(--color-sahara-surface);
 }
 
 .markdown-editor__toolbar {
@@ -328,7 +373,7 @@ input[type="range"]::-webkit-slider-thumb {
 .markdown-editor__mode-controls {
   display: inline-flex;
   gap: 0.2rem;
-  border-radius: 999px;
+  border-radius: 0.375rem;
   background: var(--color-sahara-surface);
   padding: 0.18rem;
 }
@@ -340,7 +385,7 @@ input[type="range"]::-webkit-slider-thumb {
   cursor: pointer;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
+  border-radius: 0.375rem;
   color: var(--color-sahara-text-muted);
   transition: background 160ms ease, color 160ms ease, transform 160ms ease;
 }
@@ -348,6 +393,12 @@ input[type="range"]::-webkit-slider-thumb {
 .markdown-editor__mode-button:hover {
   background: var(--color-sahara-card);
   color: var(--color-sahara-text);
+}
+
+.markdown-editor__mode-button:focus-visible,
+.document-note-editor__tool-button:focus-visible {
+  outline: 2px solid var(--color-sahara-focus);
+  outline-offset: 2px;
 }
 
 .markdown-editor__mode-button--active {
@@ -390,7 +441,7 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 .markdown-editor__textarea:focus {
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-sahara-primary) 18%, transparent);
+  box-shadow: inset 0 0 0 1px var(--color-sahara-text);
 }
 
 .markdown-editor__preview {
@@ -458,22 +509,26 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 .document-note-editor__toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   flex: 0 0 auto;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--color-sahara-border) 22%, transparent);
-  background: color-mix(in srgb, var(--color-sahara-surface) 92%, transparent);
-  padding: 0.55rem 1.5rem;
+  justify-content: flex-start;
+  gap: 0.35rem;
+  border-bottom: 1px solid var(--color-sahara-border);
+  background: color-mix(in srgb, var(--color-sahara-surface) 94%, transparent);
+  padding: 0.45rem 1rem;
+  backdrop-filter: blur(10px);
 }
 
 .document-note-editor__tool-group {
   display: inline-flex;
   align-items: center;
   gap: 0.15rem;
-  border-radius: 0.5rem;
+  border-radius: 0.375rem;
   background: color-mix(in srgb, var(--color-sahara-card) 55%, transparent);
   padding: 0.15rem;
 }
@@ -486,10 +541,10 @@ input[type="range"]::-webkit-slider-thumb {
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: 0.45rem;
+  border-radius: 0.375rem;
   background: transparent;
   color: var(--color-sahara-text-muted);
-  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+  transition: background-color 150ms ease, color 150ms ease, transform 150ms ease;
 }
 
 .document-note-editor__tool-button:hover {
@@ -517,7 +572,7 @@ input[type="range"]::-webkit-slider-thumb {
   margin: 0 auto;
   outline: none;
   color: var(--color-sahara-text-secondary);
-  font-family: "PingFang SC", "Hiragino Sans GB", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Microsoft YaHei", sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.9375rem;
   line-height: 1.72;
   overflow-wrap: anywhere;

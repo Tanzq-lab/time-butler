@@ -11,16 +11,16 @@ export function TaskList() {
   return (
     <div className="w-full">
       {activeTask ? (
-        <div className="group bg-sahara-surface border border-sahara-border/20 rounded-2xl p-6 flex items-center gap-6 cursor-pointer hover:border-sahara-primary/30 transition-all shadow-sm shadow-sahara-primary/5">
-          <div className="size-12 rounded-xl bg-sahara-primary-light flex items-center justify-center text-sahara-primary shrink-0 group-hover:scale-105 transition-transform">
-            <Target className="size-6" />
+        <div className="group flex items-center gap-6 rounded-[10px] border border-sahara-border bg-sahara-surface p-6 transition-colors duration-150 hover:border-sahara-text-muted">
+          <div className="flex size-12 shrink-0 items-center justify-center rounded-[10px] bg-sahara-card text-sahara-text-secondary">
+            <Target aria-hidden="true" className="size-6" />
           </div>
 
           <div className="flex-1 min-w-0">
-            <h4 className="font-serif text-xl text-sahara-text truncate">
+            <h4 className="truncate text-xl font-semibold text-sahara-text">
               {activeTask.name}
             </h4>
-            <p className="text-xs text-sahara-text-muted mt-1 font-bold tracking-wider uppercase">
+            <p className="mt-1 text-xs font-medium text-sahara-text-secondary">
               项目：{activeTask.project || "通用"}
             </p>
           </div>
@@ -33,7 +33,7 @@ export function TaskList() {
               <span className="text-xs font-bold text-sahara-text-muted tabular-nums">
                 /{activeTask.estimated_pomos}
               </span>
-              <p className="text-[10px] text-sahara-text-muted font-bold tracking-widest uppercase mt-0.5">
+              <p className="mt-0.5 text-[10px] font-medium text-sahara-text-secondary">
                 个番茄
               </p>
             </div>
@@ -41,9 +41,9 @@ export function TaskList() {
           </div>
         </div>
       ) : (
-        <div className="bg-sahara-card/50 border border-dashed border-sahara-border/50 rounded-2xl p-8 flex flex-col items-center justify-center text-center gap-4 cursor-pointer hover:bg-sahara-card transition-colors">
-          <div className="size-12 rounded-full bg-sahara-surface flex items-center justify-center text-sahara-text-muted shadow-sm">
-            <Target className="size-5" />
+        <div className="flex flex-col items-center justify-center gap-4 rounded-[10px] border border-dashed border-sahara-border bg-sahara-card/50 p-8 text-center">
+          <div className="flex size-12 items-center justify-center rounded-full border border-sahara-border bg-sahara-surface text-sahara-text-muted">
+            <Target aria-hidden="true" className="size-5" />
           </div>
           <div>
             <p className="text-sm font-bold text-sahara-text-secondary">

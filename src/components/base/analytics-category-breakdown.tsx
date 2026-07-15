@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { getCategoryBreakdown, type CategoryBreakdown } from "@/lib/db";
 import {
   CategoryBreakdown as CategoryBreakdownBars,
@@ -12,32 +12,31 @@ interface AnalyticsCategoryBreakdownProps {
 
 export function AnalyticsCategoryBreakdown({ startDate, endDate }: AnalyticsCategoryBreakdownProps) {
   const [breakdowns, setBreakdowns] = useState<CategoryBreakdown[]>([]);
-  const loadingRef = useRef(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadingRef.current = true;
+    setLoading(true);
     getCategoryBreakdown(startDate, endDate)
-      .then(setBreakdowns)
+      .then((entries) => setBreakdowns(entries.filter((entry) =>
+        Number.isFinite(entry.total_seconds) && Number.isFinite(entry.session_count),
+      )))
       .catch(() => setBreakdowns([]))
-      .finally(() => { loadingRef.current = false; });
+      .finally(() => setLoading(false));
   }, [startDate, endDate]);
 
-  if (loadingRef.current) {
+  if (loading) {
     return (
-      <div className="bg-sahara-surface border border-sahara-border/20 rounded-xl md:rounded-2xl p-3.5 md:p-5">
-        <p className="text-xs text-sahara-text-muted">加载中…</p>
+      <div className="rounded-[10px] border border-sahara-border bg-sahara-surface p-3.5 md:p-5">
+        <p className="text-xs text-sahara-text-secondary">加载中…</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-sahara-surface border border-sahara-border/20 rounded-xl md:rounded-2xl p-3.5 md:p-5">
-      {/* <h3 className="text-xs md:text-sm font-bold text-sahara-text-muted uppercase tracking-wider mb-3 md:mb-4">
-        分类时间
-      </h3> */}
+    <div className="rounded-[10px] border border-sahara-border bg-sahara-surface p-3.5 md:p-5">
       <CategoryBreakdownBars breakdowns={breakdowns} />
       {!hasCategoryBreakdownData(breakdowns) && (
-        <p className="text-[15px] text-sahara-text-muted text-center py-6">
+        <p className="py-6 text-center text-[15px] text-sahara-text-secondary">
           还没有分类数据
         </p>
       )}

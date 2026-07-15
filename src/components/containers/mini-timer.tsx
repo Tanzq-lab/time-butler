@@ -32,6 +32,7 @@ export function MiniTimer() {
               ? resume
               : undefined
         }
+        aria-label={status === "running" ? "暂停计时" : "继续计时"}
         className="text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100"
       >
         {status === "running" ? (

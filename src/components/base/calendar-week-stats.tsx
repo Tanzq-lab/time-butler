@@ -19,8 +19,8 @@ export function CalendarWeekStats({ summary }: CalendarWeekStatsProps) {
       icon: Clock,
       label: "专注总时长",
       value: formatHours(summary.total_seconds),
-      color: "text-sahara-primary",
-      bg: "bg-sahara-primary-light",
+      color: "text-sahara-text",
+      bg: "bg-sahara-card",
     },
     {
       icon: Target,
@@ -33,8 +33,8 @@ export function CalendarWeekStats({ summary }: CalendarWeekStatsProps) {
       icon: Flame,
       label: "日均专注",
       value: formatHours(summary.avg_daily_seconds),
-      color: "text-sahara-primary",
-      bg: "bg-sahara-primary-light",
+      color: "text-sahara-text",
+      bg: "bg-sahara-card",
     },
     {
       icon: TrendingUp,
@@ -54,22 +54,22 @@ export function CalendarWeekStats({ summary }: CalendarWeekStatsProps) {
         return (
           <div
             key={stat.label}
-            className="bg-sahara-surface border border-sahara-border/30 rounded-xl p-3"
+            className="border-b border-sahara-border bg-sahara-surface p-3"
           >
             <div
               className={cn(
-                "size-8 rounded-lg flex items-center justify-center mb-2",
+                "mb-2 flex size-8 items-center justify-center rounded-md",
                 stat.bg,
               )}
             >
               <Icon className={cn("size-4", stat.color)} />
             </div>
-            <p className="text-[9px] font-semibold text-sahara-text-muted uppercase tracking-wider">
+            <p className="text-[10px] text-sahara-text-muted">
               {stat.label}
             </p>
             <p
               className={cn(
-                "text-xs md:text-sm font-bold mt-1 leading-tight",
+                "mt-1 font-mono text-xs font-semibold leading-tight md:text-sm",
                 stat.color,
               )}
             >

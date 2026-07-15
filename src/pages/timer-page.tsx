@@ -2,10 +2,10 @@ import { MainLayout } from "@/components/template/main-layout";
 import { TimerControls } from "@/components/containers/timer-controls";
 import { TodayFocus } from "@/components/containers/today-focus";
 import { TodaySessions } from "@/components/containers/today-sessions";
-import { Text } from "@/components/ui/text";
 import { useUIStore } from "@/features/ui/use-ui-store";
 import { m, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/cn";
+import { SectionHeader } from "@/components/ui/page-header";
 
 export function TimerPage() {
   const isFullscreenFocus = useUIStore((s) => s.isFullscreenFocus);
@@ -14,13 +14,9 @@ export function TimerPage() {
     <MainLayout>
       <m.div
         layout
-        transition={{
-          type: "spring",
-          damping: 30,
-          stiffness: 200,
-        }}
+        transition={{ duration: 0.18, ease: "easeOut" }}
         className={cn(
-          "flex flex-col items-center gap-6 md:gap-8 px-4 sm:px-6 md:px-12 py-4 md:py-6 max-w-4xl mx-auto min-h-full w-full",
+          "mx-auto flex min-h-full w-full max-w-5xl flex-col items-center gap-8 px-4 py-5 sm:px-6 md:px-10 md:py-8",
           isFullscreenFocus ? "justify-center h-full overflow-hidden" : "justify-start"
         )}
       >
@@ -33,15 +29,10 @@ export function TimerPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
-              transition={{ duration: 0.3 }}
-              className="w-full border-t border-sahara-border/30 pt-6 md:pt-8"
+              transition={{ duration: 0.18 }}
+              className="w-full border-t border-sahara-border pt-7 md:pt-9"
             >
-              <Text
-                variant="h3"
-                className="mb-3 md:mb-4 font-serif text-xl md:text-2xl"
-              >
-                今日专注
-              </Text>
+              <SectionHeader title="今日专注" description="今天的专注进度与正在推进的任务" />
               <TodayFocus />
               <div className="mt-8">
                 <TodaySessions />

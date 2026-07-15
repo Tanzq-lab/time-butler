@@ -68,7 +68,7 @@ describe("Markdown components", () => {
         value={SAMPLE_MARKDOWN}
         onChange={vi.fn()}
         ariaLabel="复盘内容"
-        placeholder="写复盘..."
+        placeholder="写复盘…"
         variant="compact"
       />,
     );

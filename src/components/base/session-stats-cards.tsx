@@ -34,29 +34,29 @@ export function SessionStatsCards({ sessions }: SessionStatsCardsProps) {
       label: "专注时长",
       value: formatTotalTime(totalFocusSec),
       icon: Target,
-      color: "text-[#c2652a]",
-      bg: "bg-[#c2652a]/10",
+      color: "text-sahara-text",
+      bg: "bg-sahara-card",
     },
     {
       label: "记录数",
       value: String(workSessions.length),
       icon: CheckCircle2,
-      color: "text-emerald-600",
-      bg: "bg-emerald-500/10",
+      color: "text-sahara-text-secondary",
+      bg: "bg-sahara-card",
     },
     {
       label: "平均时长",
       value: formatDuration(avgSessionLength),
       icon: TrendingUp,
-      color: "text-blue-600",
-      bg: "bg-blue-500/10",
+      color: "text-sahara-text-secondary",
+      bg: "bg-sahara-card",
     },
     {
       label: "休息时长",
       value: formatTotalTime(totalBreakSec),
       icon: Zap,
-      color: "text-amber-600",
-      bg: "bg-amber-500/10",
+      color: "text-sahara-text-secondary",
+      bg: "bg-sahara-card",
     },
   ];
 
@@ -68,21 +68,21 @@ export function SessionStatsCards({ sessions }: SessionStatsCardsProps) {
           <div
             key={stat.label}
             className={cn(
-              "group relative flex flex-col items-center p-4 md:p-5 lg:p-4 rounded-2xl border border-sahara-border/15 bg-sahara-surface/60 backdrop-blur-sm transition-all duration-300 hover:border-sahara-primary/30 hover:shadow-lg hover:shadow-sahara-primary/5",
+              "group relative flex flex-col items-center rounded-[10px] border border-sahara-border bg-sahara-surface p-4 transition-[border-color,background-color] duration-150 md:p-5 lg:p-4",
             )}
           >
             <div
               className={cn(
-                "size-10 md:w-12 md:h-12 lg:w-11 lg:h-11 rounded-xl flex items-center justify-center mb-2.5 md:mb-3 lg:mb-2.5 transition-transform duration-300 group-hover:scale-110 shadow-sm",
+                "mb-2.5 flex size-10 items-center justify-center rounded-md md:mb-3 md:size-12 lg:mb-2.5 lg:size-11",
                 stat.bg,
               )}
             >
-              <Icon className={cn("size-5 md:w-6 md:h-6 lg:w-5.5 lg:h-5.5", stat.color)} />
+              <Icon aria-hidden="true" className={cn("size-5 md:size-6 lg:size-5.5", stat.color)} />
             </div>
-            <p className="text-lg md:text-xl lg:text-lg font-black tabular-nums text-sahara-text tracking-tight">
+            <p className="text-lg font-semibold tracking-tight text-sahara-text tabular-nums md:text-xl lg:text-lg">
               {stat.value}
             </p>
-            <p className="text-[10px] md:text-xs lg:text-[10px] font-bold text-sahara-text-muted uppercase tracking-widest mt-1">
+            <p className="mt-1 text-[10px] font-medium text-sahara-text-secondary md:text-xs lg:text-[10px]">
               {stat.label}
             </p>
           </div>

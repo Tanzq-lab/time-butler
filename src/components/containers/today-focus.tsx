@@ -79,12 +79,11 @@ export function TodayFocus() {
       <FocusSummaryBar sessions={sessions} topCategory={topCategoryEntry} />
 
       {hasAnyData && (
-        <div className="bg-sahara-surface/40 backdrop-blur-md rounded-3xl border border-sahara-border/10 p-5 md:p-7 shadow-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-1.5 h-6 bg-sahara-primary rounded-full" />
+        <div className="border-y border-sahara-border py-5 md:py-6">
+          <div className="mb-5 flex items-center gap-2">
             <Text
               variant="body"
-              className="text-[11px] md:text-xs font-black text-sahara-text-secondary uppercase tracking-widest"
+              className="text-xs font-semibold text-sahara-text-secondary"
             >
               分类分布
             </Text>

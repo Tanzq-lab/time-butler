@@ -16,15 +16,15 @@ const ICON_MAP = {
 export function StatCard({ label, value, icon }: StatCardProps) {
   const Icon = ICON_MAP[icon];
   return (
-    <div className="bg-sahara-card/50 border border-sahara-border/20 rounded-xl p-3 md:p-4 flex items-center gap-2.5 md:gap-3">
-      <div className="size-9 md:w-10 md:h-10 rounded-lg bg-sahara-primary-light/60 flex items-center justify-center shrink-0">
-        <Icon className="size-4 md:w-5 md:h-5 text-sahara-primary" />
+    <div className="flex items-center gap-2.5 border-b border-sahara-border bg-sahara-surface p-3 md:gap-3 md:p-4">
+      <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-sahara-card md:size-10">
+        <Icon className="size-4 text-sahara-text-secondary md:size-5" />
       </div>
       <div>
-        <p className="text-[9px] md:text-xs font-bold text-sahara-text-muted uppercase tracking-wider">
+        <p className="text-[10px] text-sahara-text-muted md:text-xs">
           {label}
         </p>
-        <p className="text-base md:text-lg font-bold text-sahara-text tabular-nums mt-0.5">
+        <p className="mt-0.5 font-mono text-base font-semibold tabular-nums text-sahara-text md:text-lg">
           {value}
         </p>
       </div>

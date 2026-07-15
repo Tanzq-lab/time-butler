@@ -40,35 +40,36 @@ export function TaskSelector({ disabled = false }: TaskSelectorProps) {
         active={!!activeTask}
         onClick={() => !disabled && setIsOpen(true)}
         disabled={disabled}
+        aria-pressed={!!activeTask}
+        title={activeTask?.name}
         className={cn(
-          "text-left gap-1.5 max-w-50 md:max-w-62.5",
+          "min-w-0 max-w-48 gap-1.5 text-left sm:max-w-56 md:max-w-62.5",
           !activeTask &&
-            "border border-sahara-border/20 bg-sahara-surface/30 hover:border-sahara-primary/30 hover:bg-sahara-surface/50",
-          activeTask && "hover:shadow-md",
+            "border border-sahara-border bg-sahara-surface hover:bg-sahara-card",
         )}
       >
         {activeTask ? (
           <>
-            <CheckCircle2 className="size-3.5 text-sahara-primary shrink-0" />
-            <span className="text-xs font-bold text-sahara-text tracking-wide truncate">
+            <CheckCircle2 className="size-3.5 shrink-0 text-current" />
+            <span className="truncate text-xs font-semibold text-current">
               {activeTask.name}
             </span>
-            <ChevronDown className="size-3 text-sahara-text-muted shrink-0" />
+            <ChevronDown className="size-3 shrink-0 text-current opacity-65" />
           </>
         ) : (
           <>
-            <ListTodo className="size-3.5 text-sahara-text-muted shrink-0" />
-            <span className="text-[11px] font-medium text-sahara-text-muted tracking-wide truncate">
+            <ListTodo className="size-3.5 shrink-0 text-sahara-text-secondary" />
+            <span className="truncate text-[11px] font-medium text-sahara-text-secondary">
               选择任务
             </span>
-            <ChevronDown className="size-3 text-sahara-text-muted shrink-0" />
+            <ChevronDown className="size-3 shrink-0 text-sahara-text-secondary" />
           </>
         )}
       </Button>
 
       <ModalOverlay open={isOpen} onClose={() => setIsOpen(false)} showCloseButton>
         <div className="px-6 py-5 border-b border-sahara-border/20">
-          <h2 className="font-serif text-xl text-sahara-text">
+          <h2 className="text-xl font-semibold text-sahara-text">
             选择任务
           </h2>
         </div>
@@ -77,10 +78,13 @@ export function TaskSelector({ disabled = false }: TaskSelectorProps) {
           <div className="relative">
             <input
               type="text"
-              placeholder="搜索进行中的任务..."
+              name="active-task-search"
+              autoComplete="off"
+              aria-label="搜索进行中的任务"
+              placeholder="搜索进行中的任务…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-sahara-border/30 bg-sahara-bg/50 text-sm font-medium placeholder:text-sahara-text-muted focus:outline-none focus:border-sahara-primary/50 focus:ring-2 focus:ring-sahara-primary/10 transition-all"
+              className="w-full rounded-md border border-sahara-border bg-sahara-surface px-4 py-3 text-sm font-medium outline-none transition-colors duration-150 placeholder:text-sahara-text-muted focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
             />
           </div>
         </div>
@@ -107,8 +111,8 @@ export function TaskSelector({ disabled = false }: TaskSelectorProps) {
                 className={cn(
                   "text-sm font-medium",
                   activeTaskId === null
-                    ? "text-sahara-primary font-bold"
-                    : "text-sahara-text-muted",
+                    ? "font-semibold text-sahara-text"
+                    : "text-sahara-text-secondary",
                 )}
               >
                 不关联任务（独立专注）
@@ -138,13 +142,13 @@ export function TaskSelector({ disabled = false }: TaskSelectorProps) {
                   className={cn(
                     "text-sm font-medium truncate w-full text-left",
                     activeTaskId === task.id
-                      ? "text-sahara-primary font-bold"
+                      ? "font-semibold text-sahara-text"
                       : "text-sahara-text",
                   )}
                 >
                   {task.name}
                 </span>
-                <span className="text-[10px] text-sahara-text-muted">
+                <span className="text-[10px] text-sahara-text-secondary">
                   {task.completed_pomos} / {task.estimated_pomos} 个番茄
                 </span>
               </div>
@@ -152,7 +156,7 @@ export function TaskSelector({ disabled = false }: TaskSelectorProps) {
           ))}
 
           {availableTasks.length === 0 && searchQuery && (
-            <p className="text-center text-sm text-sahara-text-muted py-6">
+            <p className="py-6 text-center text-sm text-sahara-text-secondary">
               没有找到匹配的任务
             </p>
           )}

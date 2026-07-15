@@ -1,6 +1,5 @@
 import { Flame } from "lucide-react";
 import type { Session } from "@/lib/session-utils";
-import { cn } from "@/lib/cn";
 
 interface TopCategoryBadgeProps {
   sessions: Session[];
@@ -25,23 +24,19 @@ export function TopCategoryBadge({ sessions }: TopCategoryBadgeProps) {
   if (!topCategory) return null;
 
   return (
-    <div
-      className={cn(
-        "flex items-center gap-3 mb-6 px-5 py-3.5 rounded-2xl bg-linear-to-r from-sahara-primary/10 via-sahara-primary/5 to-transparent border border-sahara-primary/15 shadow-sm shadow-sahara-primary/5",
-      )}
-    >
-      <div className="size-8 rounded-full bg-sahara-primary/20 flex items-center justify-center shrink-0">
-        <Flame className="size-4 text-sahara-primary" />
+    <div className="mb-6 flex items-center gap-3 rounded-[10px] border border-sahara-border bg-sahara-surface px-4 py-3">
+      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-sahara-card">
+        <Flame aria-hidden="true" className="size-4 text-sahara-text-secondary" />
       </div>
       <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-        <span className="text-xs md:text-sm font-black text-sahara-text-secondary uppercase tracking-widest">
+        <span className="text-xs font-medium text-sahara-text-secondary md:text-sm">
           今日重点：
         </span>
         <div className="flex items-center gap-2">
-          <span className="px-3 py-1 rounded-lg bg-sahara-primary text-white text-[11px] md:text-xs font-black tracking-tight shadow-md shadow-sahara-primary/20">
+          <span className="rounded-md bg-sahara-card px-2.5 py-1 text-[11px] font-semibold text-sahara-text md:text-xs">
             {topCategory[0]}
           </span>
-          <span className="text-[11px] md:text-xs font-bold text-sahara-text-muted tabular-nums">
+          <span className="text-[11px] font-medium text-sahara-text-secondary tabular-nums md:text-xs">
             今天已记录 {topCategory[1]} 次
           </span>
         </div>

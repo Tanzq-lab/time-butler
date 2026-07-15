@@ -24,7 +24,9 @@ function getPhaseLabel(phase: string): string {
 
 function getAccentColor(session: Session): string {
   if (session.category_color) return session.category_color;
-  return session.phase === "work" ? "#22c55e" : "#60a5fa";
+  return session.phase === "work"
+    ? "var(--color-sahara-primary)"
+    : "var(--color-sahara-text-secondary)";
 }
 
 export function SessionCard({ session }: SessionCardProps) {
@@ -32,7 +34,7 @@ export function SessionCard({ session }: SessionCardProps) {
   const tagLabel = session.intention || session.category_name;
 
   return (
-    <div className="group relative flex items-stretch gap-0 bg-sahara-surface rounded-2xl border border-sahara-border/15 overflow-hidden hover:border-sahara-border/40 hover:shadow-sm transition-all duration-300">
+    <div className="group relative flex items-stretch gap-0 overflow-hidden rounded-[10px] border border-sahara-border bg-sahara-surface transition-colors duration-150 hover:border-sahara-text-muted">
       <div
         className="w-1.5 shrink-0 transition-opacity group-hover:opacity-100"
         style={{ backgroundColor: accentColor }}
@@ -42,7 +44,8 @@ export function SessionCard({ session }: SessionCardProps) {
         <div className="flex items-center gap-3 md:gap-4 min-w-0">
           <div className="flex items-center justify-center size-8 md:w-9 md:h-9 rounded-full bg-sahara-card/50 border border-sahara-border/10 shrink-0">
             <CheckCircle2
-              className="size-4 md:w-5 md:h-5 shrink-0 transition-transform group-hover:scale-110 duration-300"
+              aria-hidden="true"
+              className="size-4 shrink-0 md:size-5"
               style={{ color: accentColor }}
             />
           </div>
@@ -55,9 +58,9 @@ export function SessionCard({ session }: SessionCardProps) {
 
               {tagLabel && (
                 <span
-                  className="shrink-0 px-2.5 py-0.5 rounded-md text-[10px] md:text-[11px] font-bold tracking-wide uppercase"
+                  className="shrink-0 rounded-md px-2.5 py-0.5 text-[10px] font-semibold md:text-[11px]"
                   style={{
-                    backgroundColor: `${accentColor}15`,
+                    backgroundColor: `color-mix(in srgb, ${accentColor} 12%, transparent)`,
                     color: accentColor,
                   }}
                 >
