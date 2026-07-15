@@ -56,7 +56,7 @@ export function IdleActions({
         shape="rounded-full"
         onClick={() => {
           if (phase === "work" && breakReminderActive) {
-            acknowledgeBreakReminder();
+            acknowledgeBreakReminder("reminder_button");
             return;
           }
 

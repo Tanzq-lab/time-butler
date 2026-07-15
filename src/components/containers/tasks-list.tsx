@@ -4,6 +4,7 @@ import { useTaskStore } from "@/features/tasks/use-task-store";
 import { useTimerStore } from "@/features/timer/use-timer-store";
 import { useTaskFilter } from "@/features/tasks/use-task-filter";
 import { useCategoriesStore } from "@/features/categories/use-categories-store";
+import { useTodoStore } from "@/features/todos/use-todo-store";
 import {
   Plus,
   Search,
@@ -24,9 +25,11 @@ import {
 } from "@/components/base/add-task-modal";
 import { TaskCompletionReviewModal } from "@/components/base/task-completion-review-modal";
 import { TaskListCard } from "@/components/base/task-list-card";
+import { TodoSection } from "@/components/base/todo-section";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PageHeader, SectionHeader } from "@/components/ui/page-header";
 import type { Task } from "@/features/tasks/task-types";
+import type { Todo } from "@/lib/db";
 
 interface ListState {
   searchQuery: string;
@@ -35,6 +38,7 @@ interface ListState {
   taskToEdit: Task | null;
   taskToComplete: Task | null;
   taskToDelete: Task | null;
+  todoToConvert: Todo | null;
   showDone: boolean;
   doneVisibleCount: number;
 }
@@ -43,6 +47,7 @@ type ListAction =
   | { type: "SET_SEARCH"; query: string }
   | { type: "SET_VIEW_MODE"; mode: "list" | "grid" }
   | { type: "OPEN_ADD_MODAL"; taskToEdit?: Task | null }
+  | { type: "OPEN_CONVERT_MODAL"; todo: Todo }
   | { type: "CLOSE_ADD_MODAL" }
   | { type: "OPEN_COMPLETE_MODAL"; task: Task }
   | { type: "CLOSE_COMPLETE_MODAL" }
@@ -58,6 +63,7 @@ const INITIAL_LIST_STATE: ListState = {
   taskToEdit: null,
   taskToComplete: null,
   taskToDelete: null,
+  todoToConvert: null,
   showDone: false,
   doneVisibleCount: 20,
 };
@@ -69,9 +75,26 @@ function listReducer(state: ListState, action: ListAction): ListState {
     case "SET_VIEW_MODE":
       return { ...state, viewMode: action.mode };
     case "OPEN_ADD_MODAL":
-      return { ...state, showAddModal: true, taskToEdit: action.taskToEdit ?? null };
+      return {
+        ...state,
+        showAddModal: true,
+        taskToEdit: action.taskToEdit ?? null,
+        todoToConvert: null,
+      };
+    case "OPEN_CONVERT_MODAL":
+      return {
+        ...state,
+        showAddModal: true,
+        taskToEdit: null,
+        todoToConvert: action.todo,
+      };
     case "CLOSE_ADD_MODAL":
-      return { ...state, showAddModal: false, taskToEdit: null };
+      return {
+        ...state,
+        showAddModal: false,
+        taskToEdit: null,
+        todoToConvert: null,
+      };
     case "OPEN_COMPLETE_MODAL":
       return { ...state, taskToComplete: action.task };
     case "CLOSE_COMPLETE_MODAL":
@@ -97,6 +120,8 @@ export function TasksList() {
   const deleteTask = useTaskStore((s) => s.deleteTask);
   const completeTask = useTaskStore((s) => s.completeTask);
   const loadTasks = useTaskStore((s) => s.loadTasks);
+  const todos = useTodoStore((s) => s.todos);
+  const archiveTodo = useTodoStore((s) => s.archiveTodo);
 
   const activeTaskId = useTimerStore((s) => s.activeTaskId);
   const setActiveTask = useTimerStore((s) => s.setActiveTask);
@@ -109,6 +134,7 @@ export function TasksList() {
     taskToEdit,
     taskToComplete,
     taskToDelete,
+    todoToConvert,
     showDone,
     doneVisibleCount,
   } = listState;
@@ -156,6 +182,10 @@ export function TasksList() {
     return bTime - aTime;
   });
   const visibleDoneTasks = sortedDoneTasks.slice(0, doneVisibleCount);
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const hasTodoMatch = todos.some(
+    (todo) => !normalizedSearch || todo.title.toLowerCase().includes(normalizedSearch),
+  );
 
   const handleFocus = async (taskId: number) => {
     await setActiveTask(taskId);
@@ -163,7 +193,7 @@ export function TasksList() {
   };
 
   const handleAddTask = async (data: AddTaskData) => {
-    await addTask(
+    const task = await addTask(
       data.name,
       data.estimatedPomos,
       data.project,
@@ -171,7 +201,7 @@ export function TasksList() {
       data.categoryId,
       data.scheduledFor,
     );
-    dispatch({ type: "CLOSE_ADD_MODAL" });
+    return Boolean(task);
   };
 
   const handleEditTask = async (data: AddTaskData) => {
@@ -185,7 +215,22 @@ export function TasksList() {
       data.categoryId,
       data.scheduledFor,
     );
-    dispatch({ type: "CLOSE_ADD_MODAL" });
+    return true;
+  };
+
+  const handleConvertTodo = async (data: AddTaskData) => {
+    if (!todoToConvert) return false;
+    const task = await addTask(
+      data.name,
+      data.estimatedPomos,
+      data.project,
+      data.priority,
+      data.categoryId,
+      data.scheduledFor,
+    );
+    if (!task) return false;
+
+    return archiveTodo(todoToConvert.id, "todo_converted_to_task");
   };
 
   const handleCompleteTask = async (data: {
@@ -216,7 +261,7 @@ export function TasksList() {
       <PageHeader
         eyebrow="任务管理"
         title="我的任务"
-        description="选择下一件事，开始专注，完成后留下简短复盘。"
+        description="小事直接勾掉，需要投入时再开始专注。"
         className="mb-6 md:mb-8"
       />
 
@@ -228,8 +273,8 @@ export function TasksList() {
             type="text"
             name="task-search"
             autoComplete="off"
-            aria-label="搜索任务"
-            placeholder="搜索任务…"
+            aria-label="搜索待办和任务"
+            placeholder="搜索待办和任务…"
             value={searchQuery}
             onChange={(e) => dispatch({ type: "SET_SEARCH", query: e.target.value })}
             className="h-9 w-full rounded-md border border-sahara-border bg-sahara-surface pl-9 pr-3 text-sm text-sahara-text outline-none transition-colors duration-150 placeholder:text-sahara-text-muted focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
@@ -263,12 +308,12 @@ export function TasksList() {
             variant="solid"
             intent="sahara"
             size="sm"
-            aria-label="添加任务"
+            aria-label="添加专注任务"
             onClick={() => dispatch({ type: "OPEN_ADD_MODAL" })}
             className="ml-1 gap-1.5 px-3 text-xs font-medium md:ml-2"
           >
             <Plus className="size-3.5 md:size-4" />
-            <span className="hidden sm:inline">添加任务</span>
+            <span className="hidden sm:inline">添加专注任务</span>
           </Button>
         </div>
       </div>
@@ -276,7 +321,14 @@ export function TasksList() {
       <AddTaskModal
         open={showAddModal}
         onClose={() => dispatch({ type: "CLOSE_ADD_MODAL" })}
-        onSubmit={taskToEdit ? handleEditTask : handleAddTask}
+        onSubmit={
+          taskToEdit
+            ? handleEditTask
+            : todoToConvert
+              ? handleConvertTodo
+              : handleAddTask
+        }
+        initialName={todoToConvert?.title}
         editTask={taskToEdit}
         categories={categories}
       />
@@ -296,11 +348,28 @@ export function TasksList() {
         onConfirm={handleDeleteTask}
       />
 
+      <TodoSection
+        searchQuery={searchQuery}
+        onConvert={(todo) => dispatch({ type: "OPEN_CONVERT_MODAL", todo })}
+      />
+
+      <div className="border-t border-sahara-border pt-8 md:pt-9">
+        <SectionHeader
+          title="专注任务"
+          meta={
+            <span className="text-xs text-sahara-text-muted">
+              {activeTasks.length + scheduledTasks.length}
+            </span>
+          }
+          className="mb-5"
+        />
+
       {/* Task Sections */}
       {activeTasks.length === 0 &&
       scheduledTasks.length === 0 &&
       doneTasks.length === 0 &&
-      searchQuery ? (
+      searchQuery &&
+      !hasTodoMatch ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <Filter className="size-12 text-sahara-border mb-4" />
           <p className="text-sm font-semibold text-sahara-text-secondary">
@@ -455,6 +524,7 @@ export function TasksList() {
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }

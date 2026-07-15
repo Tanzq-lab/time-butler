@@ -22,8 +22,9 @@ export interface AddTaskData {
 interface AddTaskModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: AddTaskData) => void | Promise<void>;
+  onSubmit: (data: AddTaskData) => boolean | void | Promise<boolean | void>;
   editTask?: Task | null;
+  initialName?: string;
   categories: Category[];
 }
 
@@ -54,8 +55,13 @@ const INITIAL_STATE: FormState = {
   categoryId: null,
 };
 
-function initialStateForTask(editTask?: Task | null): FormState {
-  if (!editTask) return INITIAL_STATE;
+function initialStateForTask(
+  editTask?: Task | null,
+  initialName?: string,
+): FormState {
+  if (!editTask) {
+    return { ...INITIAL_STATE, name: initialName?.trim() ?? "" };
+  }
 
   return {
     name: editTask.name,
@@ -82,18 +88,22 @@ export function AddTaskModal({
   onClose,
   onSubmit,
   editTask,
+  initialName,
   categories,
 }: AddTaskModalProps) {
   const isEditing = !!editTask;
   const [form, dispatch] = useReducer(
     formReducer,
-    initialStateForTask(editTask),
+    initialStateForTask(editTask, initialName),
   );
 
   useEffect(() => {
     if (!open) return;
-    dispatch({ type: "SET_ALL", payload: initialStateForTask(editTask) });
-  }, [open, editTask]);
+    dispatch({
+      type: "SET_ALL",
+      payload: initialStateForTask(editTask, initialName),
+    });
+  }, [open, editTask, initialName]);
 
   const matchedCategory = useMemo(
     () => categories.find((c) => c.id === form.categoryId) ?? null,
@@ -104,19 +114,19 @@ export function AddTaskModal({
     e.preventDefault();
     if (!form.name.trim()) return;
 
-    await onSubmit({
+    const submitted = await onSubmit({
       name: form.name.trim(),
       estimatedPomos: form.estimatedPomos,
       project: form.project.trim() || "",
       priority: form.priority || "",
       categoryId: form.categoryId,
     });
-    onClose();
+    if (submitted !== false) onClose();
   };
 
   return (
     <ModalOverlay
-      key={editTask?.id ?? "new"}
+      key={editTask?.id ?? initialName ?? "new"}
       open={open}
       onClose={onClose}
       maxWidth="max-w-lg"

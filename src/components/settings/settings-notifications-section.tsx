@@ -39,6 +39,7 @@ export function SettingsNotifications({
       await sendNotification(
         "session-complete",
         "这是一条测试通知。",
+        { trigger: "settings_test" },
       );
     } finally {
       setTimeout(() => setTesting(false), 2000);

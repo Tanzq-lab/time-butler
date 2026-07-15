@@ -106,12 +106,13 @@ export const SessionService = {
     phase: string,
     elapsedSec: number,
     completed: boolean,
-  ): Promise<void> {
-    await addSession(activeTaskId, phase, elapsedSec, completed);
+  ): Promise<number> {
+    const sessionId = await addSession(activeTaskId, phase, elapsedSec, completed);
     void recordAppEvent({
       eventName: "timer_session_skipped",
       route: "/",
       entityType: "session",
+      entityId: sessionId,
       metadata: {
         phase,
         elapsedSec,
@@ -119,5 +120,6 @@ export const SessionService = {
         hasTask: activeTaskId != null,
       },
     });
+    return sessionId;
   },
 };

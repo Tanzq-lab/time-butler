@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "usage:daily": "node scripts/analyze-daily-product-usage.mjs",
     "data:init": "node scripts/private-data.mjs init",
     "data:backup": "node scripts/private-data.mjs backup",
     "tauri": "tauri"

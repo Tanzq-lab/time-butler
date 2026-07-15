@@ -258,6 +258,19 @@ describe("useTaskStore", () => {
       expect(other.completed_pomos).toBe(5);
     });
 
+    it("reflects a session credit without incrementing the database twice", async () => {
+      const { incrementTaskPomos } = await import("@/lib/db");
+      useTaskStore.setState({ tasks: [...mockTasks] });
+
+      await useTaskStore.getState().incrementPomos(1, undefined, {
+        alreadyPersisted: true,
+        sessionId: 514,
+      });
+
+      expect(incrementTaskPomos).not.toHaveBeenCalled();
+      expect(useTaskStore.getState().tasks[0].completed_pomos).toBe(2);
+    });
+
     it("logs completion estimate delta on the first overrun", async () => {
       useTaskStore.setState({
         tasks: [

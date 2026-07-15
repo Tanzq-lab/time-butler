@@ -50,6 +50,7 @@ export async function initDb(): Promise<void> {
       ended_at DATETIME,
       duration_sec INTEGER NOT NULL,
       completed BOOLEAN NOT NULL DEFAULT 0,
+      pomo_counted BOOLEAN NOT NULL DEFAULT 0,
       FOREIGN KEY (task_id) REFERENCES tasks(id)
     )
   `);
@@ -175,9 +176,37 @@ export async function initDb(): Promise<void> {
       "CREATE INDEX IF NOT EXISTS idx_app_events_event_name ON app_events(event_name)",
       "CREATE INDEX IF NOT EXISTS idx_app_events_route ON app_events(route)",
     ],
+    10: [
+      "ALTER TABLE sessions ADD COLUMN pomo_counted BOOLEAN NOT NULL DEFAULT 0",
+      "UPDATE sessions SET pomo_counted = 1 WHERE phase = 'work' AND completed = 1",
+      `CREATE TRIGGER IF NOT EXISTS trg_sessions_credit_task_pomo
+        AFTER UPDATE OF pomo_counted ON sessions
+        WHEN OLD.pomo_counted = 0
+          AND NEW.pomo_counted = 1
+          AND NEW.phase = 'work'
+          AND NEW.completed = 1
+          AND NEW.task_id IS NOT NULL
+        BEGIN
+          UPDATE tasks
+          SET completed_pomos = completed_pomos + 1
+          WHERE id = NEW.task_id;
+        END`,
+    ],
+    11: [
+      `CREATE TABLE IF NOT EXISTS todos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        completed_at TEXT,
+        archived INTEGER NOT NULL DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_todos_visible
+        ON todos (archived, completed_at, created_at)`,
+    ],
   };
 
-  const targetVersion = 9;
+  const targetVersion = 11;
 
   for (let v = currentVersion + 1; v <= targetVersion; v++) {
     const statements = migrations[v];

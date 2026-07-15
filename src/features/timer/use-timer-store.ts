@@ -67,7 +67,7 @@ interface TimerStore {
   confirmStartNextPhase: (mood?: string, notes?: string) => Promise<void>;
   submitPendingFocusReview: (mood?: string, notes?: string) => Promise<void>;
   dismissPendingFocusReview: () => void;
-  acknowledgeBreakReminder: () => void;
+  acknowledgeBreakReminder: (reason?: string) => void;
   addFiveMinutes: () => void;
   endWithoutBreak: () => Promise<void>;
 }
@@ -104,6 +104,8 @@ const engine = new TimerEngine();
 let settleInFlight = false;
 let nativeDeadlineListenerStarted = false;
 let clockSyncListenersInstalled = false;
+let nativeDeadlineUnlisten: (() => void) | null = null;
+let removeClockSyncListeners: (() => void) | null = null;
 
 function canUseStorage(): boolean {
   return typeof window !== "undefined" && !!window.localStorage;
@@ -230,9 +232,9 @@ function stopFocusMusicForActiveWork(
 export const useTimerStore = create<TimerStore>((set, get) => {
   const persistedTimerState = loadPersistedTimerState();
 
-  function acknowledgeBreakReminder() {
+  function acknowledgeBreakReminder(reason = "unspecified") {
     if (!get().breakReminderActive) return;
-    stopBreakOverSound();
+    stopBreakOverSound(reason);
     set({ breakReminderActive: false });
   }
 
@@ -254,7 +256,13 @@ export const useTimerStore = create<TimerStore>((set, get) => {
     } = state;
     try {
       const durationMin = Math.round(state.totalSeconds / 60);
-      notifyPhaseComplete(state.phase, durationMin);
+      notifyPhaseComplete(state.phase, durationMin, {
+        sessionId: currentSessionId,
+        deadlineLagMs:
+          state.deadlineAtMs == null
+            ? null
+            : Math.max(0, Date.now() - state.deadlineAtMs),
+      });
 
       engine.terminate();
       cancelNativeDeadline();
@@ -273,7 +281,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
           );
         }
         await SessionService.finish(currentSessionId, totalSeconds, undefined, undefined, true);
-        await recordPomoCompletion(phase, completionTaskId);
+        await recordPomoCompletion(phase, currentSessionId, completionTaskId);
       }
 
       const newPomos = phase === "work" ? completedPomos + 1 : completedPomos;
@@ -346,8 +354,14 @@ export const useTimerStore = create<TimerStore>((set, get) => {
 
     start: async (duration?: number) => {
       const state = get();
-      void prepareNotificationAudio();
-      if (state.breakReminderActive) acknowledgeBreakReminder();
+      void prepareNotificationAudio({
+        trigger: "timer_start",
+        sessionId: state.currentSessionId,
+        phase: state.phase,
+      });
+      if (state.breakReminderActive) {
+        acknowledgeBreakReminder("start_next_phase");
+      }
 
       const secs = duration ?? getPhaseDuration(state.phase, state.durations);
 
@@ -396,7 +410,11 @@ export const useTimerStore = create<TimerStore>((set, get) => {
 
     resume: () => {
       const state = get();
-      void prepareNotificationAudio();
+      void prepareNotificationAudio({
+        trigger: "timer_resume",
+        sessionId: state.currentSessionId,
+        phase: state.phase,
+      });
       const secondsRemaining = Math.max(0, state.secondsRemaining);
 
       if (secondsRemaining <= 0) {
@@ -445,6 +463,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
       const secondsRemaining = getAccurateSecondsRemaining(state);
       const completed = secondsRemaining <= 0;
       const elapsed = Math.max(0, totalSeconds - secondsRemaining);
+      let completionSessionId = currentSessionId;
 
       engine.terminate();
       cancelNativeDeadline();
@@ -470,7 +489,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
           completed,
         );
       } else {
-        await SessionService.recordSkip(
+        completionSessionId = await SessionService.recordSkip(
           currentSessionTaskId ?? activeTaskId,
           phase,
           elapsed,
@@ -482,8 +501,8 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         const completionTaskId = phase === "work"
           ? currentSessionTaskId ?? activeTaskId
           : null;
-        await recordPomoCompletion(phase, completionTaskId);
-        notifySkipped(phase);
+        await recordPomoCompletion(phase, completionSessionId, completionTaskId);
+        notifySkipped(phase, currentSessionId);
       }
 
       const newPomos = phase === "work" && completed ? completedPomos + 1 : completedPomos;
@@ -507,7 +526,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
 
     reset: () => {
       const state = get();
-      acknowledgeBreakReminder();
+      acknowledgeBreakReminder("timer_reset");
       engine.terminate();
       cancelNativeDeadline();
       stopFocusMusicForActiveWork(state);
@@ -525,7 +544,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
 
     setPhase: (phase: TimerPhase) => {
       const state = get();
-      acknowledgeBreakReminder();
+      acknowledgeBreakReminder("phase_changed");
       engine.terminate();
       cancelNativeDeadline();
       stopFocusMusicForActiveWork(state);
@@ -657,7 +676,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
     finishSession: async (mood?: string, notes?: string) => {
       const state = get();
       const { currentSessionId } = state;
-      acknowledgeBreakReminder();
+      acknowledgeBreakReminder("session_finished_manually");
       engine.terminate();
       cancelNativeDeadline();
       stopFocusMusicForActiveWork(state);
@@ -684,7 +703,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
 
     abandonSession: async () => {
       const state = get();
-      acknowledgeBreakReminder();
+      acknowledgeBreakReminder("session_abandoned");
       engine.terminate();
       cancelNativeDeadline();
       stopFocusMusicForActiveWork(state);
@@ -718,7 +737,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         phase,
         totalSeconds,
       } = state;
-      acknowledgeBreakReminder();
+      acknowledgeBreakReminder("next_phase_confirmed");
       engine.terminate();
       cancelNativeDeadline();
       stopFocusMusicForActiveWork(state);
@@ -736,7 +755,12 @@ export const useTimerStore = create<TimerStore>((set, get) => {
           );
         }
         await SessionService.finish(currentSessionId, totalSeconds, mood, notes, true);
-        await recordPomoCompletion(phase, completionTaskId, notes);
+        await recordPomoCompletion(
+          phase,
+          currentSessionId,
+          completionTaskId,
+          notes,
+        );
       }
 
       const newPomos = phase === "work" ? state.completedPomos + 1 : state.completedPomos;
@@ -800,7 +824,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         phase,
         totalSeconds,
       } = state;
-      acknowledgeBreakReminder();
+      acknowledgeBreakReminder("end_without_break");
       engine.terminate();
       cancelNativeDeadline();
       stopFocusMusicForActiveWork(state);
@@ -818,7 +842,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
           );
         }
         await SessionService.finish(currentSessionId, totalSeconds, undefined, undefined, true);
-        await recordPomoCompletion(phase, completionTaskId);
+        await recordPomoCompletion(phase, currentSessionId, completionTaskId);
       }
 
       const pendingFocusReview =
@@ -851,10 +875,18 @@ function startNativeDeadlineListener(): void {
     () => {
       useTimerStore.getState().syncWithClock();
     },
-  ).catch((err) => {
-    nativeDeadlineListenerStarted = false;
-    console.warn("[TimerStore] Failed to listen for native timer deadline:", err);
-  });
+  )
+    .then((unlisten) => {
+      if (!nativeDeadlineListenerStarted) {
+        unlisten();
+        return;
+      }
+      nativeDeadlineUnlisten = unlisten;
+    })
+    .catch((err) => {
+      nativeDeadlineListenerStarted = false;
+      console.warn("[TimerStore] Failed to listen for native timer deadline:", err);
+    });
 }
 
 function installClockSyncListeners(): void {
@@ -869,11 +901,21 @@ function installClockSyncListeners(): void {
   window.addEventListener("focus", sync);
   window.addEventListener("online", sync);
 
+  const onVisibilityChange = () => {
+    if (document.visibilityState === "visible") sync();
+  };
+
   if (typeof document !== "undefined") {
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") sync();
-    });
+    document.addEventListener("visibilitychange", onVisibilityChange);
   }
+
+  removeClockSyncListeners = () => {
+    window.removeEventListener("focus", sync);
+    window.removeEventListener("online", sync);
+    if (typeof document !== "undefined") {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    }
+  };
 }
 
 function playBreakOverReminderIfNeeded(): void {
@@ -881,10 +923,31 @@ function playBreakOverReminderIfNeeded(): void {
   if (!state.breakReminderActive) return;
 
   const { soundEnabled } = useSettingsStore.getState().settings;
-  if (soundEnabled) void playBreakOverSound();
+  if (soundEnabled) {
+    void playBreakOverSound({
+      trigger: "break_reminder_replay",
+      sessionId: state.currentSessionId,
+      phase: state.phase,
+    });
+  }
 }
 
-useTimerStore.subscribe((state) => persistTimerState(state));
+const unsubscribeTimerPersistence = useTimerStore.subscribe((state) =>
+  persistTimerState(state),
+);
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    engine.terminate();
+    nativeDeadlineListenerStarted = false;
+    nativeDeadlineUnlisten?.();
+    nativeDeadlineUnlisten = null;
+    clockSyncListenersInstalled = false;
+    removeClockSyncListeners?.();
+    removeClockSyncListeners = null;
+    unsubscribeTimerPersistence();
+  });
+}
 
 queueMicrotask(() => {
   startNativeDeadlineListener();

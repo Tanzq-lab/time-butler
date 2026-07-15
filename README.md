@@ -146,6 +146,14 @@ scripts/run-codex-weekly-report.sh
 scripts/run-codex-monthly-report.sh
 ```
 
+单独生成某一天的本地产品使用路径分析：
+
+```zsh
+npm run usage:daily -- --date 2026-07-14
+```
+
+报告写入 `../time-butler-data/data/product-insights/`。分析只聚合页面路径、有效停留、前后台状态、动作类型、实体 id 和布尔/计数特征，不复制任务名称、笔记/日报正文或完成复盘原文。每日复盘脚本会先生成前一天的路径报告，再用 session、任务、复盘和用户反馈交叉验证，输出最多 3 条可证伪的产品优化建议。
+
 三个复盘脚本会依次从 ChatGPT.app、Codex.app 和 `PATH` 发现可执行的 Codex CLI，不依赖单一 App 安装路径。需要补跑某一天的日报时使用：
 
 ```zsh

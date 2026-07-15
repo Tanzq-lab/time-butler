@@ -45,6 +45,7 @@ vi.mock("@/lib/db", () => ({
   addSession: vi.fn().mockResolvedValue(1),
   startSession: vi.fn().mockResolvedValue(1),
   finishSession: vi.fn().mockResolvedValue(undefined),
+  creditSessionPomo: vi.fn().mockResolvedValue(true),
   updateSessionAttribution: vi.fn().mockResolvedValue(undefined),
   updateSessionReflection: vi.fn().mockResolvedValue(undefined),
   abandonSession: vi.fn().mockResolvedValue(undefined),
@@ -335,7 +336,7 @@ describe("useTimerStore", () => {
 
       const {
         finishSession: dbFinish,
-        incrementTaskPomos,
+        creditSessionPomo,
         updateSessionAttribution,
       } = await import("@/lib/db");
       await vi.waitFor(() =>
@@ -348,7 +349,7 @@ describe("useTimerStore", () => {
         ),
       );
       expect(updateSessionAttribution).toHaveBeenCalledWith(1, 190, undefined, undefined);
-      expect(incrementTaskPomos).toHaveBeenCalledWith(190);
+      expect(creditSessionPomo).toHaveBeenCalledWith(1);
       expect(focusMusicMocks.stopFocusMusic).toHaveBeenCalledOnce();
 
       const state = useTimerStore.getState();
@@ -375,7 +376,7 @@ describe("useTimerStore", () => {
       });
       useTimerStore.getState().syncWithClock();
 
-      const { finishSession: dbFinish, incrementTaskPomos } = await import("@/lib/db");
+      const { finishSession: dbFinish, creditSessionPomo } = await import("@/lib/db");
       await vi.waitFor(() =>
         expect(dbFinish).toHaveBeenCalledWith(
           1,
@@ -385,7 +386,7 @@ describe("useTimerStore", () => {
           true,
         ),
       );
-      expect(incrementTaskPomos).toHaveBeenCalledWith(190);
+      expect(creditSessionPomo).toHaveBeenCalledWith(1);
 
       const state = useTimerStore.getState();
       expect(state.secondsRemaining).toBe(DEFAULT_SHORT_BREAK_SEC);
@@ -590,8 +591,8 @@ describe("useTimerStore", () => {
 
       await useTimerStore.getState().skip();
 
-      const { incrementTaskPomos } = await import("@/lib/db");
-      expect(incrementTaskPomos).toHaveBeenCalledWith(190);
+      const { creditSessionPomo } = await import("@/lib/db");
+      expect(creditSessionPomo).toHaveBeenCalledWith(1);
     });
 
     it("sends notification when session completed", async () => {
@@ -719,9 +720,9 @@ describe("useTimerStore", () => {
 
       await useTimerStore.getState().confirmStartNextPhase("good", "Nice");
 
-      const { finishSession: dbFinish, incrementTaskPomos } = await import("@/lib/db");
+      const { finishSession: dbFinish, creditSessionPomo } = await import("@/lib/db");
       expect(dbFinish).toHaveBeenCalledWith(1, DEFAULT_WORK_SEC, "good", "Nice", true);
-      expect(incrementTaskPomos).toHaveBeenCalledWith(8);
+      expect(creditSessionPomo).toHaveBeenCalledWith(1);
 
       const state = useTimerStore.getState();
       expect(state.completedPomos).toBe(1);
@@ -751,9 +752,9 @@ describe("useTimerStore", () => {
 
       await useTimerStore.getState().endWithoutBreak();
 
-      const { finishSession: dbFinish, incrementTaskPomos } = await import("@/lib/db");
+      const { finishSession: dbFinish, creditSessionPomo } = await import("@/lib/db");
       expect(dbFinish).toHaveBeenCalledWith(1, DEFAULT_WORK_SEC, undefined, undefined, true);
-      expect(incrementTaskPomos).toHaveBeenCalledWith(9);
+      expect(creditSessionPomo).toHaveBeenCalledWith(1);
 
       const state = useTimerStore.getState();
       expect(state.phase).toBe("work");

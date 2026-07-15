@@ -29,6 +29,38 @@ interface RecordAppEventInput {
 
 const MAX_METADATA_LENGTH = 4000;
 let ensureAppEventsTablePromise: Promise<void> | null = null;
+const appSessionId = createAppSessionId();
+let appSessionSequence = 0;
+
+function createAppSessionId(): string {
+  const randomId = globalThis.crypto?.randomUUID?.()
+    ?? Math.random().toString(36).slice(2);
+  return `${Date.now().toString(36)}-${randomId}`;
+}
+
+function formatLocalDate(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function buildEventMetadata(
+  metadata?: Record<string, unknown> | null,
+): Record<string, unknown> {
+  const occurredAt = new Date();
+  appSessionSequence += 1;
+
+  return {
+    ...(metadata ?? {}),
+    appSessionId,
+    appSessionSequence,
+    clientOccurredAt: occurredAt.toISOString(),
+    clientLocalDate: formatLocalDate(occurredAt),
+    clientTimezone:
+      Intl.DateTimeFormat().resolvedOptions().timeZone || "unknown",
+    visibilityState:
+      typeof document === "undefined" ? "unknown" : document.visibilityState,
+  };
+}
 
 function ensureAppEventsTable(database: Database): Promise<void> {
   ensureAppEventsTablePromise ??= (async () => {
@@ -66,6 +98,12 @@ function serializeMetadata(metadata?: Record<string, unknown> | null): string | 
       truncated: true,
       originalLength: serialized.length,
       preview: serialized.slice(0, MAX_METADATA_LENGTH),
+      appSessionId: metadata.appSessionId,
+      appSessionSequence: metadata.appSessionSequence,
+      clientOccurredAt: metadata.clientOccurredAt,
+      clientLocalDate: metadata.clientLocalDate,
+      clientTimezone: metadata.clientTimezone,
+      visibilityState: metadata.visibilityState,
     });
   } catch {
     return JSON.stringify({ serializationError: true });
@@ -74,6 +112,7 @@ function serializeMetadata(metadata?: Record<string, unknown> | null): string | 
 
 export async function recordAppEvent(input: RecordAppEventInput): Promise<void> {
   try {
+    const metadata = buildEventMetadata(input.metadata);
     const database = await getDb();
     await ensureAppEventsTable(database);
     await database.execute(
@@ -84,7 +123,7 @@ export async function recordAppEvent(input: RecordAppEventInput): Promise<void> 
         input.route ?? null,
         input.entityType ?? null,
         input.entityId == null ? null : String(input.entityId),
-        serializeMetadata(input.metadata),
+        serializeMetadata(metadata),
       ],
     );
   } catch (err) {

@@ -7,6 +7,7 @@ export interface Session {
   ended_at: string | null;
   duration_sec: number;
   completed: number;
+  pomo_counted?: number;
   category_id: number | null;
   category_name?: string | null;
   category_color?: string | null;
@@ -20,6 +21,15 @@ export interface Category {
   name: string;
   color: string;
   created_at: string;
+}
+
+export interface Todo {
+  id: number;
+  title: string;
+  completed_at: string | null;
+  archived: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface CategoryBreakdown {

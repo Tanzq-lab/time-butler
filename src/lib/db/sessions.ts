@@ -6,12 +6,13 @@ export async function addSession(
   phase: string,
   durationSec: number,
   completed: boolean,
-): Promise<void> {
+): Promise<number> {
   const database = await getDb();
-  await database.execute(
+  const result = await database.execute(
     "INSERT INTO sessions (task_id, phase, duration_sec, completed, ended_at) VALUES ($1, $2, MAX(0, $3), $4, datetime('now', 'localtime'))",
     [taskId, phase, durationSec, completed ? 1 : 0],
   );
+  return result.lastInsertId as number;
 }
 
 export async function startSession(
@@ -64,6 +65,23 @@ export async function finishSession(
       [sessionId, completed ? 1 : 0, mood ?? null, notes ?? null],
     );
   }
+}
+
+export async function creditSessionPomo(sessionId: number): Promise<boolean> {
+  const database = await getDb();
+  const result = await database.execute(
+    `
+    UPDATE sessions
+    SET pomo_counted = 1
+    WHERE id = $1
+      AND phase = 'work'
+      AND completed = 1
+      AND task_id IS NOT NULL
+      AND pomo_counted = 0
+    `,
+    [sessionId],
+  );
+  return result.rowsAffected === 1;
 }
 
 export async function updateSessionAttribution(

@@ -1,6 +1,6 @@
 export { initDb } from "./schema";
 export { getDb } from "./schema";
-export type { Session, Category, CategoryBreakdown, DayData, WeekSession, WeekSummary, MoodStat, SessionNoteEntry, CompletedTaskEntry, TimePage, TimePageType } from "./types";
+export type { Session, Category, Todo, CategoryBreakdown, DayData, WeekSession, WeekSummary, MoodStat, SessionNoteEntry, CompletedTaskEntry, TimePage, TimePageType } from "./types";
 export type { AppEvent, AppEventSummary } from "./app-events";
 export {
   recordAppEvent,
@@ -18,9 +18,17 @@ export {
   getTaskTimeToday,
 } from "./tasks";
 export {
+  getTodos,
+  addTodo,
+  updateTodoTitle,
+  setTodoCompleted,
+  archiveTodo,
+} from "./todos";
+export {
   addSession,
   startSession,
   finishSession,
+  creditSessionPomo,
   updateSessionAttribution,
   updateSessionReflection,
   abandonSession,

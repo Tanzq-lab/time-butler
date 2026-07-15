@@ -104,4 +104,26 @@ describe("AddTaskModal", () => {
     expect(screen.queryByRole("button", { name: "新增分类" })).toBeNull();
     expect(screen.queryByPlaceholderText("输入新分类名称")).toBeNull();
   });
+
+  it("prefills a converted todo and stays open when creation fails", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(false);
+    const onClose = vi.fn();
+
+    render(
+      <AddTaskModal
+        open
+        initialName="购买显示器支架"
+        onClose={onClose}
+        onSubmit={onSubmit}
+        categories={categories}
+      />,
+    );
+
+    expect(screen.getByLabelText("任务名称")).toHaveValue("购买显示器支架");
+    fireEvent.click(screen.getByRole("button", { name: /创建任务/ }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "新建任务" })).toBeVisible();
+  });
 });

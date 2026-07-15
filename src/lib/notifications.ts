@@ -1,5 +1,6 @@
 import { useSettingsStore } from "@/features/settings/use-settings-store";
 import { useNotificationStore } from "@/features/notifications/use-notification-store";
+import { recordAppEvent } from "@/lib/db";
 import { isTauri } from "@/lib/tauri";
 import breakOverChimeUrl from "@/assets/sounds/simple-happy-beep.ogg";
 
@@ -8,6 +9,24 @@ type NotificationType =
   | "break-over"
   | "focus-start"
   | "focus-complete";
+
+export interface NotificationDeliveryContext {
+  trigger?: string;
+  sessionId?: number | null;
+  phase?: string | null;
+  deadlineLagMs?: number | null;
+}
+
+interface DiagnosticAttempt {
+  attemptId: string;
+  notificationType: NotificationType | null;
+  trigger: string;
+  sessionId: number | null;
+  phase: string | null;
+  deadlineLagMs: number | null;
+  startedAtMs: number;
+  eventSequence: number;
+}
 
 const NOTIFICATION_TITLES: Record<NotificationType, string> = {
   "session-complete": "专注已完成",
@@ -25,21 +44,138 @@ let breakOverBufferPromise: Promise<AudioBuffer> | null = null;
 let breakOverLoopSource: AudioBufferSourceNode | null = null;
 let breakOverLoopGain: GainNode | null = null;
 let breakOverLoopStartPromise: Promise<void> | null = null;
+let breakOverLoopAttempt: DiagnosticAttempt | null = null;
+let breakOverLoopPendingAttempt: DiagnosticAttempt | null = null;
+let breakOverLoopStartedAtMs: number | null = null;
 let breakOverLoopToken = 0;
+let diagnosticAttemptSequence = 0;
 
-async function getReadyAudioContext(): Promise<AudioContext> {
-  if (typeof AudioContext === "undefined") {
-    throw new Error("AudioContext is unavailable.");
-  }
+function createDiagnosticAttempt(
+  notificationType: NotificationType | null,
+  context: NotificationDeliveryContext = {},
+  defaultTrigger: string,
+): DiagnosticAttempt {
+  diagnosticAttemptSequence = (diagnosticAttemptSequence + 1) % 1_000_000;
+  const startedAtMs = Date.now();
 
-  if (!audioCtx) audioCtx = new AudioContext();
-  if (audioCtx.state === "suspended") await audioCtx.resume();
-  return audioCtx;
+  return {
+    attemptId: `${startedAtMs.toString(36)}-${diagnosticAttemptSequence.toString(36)}`,
+    notificationType,
+    trigger: context.trigger ?? defaultTrigger,
+    sessionId: context.sessionId ?? null,
+    phase: context.phase ?? null,
+    deadlineLagMs: context.deadlineLagMs ?? null,
+    startedAtMs,
+    eventSequence: 0,
+  };
 }
 
-export async function playChime(): Promise<void> {
+function describeError(error: unknown): Record<string, string> {
+  const errorName = error instanceof Error ? error.name : typeof error;
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  return {
+    errorName,
+    errorMessage: errorMessage.slice(0, 500),
+  };
+}
+
+function getRuntimeAudioMetadata(): Record<string, unknown> {
+  const activation =
+    typeof navigator !== "undefined" ? navigator.userActivation : undefined;
+
+  return {
+    documentVisibility:
+      typeof document !== "undefined" ? document.visibilityState : "unavailable",
+    userActivationIsActive: activation?.isActive ?? null,
+    userActivationHasBeenActive: activation?.hasBeenActive ?? null,
+    audioContextState: audioCtx?.state ?? "missing",
+  };
+}
+
+function recordNotificationDiagnostic(
+  eventName: string,
+  attempt: DiagnosticAttempt,
+  metadata: Record<string, unknown> = {},
+): void {
+  const occurredAtMs = Date.now();
+  attempt.eventSequence += 1;
+  void recordAppEvent({
+    eventName,
+    route:
+      typeof window !== "undefined" ? window.location.pathname || "/" : null,
+    entityType: attempt.sessionId == null ? "notification" : "session",
+    entityId: attempt.sessionId ?? attempt.attemptId,
+    metadata: {
+      attemptId: attempt.attemptId,
+      notificationType: attempt.notificationType,
+      trigger: attempt.trigger,
+      phase: attempt.phase,
+      deadlineLagMs: attempt.deadlineLagMs,
+      occurredAtMs,
+      eventSequence: attempt.eventSequence,
+      attemptElapsedMs: Math.max(0, occurredAtMs - attempt.startedAtMs),
+      ...metadata,
+    },
+  });
+}
+
+async function getReadyAudioContext(
+  attempt: DiagnosticAttempt,
+  purpose: string,
+): Promise<AudioContext> {
+  const contextStartedAtMs = Date.now();
+  const stateBefore = audioCtx?.state ?? "missing";
+  let operation = "reuse";
+
   try {
-    const ctx = await getReadyAudioContext();
+    if (typeof AudioContext === "undefined") {
+      throw new Error("AudioContext is unavailable.");
+    }
+
+    if (!audioCtx) {
+      operation = "create";
+      audioCtx = new AudioContext();
+    }
+
+    if (audioCtx.state === "suspended") {
+      operation = "resume";
+      await audioCtx.resume();
+    }
+
+    const stateAfter = audioCtx.state;
+    recordNotificationDiagnostic("notification_audio_context_result", attempt, {
+      purpose,
+      operation,
+      outcome: stateAfter === "running" ? "ready" : "not_running",
+      stateBefore,
+      stateAfter,
+      durationMs: Math.max(0, Date.now() - contextStartedAtMs),
+      ...getRuntimeAudioMetadata(),
+    });
+    return audioCtx;
+  } catch (error) {
+    recordNotificationDiagnostic("notification_audio_context_result", attempt, {
+      purpose,
+      operation,
+      outcome: "failed",
+      stateBefore,
+      stateAfter: audioCtx?.state ?? "missing",
+      durationMs: Math.max(0, Date.now() - contextStartedAtMs),
+      ...getRuntimeAudioMetadata(),
+      ...describeError(error),
+    });
+    throw error;
+  }
+}
+
+async function playChimeForAttempt(
+  attempt: DiagnosticAttempt,
+  mode: "generated_chime" | "fallback_chime",
+): Promise<void> {
+  const playbackStartedAtMs = Date.now();
+
+  try {
+    const ctx = await getReadyAudioContext(attempt, mode);
     const now = ctx.currentTime;
 
     const frequencies = [523.25, 659.25, 783.99];
@@ -63,53 +199,189 @@ export async function playChime(): Promise<void> {
       osc.start(startAt);
       osc.stop(stopAt);
     });
-  } catch (e) {
-    console.error("[Notification] Audio chime failed:", e);
+
+    recordNotificationDiagnostic("notification_audio_playback_result", attempt, {
+      mode,
+      outcome: "started",
+      oscillatorCount: frequencies.length,
+      durationMs: Math.max(0, Date.now() - playbackStartedAtMs),
+      ...getRuntimeAudioMetadata(),
+    });
+  } catch (error) {
+    recordNotificationDiagnostic("notification_audio_playback_result", attempt, {
+      mode,
+      outcome: "failed",
+      durationMs: Math.max(0, Date.now() - playbackStartedAtMs),
+      ...getRuntimeAudioMetadata(),
+      ...describeError(error),
+    });
+    console.error("[Notification] Audio chime failed:", error);
   }
 }
 
-async function getBreakOverBuffer(ctx: AudioContext): Promise<AudioBuffer> {
+export async function playChime(
+  context: NotificationDeliveryContext = {},
+): Promise<void> {
+  const attempt = createDiagnosticAttempt(
+    "session-complete",
+    context,
+    "direct_chime",
+  );
+  await playChimeForAttempt(attempt, "generated_chime");
+}
+
+async function getBreakOverBuffer(
+  ctx: AudioContext,
+  attempt: DiagnosticAttempt,
+): Promise<AudioBuffer> {
+  const cacheState = breakOverBufferPromise ? "reused" : "new";
+  const bufferStartedAtMs = Date.now();
+
   if (!breakOverBufferPromise) {
-    breakOverBufferPromise = fetch(breakOverChimeUrl)
-      .then((response) => {
+    breakOverBufferPromise = (async () => {
+      const fetchStartedAtMs = Date.now();
+      let response: Response;
+      let bytes: ArrayBuffer;
+
+      try {
+        response = await fetch(breakOverChimeUrl);
         if (!response.ok) {
           throw new Error(`Failed to load break-over sound: ${response.status}`);
         }
-        return response.arrayBuffer();
-      })
-      .then((bytes) => ctx.decodeAudioData(bytes));
+        bytes = await response.arrayBuffer();
+        recordNotificationDiagnostic("notification_audio_asset_result", attempt, {
+          stage: "fetch",
+          outcome: "succeeded",
+          httpStatus: response.status,
+          byteLength: bytes.byteLength,
+          durationMs: Math.max(0, Date.now() - fetchStartedAtMs),
+        });
+      } catch (error) {
+        recordNotificationDiagnostic("notification_audio_asset_result", attempt, {
+          stage: "fetch",
+          outcome: "failed",
+          durationMs: Math.max(0, Date.now() - fetchStartedAtMs),
+          ...describeError(error),
+        });
+        throw error;
+      }
+
+      const decodeStartedAtMs = Date.now();
+      try {
+        const buffer = await ctx.decodeAudioData(bytes);
+        recordNotificationDiagnostic("notification_audio_asset_result", attempt, {
+          stage: "decode",
+          outcome: "succeeded",
+          audioDurationSec: buffer.duration,
+          durationMs: Math.max(0, Date.now() - decodeStartedAtMs),
+        });
+        return buffer;
+      } catch (error) {
+        recordNotificationDiagnostic("notification_audio_asset_result", attempt, {
+          stage: "decode",
+          outcome: "failed",
+          durationMs: Math.max(0, Date.now() - decodeStartedAtMs),
+          ...describeError(error),
+        });
+        throw error;
+      }
+    })();
   }
 
   try {
-    return await breakOverBufferPromise;
-  } catch (err) {
+    const buffer = await breakOverBufferPromise;
+    recordNotificationDiagnostic("notification_audio_buffer_result", attempt, {
+      outcome: "ready",
+      cacheState,
+      audioDurationSec: buffer.duration,
+      durationMs: Math.max(0, Date.now() - bufferStartedAtMs),
+    });
+    return buffer;
+  } catch (error) {
     breakOverBufferPromise = null;
-    throw err;
+    recordNotificationDiagnostic("notification_audio_buffer_result", attempt, {
+      outcome: "failed",
+      cacheState,
+      durationMs: Math.max(0, Date.now() - bufferStartedAtMs),
+      ...describeError(error),
+    });
+    throw error;
   }
 }
 
-export async function prepareNotificationAudio(): Promise<void> {
+export async function prepareNotificationAudio(
+  context: NotificationDeliveryContext = {},
+): Promise<void> {
+  const attempt = createDiagnosticAttempt(
+    null,
+    context,
+    "notification_audio_prepare",
+  );
   const settings = getSettings();
-  if (!settings.soundEnabled) return;
+  if (!settings.soundEnabled) {
+    recordNotificationDiagnostic("notification_audio_prepare_result", attempt, {
+      outcome: "skipped_disabled",
+    });
+    return;
+  }
 
   try {
-    const ctx = await getReadyAudioContext();
-    await getBreakOverBuffer(ctx);
-  } catch (e) {
-    console.warn("[Notification] Failed to prepare audio:", e);
+    const ctx = await getReadyAudioContext(attempt, "prepare");
+    await getBreakOverBuffer(ctx, attempt);
+    recordNotificationDiagnostic("notification_audio_prepare_result", attempt, {
+      outcome: "ready",
+      ...getRuntimeAudioMetadata(),
+    });
+  } catch (error) {
+    recordNotificationDiagnostic("notification_audio_prepare_result", attempt, {
+      outcome: "failed",
+      ...getRuntimeAudioMetadata(),
+      ...describeError(error),
+    });
+    console.warn("[Notification] Failed to prepare audio:", error);
   }
 }
 
-export async function playBreakOverSound(): Promise<void> {
-  if (breakOverLoopSource) return;
-  if (breakOverLoopStartPromise) return breakOverLoopStartPromise;
+async function playBreakOverSoundForAttempt(
+  attempt: DiagnosticAttempt,
+): Promise<void> {
+  if (breakOverLoopSource) {
+    recordNotificationDiagnostic("notification_audio_playback_result", attempt, {
+      mode: "break_over_loop",
+      outcome: "already_playing",
+      activeAttemptId: breakOverLoopAttempt?.attemptId ?? null,
+      ...getRuntimeAudioMetadata(),
+    });
+    return;
+  }
+  if (breakOverLoopStartPromise) {
+    recordNotificationDiagnostic("notification_audio_playback_result", attempt, {
+      mode: "break_over_loop",
+      outcome: "joined_pending_start",
+      activeAttemptId: breakOverLoopPendingAttempt?.attemptId ?? null,
+      ...getRuntimeAudioMetadata(),
+    });
+    return breakOverLoopStartPromise;
+  }
 
   const token = breakOverLoopToken;
+  const playbackStartedAtMs = Date.now();
+  breakOverLoopPendingAttempt = attempt;
   breakOverLoopStartPromise = (async () => {
     try {
-      const ctx = await getReadyAudioContext();
-      const buffer = await getBreakOverBuffer(ctx);
-      if (token !== breakOverLoopToken || breakOverLoopSource) return;
+      const ctx = await getReadyAudioContext(attempt, "break_over_loop");
+      const buffer = await getBreakOverBuffer(ctx, attempt);
+      if (token !== breakOverLoopToken || breakOverLoopSource) {
+        recordNotificationDiagnostic("notification_audio_playback_result", attempt, {
+          mode: "break_over_loop",
+          outcome: "cancelled_before_start",
+          tokenChanged: token !== breakOverLoopToken,
+          sourceAlreadyActive: Boolean(breakOverLoopSource),
+          durationMs: Math.max(0, Date.now() - playbackStartedAtMs),
+          ...getRuntimeAudioMetadata(),
+        });
+        return;
+      }
 
       const source = ctx.createBufferSource();
       const gain = ctx.createGain();
@@ -118,10 +390,21 @@ export async function playBreakOverSound(): Promise<void> {
       source.loop = true;
       source.onended = () => {
         if (breakOverLoopSource !== source) return;
+        recordNotificationDiagnostic("notification_audio_playback_result", attempt, {
+          mode: "break_over_loop",
+          outcome: "ended_unexpectedly",
+          playDurationMs:
+            breakOverLoopStartedAtMs == null
+              ? null
+              : Math.max(0, Date.now() - breakOverLoopStartedAtMs),
+          ...getRuntimeAudioMetadata(),
+        });
         source.disconnect();
         gain.disconnect();
         breakOverLoopSource = null;
         breakOverLoopGain = null;
+        breakOverLoopAttempt = null;
+        breakOverLoopStartedAtMs = null;
       };
       gain.gain.value = 1.45;
 
@@ -129,50 +412,134 @@ export async function playBreakOverSound(): Promise<void> {
       gain.connect(ctx.destination);
       breakOverLoopSource = source;
       breakOverLoopGain = gain;
+      breakOverLoopAttempt = attempt;
+      breakOverLoopStartedAtMs = Date.now();
       source.start();
-    } catch (e) {
-      console.error("[Notification] Break-over sound failed:", e);
-      await playChime();
+
+      recordNotificationDiagnostic("notification_audio_playback_result", attempt, {
+        mode: "break_over_loop",
+        outcome: "started",
+        loop: true,
+        gain: gain.gain.value,
+        audioDurationSec: buffer.duration,
+        durationMs: Math.max(0, Date.now() - playbackStartedAtMs),
+        ...getRuntimeAudioMetadata(),
+      });
+    } catch (error) {
+      recordNotificationDiagnostic("notification_audio_playback_result", attempt, {
+        mode: "break_over_loop",
+        outcome: "failed",
+        durationMs: Math.max(0, Date.now() - playbackStartedAtMs),
+        ...getRuntimeAudioMetadata(),
+        ...describeError(error),
+      });
+      console.error("[Notification] Break-over sound failed:", error);
+      await playChimeForAttempt(attempt, "fallback_chime");
     } finally {
-      breakOverLoopStartPromise = null;
+      if (breakOverLoopPendingAttempt?.attemptId === attempt.attemptId) {
+        breakOverLoopStartPromise = null;
+        breakOverLoopPendingAttempt = null;
+      }
     }
   })();
 
   return breakOverLoopStartPromise;
 }
 
-export function stopBreakOverSound(): void {
-  breakOverLoopToken += 1;
-  breakOverLoopStartPromise = null;
+export async function playBreakOverSound(
+  context: NotificationDeliveryContext = {},
+): Promise<void> {
+  const attempt = createDiagnosticAttempt(
+    "break-over",
+    context,
+    "direct_break_over_playback",
+  );
+  return playBreakOverSoundForAttempt(attempt);
+}
 
-  if (!breakOverLoopSource) return;
-
+export function stopBreakOverSound(reason = "unspecified"): void {
   const source = breakOverLoopSource;
   const gain = breakOverLoopGain;
+  const attempt =
+    breakOverLoopAttempt ??
+    breakOverLoopPendingAttempt ??
+    createDiagnosticAttempt(
+      "break-over",
+      { trigger: "break_reminder_stop_without_attempt" },
+      "break_reminder_stop_without_attempt",
+    );
+  const hadPendingStart = Boolean(breakOverLoopStartPromise);
+  const playDurationMs =
+    breakOverLoopStartedAtMs == null
+      ? null
+      : Math.max(0, Date.now() - breakOverLoopStartedAtMs);
+
+  breakOverLoopToken += 1;
+  breakOverLoopStartPromise = null;
+  breakOverLoopPendingAttempt = null;
   breakOverLoopSource = null;
   breakOverLoopGain = null;
+  breakOverLoopAttempt = null;
+  breakOverLoopStartedAtMs = null;
 
+  if (!source) {
+    recordNotificationDiagnostic("notification_audio_stopped", attempt, {
+      reason,
+      outcome: hadPendingStart ? "cancelled_pending_start" : "no_active_source",
+      hadPendingStart,
+      playDurationMs,
+      ...getRuntimeAudioMetadata(),
+    });
+    return;
+  }
+
+  let stopError: Record<string, string> | null = null;
   try {
     source.stop();
-  } catch {}
+  } catch (error) {
+    stopError = describeError(error);
+  }
 
   source.disconnect();
   gain?.disconnect();
+  recordNotificationDiagnostic("notification_audio_stopped", attempt, {
+    reason,
+    outcome: stopError ? "stop_failed" : "stopped",
+    hadPendingStart,
+    playDurationMs,
+    ...(stopError ?? {}),
+    ...getRuntimeAudioMetadata(),
+  });
 }
 
 export async function sendNotification(
   type: NotificationType,
   body?: string,
+  context: NotificationDeliveryContext = {},
 ): Promise<void> {
   const settings = getSettings();
+  const tauriRuntime = isTauri();
+  const attempt = createDiagnosticAttempt(type, context, "notification_send");
+  recordNotificationDiagnostic("notification_delivery_requested", attempt, {
+    soundEnabled: settings.soundEnabled,
+    tauriRuntime,
+    hasBody: Boolean(body),
+    ...getRuntimeAudioMetadata(),
+  });
 
-  if (isTauri()) {
+  if (tauriRuntime) {
+    const systemStartedAtMs = Date.now();
+    let permissionRequested = false;
     try {
-      const { sendNotification, isPermissionGranted, requestPermission } =
-        await import("@tauri-apps/plugin-notification");
+      const {
+        sendNotification: sendNativeNotification,
+        isPermissionGranted,
+        requestPermission,
+      } = await import("@tauri-apps/plugin-notification");
 
       let granted = await isPermissionGranted();
       if (!granted) {
+        permissionRequested = true;
         const permission = await requestPermission();
         granted = permission === "granted";
 
@@ -184,25 +551,55 @@ export async function sendNotification(
       }
 
       if (granted) {
-        await sendNotification({
+        await sendNativeNotification({
           title: NOTIFICATION_TITLES[type],
           body: body || "",
         });
+        recordNotificationDiagnostic("notification_system_delivery_result", attempt, {
+          outcome: "sent",
+          permissionGranted: true,
+          permissionRequested,
+          durationMs: Math.max(0, Date.now() - systemStartedAtMs),
+        });
       } else {
+        recordNotificationDiagnostic("notification_system_delivery_result", attempt, {
+          outcome: "permission_denied",
+          permissionGranted: false,
+          permissionRequested,
+          durationMs: Math.max(0, Date.now() - systemStartedAtMs),
+        });
         console.warn(
           "[Notification] Permission denied, notification not sent.",
         );
       }
-    } catch (e) {
-      console.error("[Notification] Failed to send:", e);
+    } catch (error) {
+      recordNotificationDiagnostic("notification_system_delivery_result", attempt, {
+        outcome: "failed",
+        permissionRequested,
+        durationMs: Math.max(0, Date.now() - systemStartedAtMs),
+        ...describeError(error),
+      });
+      console.error("[Notification] Failed to send:", error);
     }
+  } else {
+    recordNotificationDiagnostic("notification_system_delivery_result", attempt, {
+      outcome: "not_applicable",
+      permissionRequested: false,
+      durationMs: 0,
+    });
   }
 
-  if (settings.soundEnabled) {
-    if (type === "break-over") {
-      await playBreakOverSound();
-    } else {
-      await playChime();
-    }
+  if (!settings.soundEnabled) {
+    recordNotificationDiagnostic("notification_audio_skipped", attempt, {
+      outcome: "sound_disabled",
+      ...getRuntimeAudioMetadata(),
+    });
+    return;
+  }
+
+  if (type === "break-over") {
+    await playBreakOverSoundForAttempt(attempt);
+  } else {
+    await playChimeForAttempt(attempt, "generated_chime");
   }
 }

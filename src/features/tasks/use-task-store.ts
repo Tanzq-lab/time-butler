@@ -45,7 +45,7 @@ interface TaskStore {
     priority?: string,
     categoryId?: number | null,
     scheduledFor?: string | null,
-  ) => Promise<void>;
+  ) => Promise<Task | null>;
   updateTask: (
     id: number,
     name?: string,
@@ -57,7 +57,11 @@ interface TaskStore {
   ) => Promise<void>;
   deleteTask: (id: number) => Promise<void>;
   archiveTask: (id: number) => Promise<void>;
-  incrementPomos: (id: number, review?: string) => Promise<void>;
+  incrementPomos: (
+    id: number,
+    review?: string,
+    options?: { alreadyPersisted?: boolean; sessionId?: number },
+  ) => Promise<void>;
   completeTask: (
     id: number,
     actualPomos: number,
@@ -147,9 +151,11 @@ export const useTaskStore = create<TaskStore>((set) => ({
           categoryInferred: resolvedCategoryId != null && categoryId == null,
         },
       });
+      return newTask;
     } catch (err) {
       console.error("[TaskStore] Failed to add task:", err);
       set({ error: String(err) });
+      return null;
     }
   },
 
@@ -255,9 +261,11 @@ export const useTaskStore = create<TaskStore>((set) => ({
     }
   },
 
-  incrementPomos: async (id, review) => {
+  incrementPomos: async (id, review, options) => {
     try {
-      await incrementTaskPomos(id);
+      if (!options?.alreadyPersisted) {
+        await incrementTaskPomos(id);
+      }
       let completionLogTask: Task | null = null;
       set((state) => ({
         tasks: state.tasks.map((t) => {
@@ -288,6 +296,8 @@ export const useTaskStore = create<TaskStore>((set) => ({
         metadata: {
           promptedReview: Boolean(completionLogTask),
           hasReview: Boolean(review?.trim()),
+          sessionId: options?.sessionId ?? null,
+          persistedBySessionCredit: Boolean(options?.alreadyPersisted),
         },
       });
     } catch (err) {
