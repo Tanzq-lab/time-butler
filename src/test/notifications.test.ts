@@ -4,6 +4,20 @@ const notificationState = vi.hoisted(() => ({
   soundEnabled: true,
 }));
 
+const runtimeState = vi.hoisted(() => ({
+  tauri: false,
+}));
+
+const tauriMocks = vi.hoisted(() => ({
+  invoke: vi.fn().mockResolvedValue(41),
+}));
+
+const systemNotificationMocks = vi.hoisted(() => ({
+  isPermissionGranted: vi.fn().mockResolvedValue(true),
+  requestPermission: vi.fn().mockResolvedValue("granted"),
+  sendNotification: vi.fn().mockResolvedValue(undefined),
+}));
+
 const appEventMocks = vi.hoisted(() => ({
   recordAppEvent: vi.fn().mockResolvedValue(undefined),
 }));
@@ -30,8 +44,11 @@ vi.mock("@/features/notifications/use-notification-store", () => ({
 }));
 
 vi.mock("@/lib/tauri", () => ({
-  isTauri: vi.fn(() => false),
+  invoke: tauriMocks.invoke,
+  isTauri: vi.fn(() => runtimeState.tauri),
 }));
+
+vi.mock("@tauri-apps/plugin-notification", () => systemNotificationMocks);
 
 function installAudioMocks() {
   const decodeAudioData = vi.fn().mockResolvedValue({ duration: 4.6 });
@@ -96,9 +113,14 @@ describe("notifications", () => {
     vi.unstubAllGlobals();
     vi.clearAllMocks();
     notificationState.soundEnabled = true;
+    runtimeState.tauri = false;
+    tauriMocks.invoke.mockResolvedValue(41);
+    systemNotificationMocks.isPermissionGranted.mockResolvedValue(true);
+    systemNotificationMocks.requestPermission.mockResolvedValue("granted");
+    systemNotificationMocks.sendNotification.mockResolvedValue(undefined);
   });
 
-  it("plays the downloaded todo-style chime for break-over notifications", async () => {
+  it("plays the downloaded todo-style chime for browser break-over notifications", async () => {
     const { audioContext, bufferSource } = installAudioMocks();
     const { sendNotification } = await import("@/lib/notifications");
 
@@ -141,7 +163,46 @@ describe("notifications", () => {
     );
   });
 
-  it("prepares the notification audio context and preloads the break-over sound", async () => {
+  it("starts a repeating native reminder in Tauri without WebAudio", async () => {
+    runtimeState.tauri = true;
+    const { sendNotification, stopBreakOverSound } = await import(
+      "@/lib/notifications"
+    );
+
+    await sendNotification("break-over", "休息结束了。");
+
+    expect(tauriMocks.invoke).toHaveBeenCalledWith("notification_audio_play", {
+      repeat: true,
+    });
+    expect(globalThis.AudioContext).toBeUndefined();
+    expect(appEventMocks.recordAppEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventName: "notification_audio_playback_result",
+        metadata: expect.objectContaining({
+          mode: "native_break_reminder",
+          outcome: "started",
+          nativeAudioToken: 41,
+          repeatIntervalMs: 2_000,
+        }),
+      }),
+    );
+
+    stopBreakOverSound("reminder_button");
+    expect(tauriMocks.invoke).toHaveBeenCalledWith("notification_audio_stop");
+    await Promise.resolve();
+    expect(appEventMocks.recordAppEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventName: "notification_audio_stopped",
+        metadata: expect.objectContaining({
+          mode: "native_break_reminder",
+          outcome: "stopped",
+          reason: "reminder_button",
+        }),
+      }),
+    );
+  });
+
+  it("prepares and preloads browser notification audio", async () => {
     const { audioContext } = installAudioMocks();
     const { prepareNotificationAudio } = await import("@/lib/notifications");
 
@@ -159,9 +220,30 @@ describe("notifications", () => {
     );
   });
 
-  it("stops the looping break-over chime when acknowledged", async () => {
+  it("does not prepare WebAudio in Tauri", async () => {
+    runtimeState.tauri = true;
+    const { prepareNotificationAudio } = await import("@/lib/notifications");
+
+    await prepareNotificationAudio();
+
+    expect(globalThis.AudioContext).toBeUndefined();
+    expect(tauriMocks.invoke).not.toHaveBeenCalled();
+    expect(appEventMocks.recordAppEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventName: "notification_audio_prepare_result",
+        metadata: expect.objectContaining({
+          outcome: "native_ready",
+          mode: "native_system_sound",
+        }),
+      }),
+    );
+  });
+
+  it("stops the looping browser break-over chime when acknowledged", async () => {
     const { bufferSource } = installAudioMocks();
-    const { sendNotification, stopBreakOverSound } = await import("@/lib/notifications");
+    const { sendNotification, stopBreakOverSound } = await import(
+      "@/lib/notifications"
+    );
 
     await sendNotification("break-over", "休息结束了。");
     stopBreakOverSound("reminder_button");
@@ -179,7 +261,7 @@ describe("notifications", () => {
     );
   });
 
-  it("keeps the light generated chime for focus-complete notifications", async () => {
+  it("keeps the light generated browser chime for focus-complete notifications", async () => {
     const { audioContext, oscillator } = installAudioMocks();
     const { sendNotification } = await import("@/lib/notifications");
 
@@ -189,6 +271,27 @@ describe("notifications", () => {
     expect(audioContext.createBufferSource).not.toHaveBeenCalled();
     expect(audioContext.createOscillator).toHaveBeenCalledTimes(3);
     expect(oscillator.start).toHaveBeenCalledTimes(3);
+  });
+
+  it("uses one native sound for focus-complete notifications in Tauri", async () => {
+    runtimeState.tauri = true;
+    const { sendNotification } = await import("@/lib/notifications");
+
+    await sendNotification("focus-complete", "专注时间到。");
+
+    expect(tauriMocks.invoke).toHaveBeenCalledWith("notification_audio_play", {
+      repeat: false,
+    });
+    expect(globalThis.AudioContext).toBeUndefined();
+    expect(appEventMocks.recordAppEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventName: "notification_audio_playback_result",
+        metadata: expect.objectContaining({
+          mode: "native_system_sound",
+          outcome: "started",
+        }),
+      }),
+    );
   });
 
   it("records sound-disabled skips without creating an AudioContext", async () => {
@@ -216,7 +319,7 @@ describe("notifications", () => {
     );
   });
 
-  it("records asset failures and the generated fallback chime", async () => {
+  it("records browser asset failures and the generated fallback chime", async () => {
     const { oscillator } = installAudioMocks();
     vi.stubGlobal(
       "fetch",

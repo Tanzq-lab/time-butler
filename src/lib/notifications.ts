@@ -1,7 +1,7 @@
 import { useSettingsStore } from "@/features/settings/use-settings-store";
 import { useNotificationStore } from "@/features/notifications/use-notification-store";
 import { recordAppEvent } from "@/lib/db";
-import { isTauri } from "@/lib/tauri";
+import { invoke, isTauri } from "@/lib/tauri";
 import breakOverChimeUrl from "@/assets/sounds/simple-happy-beep.ogg";
 
 type NotificationType =
@@ -35,6 +35,8 @@ const NOTIFICATION_TITLES: Record<NotificationType, string> = {
   "focus-complete": "专注时间到",
 };
 
+const NATIVE_BREAK_REMINDER_INTERVAL_MS = 2_000;
+
 function getSettings() {
   return useSettingsStore.getState().settings;
 }
@@ -43,6 +45,7 @@ let audioCtx: AudioContext | null = null;
 let breakOverBufferPromise: Promise<AudioBuffer> | null = null;
 let breakOverLoopSource: AudioBufferSourceNode | null = null;
 let breakOverLoopGain: GainNode | null = null;
+let breakOverNativeActive = false;
 let breakOverLoopStartPromise: Promise<void> | null = null;
 let breakOverLoopAttempt: DiagnosticAttempt | null = null;
 let breakOverLoopPendingAttempt: DiagnosticAttempt | null = null;
@@ -173,6 +176,39 @@ async function playChimeForAttempt(
   mode: "generated_chime" | "fallback_chime",
 ): Promise<void> {
   const playbackStartedAtMs = Date.now();
+
+  if (isTauri()) {
+    try {
+      const nativeAudioToken = await invoke<number>("notification_audio_play", {
+        repeat: false,
+      });
+      recordNotificationDiagnostic(
+        "notification_audio_playback_result",
+        attempt,
+        {
+          mode: "native_system_sound",
+          outcome: "started",
+          nativeAudioToken,
+          durationMs: Math.max(0, Date.now() - playbackStartedAtMs),
+          ...getRuntimeAudioMetadata(),
+        },
+      );
+    } catch (error) {
+      recordNotificationDiagnostic(
+        "notification_audio_playback_result",
+        attempt,
+        {
+          mode: "native_system_sound",
+          outcome: "failed",
+          durationMs: Math.max(0, Date.now() - playbackStartedAtMs),
+          ...getRuntimeAudioMetadata(),
+          ...describeError(error),
+        },
+      );
+      console.error("[Notification] Native audio chime failed:", error);
+    }
+    return;
+  }
 
   try {
     const ctx = await getReadyAudioContext(attempt, mode);
@@ -325,6 +361,15 @@ export async function prepareNotificationAudio(
     return;
   }
 
+  if (isTauri()) {
+    recordNotificationDiagnostic("notification_audio_prepare_result", attempt, {
+      outcome: "native_ready",
+      mode: "native_system_sound",
+      ...getRuntimeAudioMetadata(),
+    });
+    return;
+  }
+
   try {
     const ctx = await getReadyAudioContext(attempt, "prepare");
     await getBreakOverBuffer(ctx, attempt);
@@ -345,9 +390,12 @@ export async function prepareNotificationAudio(
 async function playBreakOverSoundForAttempt(
   attempt: DiagnosticAttempt,
 ): Promise<void> {
-  if (breakOverLoopSource) {
+  const nativeRuntime = isTauri();
+  if (breakOverLoopSource || breakOverNativeActive) {
     recordNotificationDiagnostic("notification_audio_playback_result", attempt, {
-      mode: "break_over_loop",
+      mode: breakOverNativeActive
+        ? "native_break_reminder"
+        : "break_over_loop",
       outcome: "already_playing",
       activeAttemptId: breakOverLoopAttempt?.attemptId ?? null,
       ...getRuntimeAudioMetadata(),
@@ -356,7 +404,9 @@ async function playBreakOverSoundForAttempt(
   }
   if (breakOverLoopStartPromise) {
     recordNotificationDiagnostic("notification_audio_playback_result", attempt, {
-      mode: "break_over_loop",
+      mode: nativeRuntime
+        ? "native_break_reminder"
+        : "break_over_loop",
       outcome: "joined_pending_start",
       activeAttemptId: breakOverLoopPendingAttempt?.attemptId ?? null,
       ...getRuntimeAudioMetadata(),
@@ -369,6 +419,51 @@ async function playBreakOverSoundForAttempt(
   breakOverLoopPendingAttempt = attempt;
   breakOverLoopStartPromise = (async () => {
     try {
+      if (nativeRuntime) {
+        const nativeAudioToken = await invoke<number>("notification_audio_play", {
+          repeat: true,
+        });
+        if (
+          token !== breakOverLoopToken ||
+          breakOverLoopSource ||
+          breakOverNativeActive
+        ) {
+          await invoke("notification_audio_stop");
+          recordNotificationDiagnostic(
+            "notification_audio_playback_result",
+            attempt,
+            {
+              mode: "native_break_reminder",
+              outcome: "cancelled_before_start",
+              tokenChanged: token !== breakOverLoopToken,
+              reminderAlreadyActive: Boolean(
+                breakOverLoopSource || breakOverNativeActive,
+              ),
+              durationMs: Math.max(0, Date.now() - playbackStartedAtMs),
+              ...getRuntimeAudioMetadata(),
+            },
+          );
+          return;
+        }
+
+        breakOverNativeActive = true;
+        breakOverLoopAttempt = attempt;
+        breakOverLoopStartedAtMs = Date.now();
+        recordNotificationDiagnostic(
+          "notification_audio_playback_result",
+          attempt,
+          {
+            mode: "native_break_reminder",
+            outcome: "started",
+            nativeAudioToken,
+            repeatIntervalMs: NATIVE_BREAK_REMINDER_INTERVAL_MS,
+            durationMs: Math.max(0, Date.now() - playbackStartedAtMs),
+            ...getRuntimeAudioMetadata(),
+          },
+        );
+        return;
+      }
+
       const ctx = await getReadyAudioContext(attempt, "break_over_loop");
       const buffer = await getBreakOverBuffer(ctx, attempt);
       if (token !== breakOverLoopToken || breakOverLoopSource) {
@@ -427,14 +522,18 @@ async function playBreakOverSoundForAttempt(
       });
     } catch (error) {
       recordNotificationDiagnostic("notification_audio_playback_result", attempt, {
-        mode: "break_over_loop",
+        mode: nativeRuntime
+          ? "native_break_reminder"
+          : "break_over_loop",
         outcome: "failed",
         durationMs: Math.max(0, Date.now() - playbackStartedAtMs),
         ...getRuntimeAudioMetadata(),
         ...describeError(error),
       });
       console.error("[Notification] Break-over sound failed:", error);
-      await playChimeForAttempt(attempt, "fallback_chime");
+      if (!nativeRuntime) {
+        await playChimeForAttempt(attempt, "fallback_chime");
+      }
     } finally {
       if (breakOverLoopPendingAttempt?.attemptId === attempt.attemptId) {
         breakOverLoopStartPromise = null;
@@ -460,6 +559,7 @@ export async function playBreakOverSound(
 export function stopBreakOverSound(reason = "unspecified"): void {
   const source = breakOverLoopSource;
   const gain = breakOverLoopGain;
+  const nativeActive = breakOverNativeActive;
   const attempt =
     breakOverLoopAttempt ??
     breakOverLoopPendingAttempt ??
@@ -479,8 +579,36 @@ export function stopBreakOverSound(reason = "unspecified"): void {
   breakOverLoopPendingAttempt = null;
   breakOverLoopSource = null;
   breakOverLoopGain = null;
+  breakOverNativeActive = false;
   breakOverLoopAttempt = null;
   breakOverLoopStartedAtMs = null;
+
+  if (nativeActive) {
+    void invoke("notification_audio_stop")
+      .then(() => {
+        recordNotificationDiagnostic("notification_audio_stopped", attempt, {
+          reason,
+          outcome: "stopped",
+          mode: "native_break_reminder",
+          hadPendingStart,
+          playDurationMs,
+          ...getRuntimeAudioMetadata(),
+        });
+      })
+      .catch((error) => {
+        recordNotificationDiagnostic("notification_audio_stopped", attempt, {
+          reason,
+          outcome: "stop_failed",
+          mode: "native_break_reminder",
+          hadPendingStart,
+          playDurationMs,
+          ...describeError(error),
+          ...getRuntimeAudioMetadata(),
+        });
+        console.error("[Notification] Failed to stop native audio:", error);
+      });
+    return;
+  }
 
   if (!source) {
     recordNotificationDiagnostic("notification_audio_stopped", attempt, {

@@ -1,5 +1,6 @@
 mod commands;
 
+use commands::audio::NativeAudioState;
 use commands::menubar::{setup_menubar_tray, MenubarState};
 use commands::timer::NativeTimerState;
 use tauri_plugin_window_state::StateFlags;
@@ -31,6 +32,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![
+            commands::audio::notification_audio_play,
+            commands::audio::notification_audio_stop,
             commands::hotkey::register_hotkey,
             commands::hotkey::unregister_hotkey,
             commands::menubar::menubar_show,
@@ -46,6 +49,7 @@ pub fn run() {
             commands::timer::timer_schedule_deadline,
             commands::timer::timer_cancel_deadline,
         ])
+        .manage(NativeAudioState::new())
         .manage(MenubarState::new())
         .manage(NativeTimerState::new())
         .setup(|app| {
