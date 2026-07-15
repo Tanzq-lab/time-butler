@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/cn";
 import { useTimerStore } from "@/features/timer/use-timer-store";
 import { m } from "framer-motion";
+import brandMarkUrl from "@/assets/time-butler-brand-icon.png";
 
 const NAV_ITEMS = [
   { path: "/", label: "计时", icon: Timer },
@@ -73,9 +74,14 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
           isCollapsed ? "justify-center px-3" : "gap-2.5 px-4",
         )}
       >
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sahara-primary text-sm font-semibold text-sahara-bg">
-          T
-        </div>
+        <img
+          src={brandMarkUrl}
+          alt=""
+          aria-hidden="true"
+          width="32"
+          height="32"
+          className="size-8 shrink-0 rounded-[7px]"
+        />
         {!isCollapsed && (
           <div className="min-w-0">
             <h1 className="truncate text-sm font-semibold text-sahara-text">Time Butler</h1>

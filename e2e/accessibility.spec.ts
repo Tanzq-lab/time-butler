@@ -121,7 +121,7 @@ test.describe("Responsive and accessibility", () => {
 
   test("selected task stays readable in light and dark themes", async ({ page }) => {
     await page.getByRole("link", { name: "任务" }).click();
-    await page.getByRole("button", { name: "添加任务" }).click();
+    await page.getByRole("button", { name: "添加专注任务" }).click();
     await page.getByPlaceholder("你现在要做什么？").fill("选择态对比度任务");
     await page.getByRole("button", { name: "创建任务" }).click();
     await page.getByRole("button", { name: /^选择态对比度任务 0\/4 个番茄$/ }).click();
@@ -162,7 +162,7 @@ test.describe("Responsive and accessibility", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload();
     await page.getByRole("navigation", { name: "移动端导航" }).getByRole("link", { name: "任务" }).click();
-    await page.getByRole("button", { name: "添加任务" }).click();
+    await page.getByRole("button", { name: "添加专注任务" }).click();
     await page.getByPlaceholder("你现在要做什么？").fill("手机任务菜单测试");
     await page.getByRole("button", { name: "创建任务" }).click();
 

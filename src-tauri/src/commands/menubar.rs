@@ -2,7 +2,7 @@ use std::sync::Mutex;
 use tauri::image::Image;
 use tauri::{tray::TrayIcon, Emitter, Manager};
 
-const TRAY_ICON: Image<'_> = tauri::include_image!("./icons/32x32.png");
+const TRAY_ICON: Image<'_> = tauri::include_image!("./icons/menubar-icon.png");
 
 pub struct MenubarState {
     pub tray: Mutex<Option<TrayIcon>>,
@@ -90,6 +90,7 @@ pub fn setup_menubar_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Er
 
     let tray = TrayIconBuilder::with_id("menubar-tray")
         .icon(TRAY_ICON)
+        .icon_as_template(true)
         .menu(&menu)
         .tooltip("Time-butler")
         .show_menu_on_left_click(false)

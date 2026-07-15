@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
+import brandMarkUrl from "@/assets/time-butler-brand-icon.png";
 import { useOnboardingStore } from "@/features/onboarding/use-onboarding-store";
 
 const steps = [
@@ -60,7 +61,14 @@ export function OnboardingPage() {
       <div className="mx-auto grid w-full max-w-4xl overflow-hidden border border-sahara-border bg-sahara-surface md:min-h-145 md:grid-cols-[15rem_1fr]">
         <aside className="border-b border-sahara-border bg-sahara-card p-5 md:border-b-0 md:border-r md:p-7">
           <div className="flex items-center gap-2.5">
-            <div className="flex size-8 items-center justify-center rounded-md bg-sahara-primary text-sm font-semibold text-sahara-bg">T</div>
+            <img
+              src={brandMarkUrl}
+              alt=""
+              aria-hidden="true"
+              width="32"
+              height="32"
+              className="size-8 rounded-[7px]"
+            />
             <div>
               <h1 className="text-sm font-semibold">Time Butler</h1>
               <p className="text-xs text-sahara-text-muted">专注 · 记录 · 复盘</p>
