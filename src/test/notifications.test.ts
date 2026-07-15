@@ -172,6 +172,7 @@ describe("notifications", () => {
     await sendNotification("break-over", "休息结束了。");
 
     expect(tauriMocks.invoke).toHaveBeenCalledWith("notification_audio_play", {
+      kind: "break_over",
       repeat: true,
     });
     expect(globalThis.AudioContext).toBeUndefined();
@@ -182,7 +183,10 @@ describe("notifications", () => {
           mode: "native_break_reminder",
           outcome: "started",
           nativeAudioToken: 41,
-          repeatIntervalMs: 2_000,
+          audioAsset: "simple-happy-beep.ogg",
+          loop: true,
+          gain: 1.45,
+          repeatStrategy: "continuous",
         }),
       }),
     );
@@ -280,6 +284,7 @@ describe("notifications", () => {
     await sendNotification("focus-complete", "专注时间到。");
 
     expect(tauriMocks.invoke).toHaveBeenCalledWith("notification_audio_play", {
+      kind: "chime",
       repeat: false,
     });
     expect(globalThis.AudioContext).toBeUndefined();

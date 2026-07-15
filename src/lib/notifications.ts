@@ -35,7 +35,8 @@ const NOTIFICATION_TITLES: Record<NotificationType, string> = {
   "focus-complete": "专注时间到",
 };
 
-const NATIVE_BREAK_REMINDER_INTERVAL_MS = 2_000;
+const BREAK_OVER_SOUND_NAME = "simple-happy-beep.ogg";
+const BREAK_OVER_SOUND_GAIN = 1.45;
 
 function getSettings() {
   return useSettingsStore.getState().settings;
@@ -180,6 +181,7 @@ async function playChimeForAttempt(
   if (isTauri()) {
     try {
       const nativeAudioToken = await invoke<number>("notification_audio_play", {
+        kind: "chime",
         repeat: false,
       });
       recordNotificationDiagnostic(
@@ -421,6 +423,7 @@ async function playBreakOverSoundForAttempt(
     try {
       if (nativeRuntime) {
         const nativeAudioToken = await invoke<number>("notification_audio_play", {
+          kind: "break_over",
           repeat: true,
         });
         if (
@@ -456,7 +459,10 @@ async function playBreakOverSoundForAttempt(
             mode: "native_break_reminder",
             outcome: "started",
             nativeAudioToken,
-            repeatIntervalMs: NATIVE_BREAK_REMINDER_INTERVAL_MS,
+            audioAsset: BREAK_OVER_SOUND_NAME,
+            loop: true,
+            gain: BREAK_OVER_SOUND_GAIN,
+            repeatStrategy: "continuous",
             durationMs: Math.max(0, Date.now() - playbackStartedAtMs),
             ...getRuntimeAudioMetadata(),
           },
