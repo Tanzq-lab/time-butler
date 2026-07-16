@@ -53,7 +53,8 @@ describe("daily product usage analyzer", () => {
         ('route_viewed', '/', '${metadata({ appSessionId: "session-1", appSessionSequence: 2, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:01.000Z", fromRoute: null })}', '2026-07-14 01:00:01'),
         ('route_exited', '/', '${metadata({ appSessionId: "session-1", appSessionSequence: 3, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:11.000Z", visibleDurationMs: 10000 })}', '2026-07-14 01:00:11'),
         ('route_viewed', '/tasks', '${metadata({ appSessionId: "session-1", appSessionSequence: 4, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:12.000Z", fromRoute: "/" })}', '2026-07-14 01:00:12'),
-        ('task_added', '/tasks', '${metadata({ appSessionId: "session-1", appSessionSequence: 5, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:13.000Z" })}', '2026-07-14 01:00:13');
+        ('task_added', '/tasks', '${metadata({ appSessionId: "session-1", appSessionSequence: 5, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:13.000Z" })}', '2026-07-14 01:00:13'),
+        ('notification_audio_prepare_result', '/', '${metadata({ appSessionId: "session-1", appSessionSequence: 6, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:14.000Z", trigger: "timer_start", phase: "short_break", outcome: "failed", errorName: "ReferenceError", errorMessage: "Missing audio buffer" })}', '2026-07-14 01:00:14');
       INSERT INTO sessions VALUES (1, '2026-07-14 09:00:00', 1500, 1);
       INSERT INTO tasks VALUES (1, 'PRIVATE TASK NAME', '2026-07-14 01:00:00', NULL);
     `;
@@ -77,8 +78,8 @@ describe("daily product usage analyzer", () => {
 
     const report = JSON.parse(result.stdout);
     expect(report.coverage).toMatchObject({
-      eventCount: 5,
-      sessionizedEventCount: 5,
+      eventCount: 6,
+      sessionizedEventCount: 6,
       appSessionCount: 1,
       measuredRouteExits: 1,
     });
@@ -86,6 +87,19 @@ describe("daily product usage analyzer", () => {
     expect(report.transitions).toContainEqual({
       transition: "/ → /tasks",
       count: 1,
+    });
+    expect(report.flows.audio).toMatchObject({
+      failures: 1,
+      failureDetails: [
+        {
+          eventName: "notification_audio_prepare_result",
+          trigger: "timer_start",
+          phase: "short_break",
+          outcome: "failed",
+          errorName: "ReferenceError",
+          errorMessage: "Missing audio buffer",
+        },
+      ],
     });
     expect(JSON.stringify(report)).not.toContain("PRIVATE TASK NAME");
   });

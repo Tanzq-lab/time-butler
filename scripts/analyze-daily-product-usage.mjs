@@ -401,10 +401,19 @@ function buildMarkdown(report) {
     `- 计时：开始 ${report.flows.timer.started}，完成 ${report.flows.timer.finished}，放弃 ${report.flows.timer.abandoned}，跳过 ${report.flows.timer.skipped}`,
     `- 任务：创建 ${report.flows.tasks.added}，更新 ${report.flows.tasks.updated}，完成 ${report.flows.tasks.completed}，删除 ${report.flows.tasks.deleted}，归档 ${report.flows.tasks.archived}`,
     `- 音频通知：请求 ${report.flows.audio.deliveryRequested}，播放启动/已播放 ${report.flows.audio.playbackObserved}，失败 ${report.flows.audio.failures}，缺口 ${report.flows.audio.deliveryGaps}`,
-    "",
-    "## 产品假设队列",
-    "",
   );
+
+  for (const failure of report.flows.audio.failureDetails) {
+    const context = [failure.trigger, failure.phase].filter(Boolean).join(" / ");
+    const error = [failure.errorName, failure.errorMessage]
+      .filter(Boolean)
+      .join(": ");
+    lines.push(
+      `  - 失败诊断：${failure.eventName}${context ? `（${context}）` : ""}${error ? `｜${error}` : ""}`,
+    );
+  }
+
+  lines.push("", "## 产品假设队列", "");
 
   if (report.hypotheses.length === 0) {
     lines.push("- 数据不足，今天不提出产品改动建议。");
@@ -489,9 +498,20 @@ function analyze(options) {
     archived: getCount("task_archived"),
   };
   const audioEvents = events.filter((event) => event.event_name.startsWith("notification_"));
-  const audioFailures = audioEvents.filter((event) =>
+  const audioFailureEvents = audioEvents.filter((event) =>
     ["failed", "not_running"].includes(String(event.metadata.outcome)),
-  ).length;
+  );
+  const audioFailureDetails = audioFailureEvents.slice(0, 3).map((event) => ({
+    eventName: event.event_name,
+    trigger: event.metadata.trigger ?? null,
+    phase: event.metadata.phase ?? null,
+    outcome: event.metadata.outcome ?? null,
+    errorName: event.metadata.errorName ?? null,
+    errorMessage:
+      typeof event.metadata.errorMessage === "string"
+        ? event.metadata.errorMessage.slice(0, 200)
+        : null,
+  }));
   const requestedAttempts = new Set(
     audioEvents
       .filter((event) => event.event_name === "notification_delivery_requested")
@@ -513,7 +533,8 @@ function analyze(options) {
   const audio = {
     deliveryRequested: requestedAttempts.size,
     playbackObserved: playbackAttempts.size,
-    failures: audioFailures,
+    failures: audioFailureEvents.length,
+    failureDetails: audioFailureDetails,
     deliveryGaps,
   };
   const coverage = {
