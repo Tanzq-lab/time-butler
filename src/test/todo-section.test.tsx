@@ -97,7 +97,7 @@ describe("TodoSection", () => {
     expect(screen.queryByText("买咖啡豆")).not.toBeInTheDocument();
   });
 
-  it("persists a dragged open-todo order and keeps the add form above completed todos", async () => {
+  it("reorders with a pointer drag and keeps the add form above completed todos", async () => {
     const { getTodos, reorderTodos } = await import("@/lib/db");
     vi.mocked(getTodos).mockResolvedValue([
       openTodo,
@@ -112,19 +112,18 @@ describe("TodoSection", () => {
     ]);
     render(<TodoSection searchQuery="" onConvert={vi.fn()} />);
 
-    await screen.findByText("买咖啡豆");
+    const firstRow = (await screen.findByText("买咖啡豆")).closest("[data-todo-id]")!;
     const secondRow = screen.getByText("预约体检").closest("[data-todo-id]")!;
-    const dragHandle = screen.getByRole("button", { name: "拖动排序：买咖啡豆" });
-    const dataTransfer = {
-      dropEffect: "",
-      effectAllowed: "",
-      getData: vi.fn().mockReturnValue("11"),
-      setData: vi.fn(),
-    };
+    const elementFromPoint = vi.fn().mockReturnValue(secondRow);
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: elementFromPoint,
+    });
 
-    fireEvent.dragStart(dragHandle, { dataTransfer });
-    fireEvent.dragOver(secondRow, { clientY: 1, dataTransfer });
-    fireEvent.drop(secondRow, { clientY: 1, dataTransfer });
+    fireEvent.pointerDown(firstRow, { button: 0, clientY: 0, isPrimary: true, pointerId: 1 });
+    fireEvent.pointerMove(firstRow, { clientX: 0, clientY: 12, isPrimary: true, pointerId: 1 });
+    expect(firstRow).toHaveStyle({ transform: "translateY(12px) scale(1.01)" });
+    fireEvent.pointerUp(firstRow, { clientX: 0, clientY: 12, isPrimary: true, pointerId: 1 });
 
     await waitFor(() => expect(reorderTodos).toHaveBeenCalledWith([12, 11], expect.any(String)));
     expect(

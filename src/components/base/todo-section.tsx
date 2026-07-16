@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import type { DragEvent, FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent, PointerEvent } from "react";
 import {
   Check,
   ChevronDown,
@@ -25,6 +25,20 @@ interface TodoSectionProps {
   onConvert: (todo: Todo) => void;
 }
 
+type TodoDropPosition = "before" | "after";
+
+interface TodoDropTarget {
+  id: number;
+  position: TodoDropPosition;
+}
+
+interface PointerDrag {
+  todoId: number;
+  pointerId: number;
+  startY: number;
+  isDragging: boolean;
+}
+
 interface TodoRowProps {
   todo: Todo;
   editing: boolean;
@@ -39,11 +53,12 @@ interface TodoRowProps {
   onOpenMobileMenu: () => void;
   reorderable: boolean;
   dragging: boolean;
-  dropIndicator: "before" | "after" | null;
-  onDragStart: (event: DragEvent<HTMLButtonElement>) => void;
-  onDragEnd: () => void;
-  onDragOver: (event: DragEvent<HTMLDivElement>) => void;
-  onDrop: (event: DragEvent<HTMLDivElement>) => void;
+  dragOffset: number;
+  dropIndicator: TodoDropPosition | null;
+  onPointerDown: (event: PointerEvent<HTMLDivElement>) => void;
+  onPointerMove: (event: PointerEvent<HTMLDivElement>) => void;
+  onPointerUp: (event: PointerEvent<HTMLDivElement>) => void;
+  onPointerCancel: (event: PointerEvent<HTMLDivElement>) => void;
 }
 
 function TodoRow({
@@ -60,22 +75,35 @@ function TodoRow({
   onOpenMobileMenu,
   reorderable,
   dragging,
+  dragOffset,
   dropIndicator,
-  onDragStart,
-  onDragEnd,
-  onDragOver,
-  onDrop,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
 }: TodoRowProps) {
   const completed = Boolean(todo.completed_at);
 
   return (
     <div
       data-todo-id={todo.id}
-      onDragOver={reorderable ? onDragOver : undefined}
-      onDrop={reorderable ? onDrop : undefined}
+      onPointerDown={reorderable ? onPointerDown : undefined}
+      onPointerMove={reorderable ? onPointerMove : undefined}
+      onPointerUp={reorderable ? onPointerUp : undefined}
+      onPointerCancel={reorderable ? onPointerCancel : undefined}
+      style={
+        dragging
+          ? {
+              transform: `translateY(${dragOffset}px) scale(1.01)`,
+              zIndex: 20,
+              pointerEvents: "none",
+            }
+          : undefined
+      }
       className={cn(
-        "group relative flex min-h-11 items-center gap-3 border-b border-sahara-border/75 px-1 py-2.5 last:border-b-0 transition-[background-color,opacity] duration-150",
-        dragging && "opacity-45",
+        "group relative flex min-h-11 items-center gap-3 border-b border-sahara-border/75 px-1 py-2.5 last:border-b-0 transition-[background-color,box-shadow,opacity,transform] duration-150 motion-reduce:transition-none",
+        reorderable && "cursor-grab select-none hover:bg-sahara-card/35",
+        dragging && "cursor-grabbing rounded-lg bg-sahara-surface shadow-lg ring-1 ring-sahara-primary/25",
         dropIndicator && "bg-sahara-card/50",
       )}
     >
@@ -165,18 +193,13 @@ function TodoRow({
       ) : (
         <>
           {reorderable && (
-            <button
-              type="button"
-              draggable
-              onDragStart={onDragStart}
-              onDragEnd={onDragEnd}
-              aria-label={`拖动排序：${todo.title}`}
-              aria-describedby="todo-reorder-help"
-              title="拖动调整顺序"
-              className="flex shrink-0 touch-none cursor-grab items-center justify-center rounded-md p-1.5 text-sahara-text-muted outline-none transition-[background-color,color,opacity] duration-150 hover:bg-sahara-card hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus active:cursor-grabbing md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+            <span
+              aria-hidden="true"
+              title="按住待办空白处拖动调整顺序"
+              className="flex shrink-0 items-center justify-center rounded-md p-1.5 text-sahara-text-muted/80"
             >
               <GripVertical aria-hidden="true" className="size-4" />
-            </button>
+            </span>
           )}
           <div className="hidden shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-150 md:flex md:group-hover:opacity-100 md:group-focus-within:opacity-100">
             <button
@@ -237,11 +260,13 @@ export function TodoSection({ searchQuery, onConvert }: TodoSectionProps) {
   const [showCompleted, setShowCompleted] = useState(false);
   const [mobileTodo, setMobileTodo] = useState<Todo | null>(null);
   const [todoToDelete, setTodoToDelete] = useState<Todo | null>(null);
-  const [draggingTodoId, setDraggingTodoId] = useState<number | null>(null);
-  const [dropTarget, setDropTarget] = useState<{
+  const [draggingTodo, setDraggingTodo] = useState<{
     id: number;
-    position: "before" | "after";
+    offsetY: number;
   } | null>(null);
+  const [dropTarget, setDropTarget] = useState<TodoDropTarget | null>(null);
+  const pointerDragRef = useRef<PointerDrag | null>(null);
+  const dropTargetRef = useRef<TodoDropTarget | null>(null);
 
   useEffect(() => {
     let disposed = false;
@@ -298,50 +323,95 @@ export function TodoSection({ searchQuery, onConvert }: TodoSectionProps) {
     if (archived) setTodoToDelete(null);
   };
 
-  const getDropPosition = (event: DragEvent<HTMLDivElement>): "before" | "after" => {
-    const bounds = event.currentTarget.getBoundingClientRect();
-    return event.clientY < bounds.top + bounds.height / 2 ? "before" : "after";
-  };
-
-  const clearDragState = () => {
-    setDraggingTodoId(null);
-    setDropTarget(null);
-  };
-
-  const handleDragStart = (event: DragEvent<HTMLButtonElement>, todoId: number) => {
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", String(todoId));
-    setDraggingTodoId(todoId);
-  };
-
-  const handleDragOver = (event: DragEvent<HTMLDivElement>, todoId: number) => {
-    if (draggingTodoId === null || draggingTodoId === todoId) return;
-
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-    const position = getDropPosition(event);
+  const setCurrentDropTarget = (target: TodoDropTarget | null) => {
+    dropTargetRef.current = target;
     setDropTarget((current) =>
-      current?.id === todoId && current.position === position ? current : { id: todoId, position },
+      current?.id === target?.id && current?.position === target?.position ? current : target,
     );
   };
 
-  const handleDrop = (event: DragEvent<HTMLDivElement>, targetTodoId: number) => {
-    event.preventDefault();
-    const draggedTodoId = draggingTodoId
-      ?? Number(event.dataTransfer.getData("text/plain"));
-    const position = getDropPosition(event);
-    clearDragState();
+  const clearPointerDrag = () => {
+    pointerDragRef.current = null;
+    setDraggingTodo(null);
+    setCurrentDropTarget(null);
+  };
 
-    if (!draggedTodoId || draggedTodoId === targetTodoId) return;
+  const isTodoControl = (target: EventTarget | null) =>
+    target instanceof Element
+    && Boolean(target.closest("button, input, textarea, select, a, [data-todo-drag-exempt]"));
+
+  const getDropTargetAtPoint = (
+    clientX: number,
+    clientY: number,
+    draggedTodoId: number,
+  ): TodoDropTarget | null => {
+    const element = document.elementFromPoint(clientX, clientY);
+    const row = element?.closest<HTMLElement>("[data-todo-id]");
+    const targetTodoId = Number(row?.dataset.todoId);
+    if (!row || !Number.isInteger(targetTodoId) || targetTodoId === draggedTodoId) {
+      return null;
+    }
+    if (!openTodos.some((todo) => todo.id === targetTodoId)) return null;
+
+    const bounds = row.getBoundingClientRect();
+    return {
+      id: targetTodoId,
+      position: clientY < bounds.top + bounds.height / 2 ? "before" : "after",
+    };
+  };
+
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>, todoId: number) => {
+    if (event.button !== 0 || event.isPrimary === false || isTodoControl(event.target)) return;
+
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    pointerDragRef.current = {
+      todoId,
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      isDragging: false,
+    };
+    setCurrentDropTarget(null);
+  };
+
+  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const pointerDrag = pointerDragRef.current;
+    if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+
+    const offsetY = event.clientY - pointerDrag.startY;
+    if (!pointerDrag.isDragging && Math.abs(offsetY) < 6) return;
+
+    event.preventDefault();
+    pointerDrag.isDragging = true;
+    setDraggingTodo({ id: pointerDrag.todoId, offsetY });
+    setCurrentDropTarget(
+      getDropTargetAtPoint(event.clientX, event.clientY, pointerDrag.todoId),
+    );
+  };
+
+  const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
+    const pointerDrag = pointerDragRef.current;
+    if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+    }
+
+    const target = dropTargetRef.current;
+    clearPointerDrag();
+    if (!pointerDrag.isDragging || !target) return;
+
+    const draggedTodoId = pointerDrag.todoId;
+    if (draggedTodoId === target.id) return;
 
     const orderedIds = openTodos.map((todo) => todo.id);
     const sourceIndex = orderedIds.indexOf(draggedTodoId);
-    const targetIndex = orderedIds.indexOf(targetTodoId);
+    const targetIndex = orderedIds.indexOf(target.id);
     if (sourceIndex < 0 || targetIndex < 0) return;
 
     const nextIds = [...orderedIds];
     nextIds.splice(sourceIndex, 1);
-    const insertIndex = nextIds.indexOf(targetTodoId) + (position === "after" ? 1 : 0);
+    const insertIndex = nextIds.indexOf(target.id) + (target.position === "after" ? 1 : 0);
     nextIds.splice(insertIndex, 0, draggedTodoId);
     void reorderOpenTodos(nextIds);
   };
@@ -364,17 +434,22 @@ export function TodoSection({ searchQuery, onConvert }: TodoSectionProps) {
       onDelete={() => setTodoToDelete(todo)}
       onOpenMobileMenu={() => setMobileTodo(todo)}
       reorderable={canReorder && editingId === null}
-      dragging={draggingTodoId === todo.id}
+      dragging={draggingTodo?.id === todo.id}
+      dragOffset={draggingTodo?.id === todo.id ? draggingTodo.offsetY : 0}
       dropIndicator={dropTarget?.id === todo.id ? dropTarget.position : null}
-      onDragStart={(event) => handleDragStart(event, todo.id)}
-      onDragEnd={clearDragState}
-      onDragOver={(event) => handleDragOver(event, todo.id)}
-      onDrop={(event) => handleDrop(event, todo.id)}
+      onPointerDown={(event) => handlePointerDown(event, todo.id)}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={clearPointerDrag}
     />
   );
 
   return (
-    <section aria-label="待办" className="mb-10">
+    <section
+      aria-label="待办"
+      aria-describedby={canReorder ? "todo-reorder-help" : undefined}
+      className="mb-10"
+    >
       <SectionHeader
         title="待办"
         meta={<span className="text-xs text-sahara-text-muted">{openTodos.length}</span>}
@@ -383,7 +458,7 @@ export function TodoSection({ searchQuery, onConvert }: TodoSectionProps) {
 
       {canReorder && (
         <p id="todo-reorder-help" className="sr-only">
-          按住待办右侧的拖动手柄，拖到另一条待办的上方或下方以调整顺序。
+          按住待办文字或右侧点阵，拖到另一条待办的上方或下方以调整顺序。
         </p>
       )}
 
