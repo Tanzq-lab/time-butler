@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import type { FormEvent } from "react";
+import type { DragEvent, FormEvent } from "react";
 import {
   Check,
   ChevronDown,
   ChevronRight,
   Focus,
+  GripVertical,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -36,6 +37,13 @@ interface TodoRowProps {
   onConvert: () => void;
   onDelete: () => void;
   onOpenMobileMenu: () => void;
+  reorderable: boolean;
+  dragging: boolean;
+  dropIndicator: "before" | "after" | null;
+  onDragStart: (event: DragEvent<HTMLButtonElement>) => void;
+  onDragEnd: () => void;
+  onDragOver: (event: DragEvent<HTMLDivElement>) => void;
+  onDrop: (event: DragEvent<HTMLDivElement>) => void;
 }
 
 function TodoRow({
@@ -50,11 +58,39 @@ function TodoRow({
   onConvert,
   onDelete,
   onOpenMobileMenu,
+  reorderable,
+  dragging,
+  dropIndicator,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
 }: TodoRowProps) {
   const completed = Boolean(todo.completed_at);
 
   return (
-    <div className="group flex min-h-11 items-center gap-3 border-b border-sahara-border/75 px-1 py-2.5 last:border-b-0">
+    <div
+      data-todo-id={todo.id}
+      onDragOver={reorderable ? onDragOver : undefined}
+      onDrop={reorderable ? onDrop : undefined}
+      className={cn(
+        "group relative flex min-h-11 items-center gap-3 border-b border-sahara-border/75 px-1 py-2.5 last:border-b-0 transition-[background-color,opacity] duration-150",
+        dragging && "opacity-45",
+        dropIndicator && "bg-sahara-card/50",
+      )}
+    >
+      {dropIndicator === "before" && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-1 top-0 z-10 h-0.5 rounded-full bg-sahara-primary"
+        />
+      )}
+      {dropIndicator === "after" && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-1 bottom-0 z-10 h-0.5 rounded-full bg-sahara-primary"
+        />
+      )}
       <button
         type="button"
         role="checkbox"
@@ -128,6 +164,20 @@ function TodoRow({
         </div>
       ) : (
         <>
+          {reorderable && (
+            <button
+              type="button"
+              draggable
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+              aria-label={`拖动排序：${todo.title}`}
+              aria-describedby="todo-reorder-help"
+              title="拖动调整顺序"
+              className="flex shrink-0 touch-none cursor-grab items-center justify-center rounded-md p-1.5 text-sahara-text-muted outline-none transition-[background-color,color,opacity] duration-150 hover:bg-sahara-card hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus active:cursor-grabbing md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+            >
+              <GripVertical aria-hidden="true" className="size-4" />
+            </button>
+          )}
           <div className="hidden shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-150 md:flex md:group-hover:opacity-100 md:group-focus-within:opacity-100">
             <button
               type="button"
@@ -177,6 +227,7 @@ export function TodoSection({ searchQuery, onConvert }: TodoSectionProps) {
   const loadTodos = useTodoStore((state) => state.loadTodos);
   const addTodo = useTodoStore((state) => state.addTodo);
   const updateTodo = useTodoStore((state) => state.updateTodo);
+  const reorderOpenTodos = useTodoStore((state) => state.reorderOpenTodos);
   const setCompleted = useTodoStore((state) => state.setCompleted);
   const archiveTodo = useTodoStore((state) => state.archiveTodo);
 
@@ -186,6 +237,11 @@ export function TodoSection({ searchQuery, onConvert }: TodoSectionProps) {
   const [showCompleted, setShowCompleted] = useState(false);
   const [mobileTodo, setMobileTodo] = useState<Todo | null>(null);
   const [todoToDelete, setTodoToDelete] = useState<Todo | null>(null);
+  const [draggingTodoId, setDraggingTodoId] = useState<number | null>(null);
+  const [dropTarget, setDropTarget] = useState<{
+    id: number;
+    position: "before" | "after";
+  } | null>(null);
 
   useEffect(() => {
     let disposed = false;
@@ -215,6 +271,7 @@ export function TodoSection({ searchQuery, onConvert }: TodoSectionProps) {
   const openTodos = filteredTodos.filter((todo) => !todo.completed_at);
   const completedTodos = filteredTodos.filter((todo) => todo.completed_at);
   const revealCompleted = Boolean(searchQuery.trim()) || showCompleted;
+  const canReorder = !searchQuery.trim() && openTodos.length > 1;
 
   const handleAdd = async (event: FormEvent) => {
     event.preventDefault();
@@ -241,6 +298,54 @@ export function TodoSection({ searchQuery, onConvert }: TodoSectionProps) {
     if (archived) setTodoToDelete(null);
   };
 
+  const getDropPosition = (event: DragEvent<HTMLDivElement>): "before" | "after" => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    return event.clientY < bounds.top + bounds.height / 2 ? "before" : "after";
+  };
+
+  const clearDragState = () => {
+    setDraggingTodoId(null);
+    setDropTarget(null);
+  };
+
+  const handleDragStart = (event: DragEvent<HTMLButtonElement>, todoId: number) => {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(todoId));
+    setDraggingTodoId(todoId);
+  };
+
+  const handleDragOver = (event: DragEvent<HTMLDivElement>, todoId: number) => {
+    if (draggingTodoId === null || draggingTodoId === todoId) return;
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    const position = getDropPosition(event);
+    setDropTarget((current) =>
+      current?.id === todoId && current.position === position ? current : { id: todoId, position },
+    );
+  };
+
+  const handleDrop = (event: DragEvent<HTMLDivElement>, targetTodoId: number) => {
+    event.preventDefault();
+    const draggedTodoId = draggingTodoId
+      ?? Number(event.dataTransfer.getData("text/plain"));
+    const position = getDropPosition(event);
+    clearDragState();
+
+    if (!draggedTodoId || draggedTodoId === targetTodoId) return;
+
+    const orderedIds = openTodos.map((todo) => todo.id);
+    const sourceIndex = orderedIds.indexOf(draggedTodoId);
+    const targetIndex = orderedIds.indexOf(targetTodoId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+
+    const nextIds = [...orderedIds];
+    nextIds.splice(sourceIndex, 1);
+    const insertIndex = nextIds.indexOf(targetTodoId) + (position === "after" ? 1 : 0);
+    nextIds.splice(insertIndex, 0, draggedTodoId);
+    void reorderOpenTodos(nextIds);
+  };
+
   const renderRow = (todo: Todo) => (
     <TodoRow
       key={todo.id}
@@ -258,6 +363,13 @@ export function TodoSection({ searchQuery, onConvert }: TodoSectionProps) {
       onConvert={() => onConvert(todo)}
       onDelete={() => setTodoToDelete(todo)}
       onOpenMobileMenu={() => setMobileTodo(todo)}
+      reorderable={canReorder && editingId === null}
+      dragging={draggingTodoId === todo.id}
+      dropIndicator={dropTarget?.id === todo.id ? dropTarget.position : null}
+      onDragStart={(event) => handleDragStart(event, todo.id)}
+      onDragEnd={clearDragState}
+      onDragOver={(event) => handleDragOver(event, todo.id)}
+      onDrop={(event) => handleDrop(event, todo.id)}
     />
   );
 
@@ -268,6 +380,14 @@ export function TodoSection({ searchQuery, onConvert }: TodoSectionProps) {
         meta={<span className="text-xs text-sahara-text-muted">{openTodos.length}</span>}
         className="mb-3"
       />
+
+      {canReorder && (
+        <p id="todo-reorder-help" className="sr-only">
+          按住待办右侧的拖动手柄，拖到另一条待办的上方或下方以调整顺序。
+        </p>
+      )}
+
+      {openTodos.length > 0 && <div>{openTodos.map(renderRow)}</div>}
 
       <form
         onSubmit={handleAdd}
@@ -301,8 +421,6 @@ export function TodoSection({ searchQuery, onConvert }: TodoSectionProps) {
           待办保存失败，请重试。
         </p>
       )}
-
-      {openTodos.length > 0 && <div>{openTodos.map(renderRow)}</div>}
 
       {filteredTodos.length === 0 && (
         <p className="border-b border-sahara-border px-1 py-5 text-sm text-sahara-text-muted">

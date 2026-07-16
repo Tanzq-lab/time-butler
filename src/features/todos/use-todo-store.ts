@@ -5,6 +5,7 @@ import {
   archiveTodo as dbArchiveTodo,
   getTodos,
   recordAppEvent,
+  reorderTodos as dbReorderTodos,
   setTodoCompleted as dbSetTodoCompleted,
   updateTodoTitle as dbUpdateTodoTitle,
 } from "@/lib/db";
@@ -18,6 +19,7 @@ interface TodoStore {
   loadTodos: () => Promise<void>;
   addTodo: (title: string) => Promise<Todo | null>;
   updateTodo: (id: number, title: string) => Promise<boolean>;
+  reorderOpenTodos: (orderedIds: number[]) => Promise<boolean>;
   setCompleted: (id: number, completed: boolean) => Promise<boolean>;
   archiveTodo: (id: number, eventName?: TodoArchiveEvent) => Promise<boolean>;
 }
@@ -28,13 +30,25 @@ function sortTodos(todos: Todo[]): Todo[] {
     const bDone = Boolean(b.completed_at);
     if (aDone !== bDone) return aDone ? 1 : -1;
 
+    if (!aDone) {
+      const sortOrder = a.sort_order - b.sort_order;
+      if (sortOrder !== 0) return sortOrder;
+    }
+
     const aTime = new Date(a.completed_at ?? a.created_at).getTime();
     const bTime = new Date(b.completed_at ?? b.created_at).getTime();
     return bTime - aTime;
   });
 }
 
-export const useTodoStore = create<TodoStore>((set) => ({
+function getNextOpenTodoSortOrder(todos: Todo[]): number {
+  const openSortOrders = todos
+    .filter((todo) => !todo.completed_at)
+    .map((todo) => todo.sort_order);
+  return Math.min(0, ...openSortOrders) - 1;
+}
+
+export const useTodoStore = create<TodoStore>((set, get) => ({
   todos: [],
   loading: false,
   error: null,
@@ -60,6 +74,7 @@ export const useTodoStore = create<TodoStore>((set) => ({
       const todo: Todo = {
         id,
         title: cleanTitle,
+        sort_order: getNextOpenTodoSortOrder(get().todos),
         completed_at: null,
         archived: 0,
         created_at: now,
@@ -107,6 +122,46 @@ export const useTodoStore = create<TodoStore>((set) => ({
       return true;
     } catch (err) {
       console.error("[TodoStore] Failed to update todo:", err);
+      set({ error: String(err) });
+      return false;
+    }
+  },
+
+  reorderOpenTodos: async (orderedIds) => {
+    const openTodos = sortTodos(get().todos).filter((todo) => !todo.completed_at);
+    const openTodoIds = openTodos.map((todo) => todo.id);
+    const idsMatchOpenTodos =
+      orderedIds.length === openTodoIds.length
+      && new Set(orderedIds).size === orderedIds.length
+      && orderedIds.every((id) => openTodoIds.includes(id));
+
+    if (!idsMatchOpenTodos) return false;
+    if (orderedIds.every((id, index) => id === openTodoIds[index])) return true;
+
+    try {
+      const updatedAt = new Date().toISOString();
+      await dbReorderTodos(orderedIds, updatedAt);
+      const sortOrderById = new Map(orderedIds.map((id, index) => [id, index]));
+      set((state) => ({
+        todos: sortTodos(
+          state.todos.map((todo) => {
+            const sortOrder = sortOrderById.get(todo.id);
+            return sortOrder === undefined
+              ? todo
+              : { ...todo, sort_order: sortOrder, updated_at: updatedAt };
+          }),
+        ),
+        error: null,
+      }));
+      void recordAppEvent({
+        eventName: "todo_reordered",
+        route: "/tasks",
+        entityType: "todo_list",
+        metadata: { count: orderedIds.length },
+      });
+      return true;
+    } catch (err) {
+      console.error("[TodoStore] Failed to reorder todos:", err);
       set({ error: String(err) });
       return false;
     }

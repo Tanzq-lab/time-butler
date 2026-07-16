@@ -6,6 +6,7 @@ const { storedTodos } = vi.hoisted(() => ({
     {
       id: 1,
       title: "买打印纸",
+      sort_order: 0,
       completed_at: null,
       archived: 0,
       created_at: "2026-07-15T01:00:00.000Z",
@@ -17,6 +18,7 @@ const { storedTodos } = vi.hoisted(() => ({
 vi.mock("@/lib/db", () => ({
   getTodos: vi.fn().mockResolvedValue(storedTodos),
   addTodo: vi.fn().mockResolvedValue(2),
+  reorderTodos: vi.fn().mockResolvedValue(undefined),
   updateTodoTitle: vi.fn().mockResolvedValue(undefined),
   setTodoCompleted: vi.fn().mockResolvedValue(undefined),
   archiveTodo: vi.fn().mockResolvedValue(undefined),
@@ -75,6 +77,32 @@ describe("useTodoStore", () => {
     expect(useTodoStore.getState().todos[0].title).toBe("买 A4 打印纸");
     expect(recordAppEvent).toHaveBeenCalledWith(
       expect.objectContaining({ eventName: "todo_updated", entityId: 1 }),
+    );
+  });
+
+  it("persists a reordered set of open todos without touching completed todos", async () => {
+    const { reorderTodos, recordAppEvent } = await import("@/lib/db");
+    useTodoStore.setState({
+      todos: [
+        storedTodos[0],
+        { ...storedTodos[0], id: 2, title: "预约体检", sort_order: 1 },
+        {
+          ...storedTodos[0],
+          id: 3,
+          title: "已完成待办",
+          completed_at: "2026-07-15T02:00:00.000Z",
+          sort_order: 2,
+        },
+      ],
+    });
+
+    expect(await useTodoStore.getState().reorderOpenTodos([2, 1])).toBe(true);
+
+    expect(reorderTodos).toHaveBeenCalledWith([2, 1], expect.any(String));
+    expect(useTodoStore.getState().todos.map((todo) => todo.id)).toEqual([2, 1, 3]);
+    expect(useTodoStore.getState().todos.map((todo) => todo.sort_order)).toEqual([0, 1, 2]);
+    expect(recordAppEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ eventName: "todo_reordered", metadata: { count: 2 } }),
     );
   });
 

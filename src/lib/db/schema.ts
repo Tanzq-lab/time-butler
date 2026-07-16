@@ -204,9 +204,19 @@ export async function initDb(): Promise<void> {
       `CREATE INDEX IF NOT EXISTS idx_todos_visible
         ON todos (archived, completed_at, created_at)`,
     ],
+    12: [
+      "ALTER TABLE todos ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0",
+      // Preserve the existing newest-first display order when upgrading.
+      `UPDATE todos
+       SET sort_order = -id
+       WHERE sort_order = 0
+         AND NOT EXISTS (SELECT 1 FROM todos WHERE sort_order != 0)`,
+      `CREATE INDEX IF NOT EXISTS idx_todos_open_order
+        ON todos (archived, completed_at, sort_order)`,
+    ],
   };
 
-  const targetVersion = 11;
+  const targetVersion = 12;
 
   for (let v = currentVersion + 1; v <= targetVersion; v++) {
     const statements = migrations[v];

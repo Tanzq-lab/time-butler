@@ -20,6 +20,7 @@ export {
 export {
   getTodos,
   addTodo,
+  reorderTodos,
   updateTodoTitle,
   setTodoCompleted,
   archiveTodo,

@@ -4,12 +4,14 @@ import type { Todo } from "./types";
 export async function getTodos(): Promise<Todo[]> {
   const database = await getDb();
   return database.select<Todo[]>(
-    `SELECT id, title, completed_at, archived, created_at, updated_at
+    `SELECT id, title, sort_order, completed_at, archived, created_at, updated_at
      FROM todos
      WHERE archived = 0
      ORDER BY
        CASE WHEN completed_at IS NULL THEN 0 ELSE 1 END,
-       CASE WHEN completed_at IS NULL THEN created_at ELSE completed_at END DESC`,
+       CASE WHEN completed_at IS NULL THEN sort_order END ASC,
+       CASE WHEN completed_at IS NOT NULL THEN completed_at END DESC,
+       id DESC`,
   );
 }
 
@@ -19,11 +21,49 @@ export async function addTodo(
 ): Promise<number> {
   const database = await getDb();
   const result = await database.execute(
-    `INSERT INTO todos (title, created_at, updated_at)
-     VALUES ($1, $2, $3)`,
+    `INSERT INTO todos (title, sort_order, created_at, updated_at)
+     VALUES (
+       $1,
+       COALESCE(
+         (SELECT MIN(sort_order) FROM todos WHERE archived = 0 AND completed_at IS NULL),
+         0
+       ) - 1,
+       $2,
+       $3
+     )`,
     [title, createdAt, createdAt],
   );
   return result.lastInsertId as number;
+}
+
+export async function reorderTodos(
+  orderedIds: number[],
+  updatedAt: string,
+): Promise<void> {
+  if (orderedIds.length === 0) return;
+
+  const caseClauses = orderedIds
+    .map((_, index) => `WHEN $${index * 2 + 1} THEN $${index * 2 + 2}`)
+    .join(" ");
+  const idPlaceholders = orderedIds
+    .map((_, index) => `$${index * 2 + 1}`)
+    .join(", ");
+  const parameters: Array<number | string> = [];
+  orderedIds.forEach((id, index) => {
+    parameters.push(id, index);
+  });
+  parameters.push(updatedAt);
+
+  const database = await getDb();
+  await database.execute(
+    `UPDATE todos
+     SET sort_order = CASE id ${caseClauses} ELSE sort_order END,
+         updated_at = $${parameters.length}
+     WHERE id IN (${idPlaceholders})
+       AND archived = 0
+       AND completed_at IS NULL`,
+    parameters,
+  );
 }
 
 export async function updateTodoTitle(

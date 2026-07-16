@@ -6,6 +6,7 @@ import { useTodoStore } from "@/features/todos/use-todo-store";
 const openTodo = {
   id: 11,
   title: "买咖啡豆",
+  sort_order: 0,
   completed_at: null,
   archived: 0,
   created_at: "2026-07-15T01:00:00.000Z",
@@ -15,6 +16,7 @@ const openTodo = {
 vi.mock("@/lib/db", () => ({
   getTodos: vi.fn().mockResolvedValue([]),
   addTodo: vi.fn().mockResolvedValue(12),
+  reorderTodos: vi.fn().mockResolvedValue(undefined),
   updateTodoTitle: vi.fn().mockResolvedValue(undefined),
   setTodoCompleted: vi.fn().mockResolvedValue(undefined),
   archiveTodo: vi.fn().mockResolvedValue(undefined),
@@ -93,5 +95,46 @@ describe("TodoSection", () => {
 
     expect(await screen.findByText("预约体检")).toBeVisible();
     expect(screen.queryByText("买咖啡豆")).not.toBeInTheDocument();
+  });
+
+  it("persists a dragged open-todo order and keeps the add form above completed todos", async () => {
+    const { getTodos, reorderTodos } = await import("@/lib/db");
+    vi.mocked(getTodos).mockResolvedValue([
+      openTodo,
+      { ...openTodo, id: 12, title: "预约体检", sort_order: 1 },
+      {
+        ...openTodo,
+        id: 13,
+        title: "旧待办",
+        sort_order: 0,
+        completed_at: "2026-07-15T02:00:00.000Z",
+      },
+    ]);
+    render(<TodoSection searchQuery="" onConvert={vi.fn()} />);
+
+    await screen.findByText("买咖啡豆");
+    const secondRow = screen.getByText("预约体检").closest("[data-todo-id]")!;
+    const dragHandle = screen.getByRole("button", { name: "拖动排序：买咖啡豆" });
+    const dataTransfer = {
+      dropEffect: "",
+      effectAllowed: "",
+      getData: vi.fn().mockReturnValue("11"),
+      setData: vi.fn(),
+    };
+
+    fireEvent.dragStart(dragHandle, { dataTransfer });
+    fireEvent.dragOver(secondRow, { clientY: 1, dataTransfer });
+    fireEvent.drop(secondRow, { clientY: 1, dataTransfer });
+
+    await waitFor(() => expect(reorderTodos).toHaveBeenCalledWith([12, 11], expect.any(String)));
+    expect(
+      Array.from(document.querySelectorAll("[data-todo-id]")).map((row) =>
+        row.getAttribute("data-todo-id"),
+      ),
+    ).toEqual(["12", "11"]);
+
+    const addInput = screen.getByRole("textbox", { name: "添加待办" });
+    const completedToggle = screen.getByRole("button", { name: "已完成待办（1）" });
+    expect(addInput.compareDocumentPosition(completedToggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

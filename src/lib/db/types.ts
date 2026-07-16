@@ -26,6 +26,7 @@ export interface Category {
 export interface Todo {
   id: number;
   title: string;
+  sort_order: number;
   completed_at: string | null;
   archived: number;
   created_at: string;
