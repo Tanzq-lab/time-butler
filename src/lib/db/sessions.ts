@@ -1,6 +1,13 @@
 import { getDb } from "./schema";
 import type { Session, WeekSession, WeekSummary } from "./types";
 
+export interface CompletedPomoReassignment {
+  sourceTaskId: number;
+  sourceCategoryId: number | null;
+  targetTaskId: number;
+  targetCategoryId: number | null;
+}
+
 export async function addSession(
   taskId: number | null,
   phase: string,
@@ -103,6 +110,111 @@ export async function updateSessionAttribution(
   );
 }
 
+/**
+ * Moves one already-counted focus pomodoro to another visible task.
+ *
+ * The session remains the source of truth for the time line. Task counters and
+ * session category move in the same transaction so task progress, calendar
+ * color, and category analytics do not drift apart.
+ */
+export async function reassignCompletedPomo(
+  sessionId: number,
+  targetTaskId: number,
+): Promise<CompletedPomoReassignment> {
+  const database = await getDb();
+  let transactionOpen = false;
+
+  try {
+    await database.execute("BEGIN IMMEDIATE");
+    transactionOpen = true;
+
+    const rows = await database.select<
+      {
+        source_task_id: number;
+        source_category_id: number | null;
+        target_category_id: number | null;
+      }[]
+    >(
+      `
+      SELECT
+        s.task_id AS source_task_id,
+        s.category_id AS source_category_id,
+        target.category_id AS target_category_id
+      FROM sessions s
+      JOIN tasks target ON target.id = $2 AND target.archived = 0
+      WHERE s.id = $1
+        AND s.phase = 'work'
+        AND s.completed = 1
+        AND s.pomo_counted = 1
+        AND s.task_id IS NOT NULL
+      `,
+      [sessionId, targetTaskId],
+    );
+
+    const record = rows[0];
+    if (!record) {
+      throw new Error("只能更正已完成且已计入任务的专注番茄。");
+    }
+    if (record.source_task_id === targetTaskId) {
+      throw new Error("该番茄已经属于这个任务。");
+    }
+
+    const update = await database.execute(
+      `
+      UPDATE sessions
+      SET task_id = $2,
+          category_id = $3
+      WHERE id = $1
+        AND phase = 'work'
+        AND completed = 1
+        AND pomo_counted = 1
+        AND task_id = $4
+      `,
+      [sessionId, targetTaskId, record.target_category_id, record.source_task_id],
+    );
+    if (update.rowsAffected !== 1) {
+      throw new Error("该番茄已被更新，请刷新日历后重试。");
+    }
+
+    await database.execute(
+      "UPDATE tasks SET completed_pomos = MAX(0, completed_pomos - 1) WHERE id = $1",
+      [record.source_task_id],
+    );
+    await database.execute(
+      "UPDATE tasks SET completed_pomos = completed_pomos + 1 WHERE id = $1",
+      [targetTaskId],
+    );
+    await database.execute(
+      `
+      INSERT INTO task_activity_log (task_id, action, from_value, to_value)
+      VALUES
+        ($1, 'completed_pomo_reassigned_out', $2, $3),
+        ($4, 'completed_pomo_reassigned_in', $2, $1)
+      `,
+      [record.source_task_id, String(sessionId), String(targetTaskId), targetTaskId],
+    );
+
+    await database.execute("COMMIT");
+    transactionOpen = false;
+
+    return {
+      sourceTaskId: record.source_task_id,
+      sourceCategoryId: record.source_category_id,
+      targetTaskId,
+      targetCategoryId: record.target_category_id,
+    };
+  } catch (error) {
+    if (transactionOpen) {
+      try {
+        await database.execute("ROLLBACK");
+      } catch (rollbackError) {
+        console.error("[Sessions] Failed to roll back pomodoro reassignment:", rollbackError);
+      }
+    }
+    throw error;
+  }
+}
+
 export async function updateSessionReflection(
   sessionId: number,
   mood?: string,
@@ -168,6 +280,7 @@ export async function getWeekSessions(
       s.started_at,
       s.duration_sec,
       s.completed,
+      s.pomo_counted,
       s.category_id,
       c.name AS category_name,
       c.color AS category_color,
@@ -195,6 +308,7 @@ export async function getWeekSummary(
       total_sessions: number;
       work_sessions: number;
       break_sessions: number;
+      completed_pomos: number;
     }[]
   >(
     `
@@ -202,7 +316,8 @@ export async function getWeekSummary(
       COALESCE(SUM(duration_sec), 0) AS total_seconds,
       COALESCE(COUNT(*), 0) AS total_sessions,
       COALESCE(SUM(CASE WHEN phase = 'work' THEN 1 ELSE 0 END), 0) AS work_sessions,
-      COALESCE(SUM(CASE WHEN phase != 'work' THEN 1 ELSE 0 END), 0) AS break_sessions
+      COALESCE(SUM(CASE WHEN phase != 'work' THEN 1 ELSE 0 END), 0) AS break_sessions,
+      COALESCE(SUM(CASE WHEN phase = 'work' AND pomo_counted = 1 THEN 1 ELSE 0 END), 0) AS completed_pomos
     FROM sessions
     WHERE date(started_at) >= $1 AND date(started_at) <= $2 AND completed = 1
   `,
@@ -217,18 +332,25 @@ export async function getWeekSummary(
       work_sessions: 0,
       break_sessions: 0,
       avg_daily_seconds: 0,
+      completed_pomos: 0,
+      avg_daily_pomos: 0,
       peak_day: null,
       peak_day_seconds: 0,
+      peak_day_pomos: 0,
     };
   }
 
-  const dayRows = await database.select<{ d: string; total: number }[]>(
+  const dayRows = await database.select<{ d: string; total: number; pomo_count: number }[]>(
     `
-    SELECT date(started_at) AS d, COALESCE(SUM(duration_sec), 0) AS total
+    SELECT
+      date(started_at) AS d,
+      COALESCE(SUM(duration_sec), 0) AS total,
+      COUNT(*) AS pomo_count
     FROM sessions
-    WHERE date(started_at) >= $1 AND date(started_at) <= $2 AND completed = 1
+    WHERE date(started_at) >= $1 AND date(started_at) <= $2
+      AND completed = 1 AND phase = 'work' AND pomo_counted = 1
     GROUP BY date(started_at)
-    ORDER BY total DESC
+    ORDER BY pomo_count DESC, total DESC
     LIMIT 1
   `,
     [weekStart, weekEnd],
@@ -237,7 +359,8 @@ export async function getWeekSummary(
   const activeDaysRows = await database.select<{ cnt: number }[]>(
     `
     SELECT COUNT(DISTINCT date(started_at)) AS cnt FROM sessions
-    WHERE date(started_at) >= $1 AND date(started_at) <= $2 AND completed = 1
+    WHERE date(started_at) >= $1 AND date(started_at) <= $2
+      AND completed = 1 AND phase = 'work' AND pomo_counted = 1
   `,
     [weekStart, weekEnd],
   );
@@ -250,7 +373,11 @@ export async function getWeekSummary(
     break_sessions: raw.break_sessions,
     avg_daily_seconds:
       activeDays > 0 ? Math.round(raw.total_seconds / activeDays) : 0,
+    completed_pomos: raw.completed_pomos,
+    avg_daily_pomos:
+      activeDays > 0 ? Math.round((raw.completed_pomos / activeDays) * 10) / 10 : 0,
     peak_day: dayRows[0]?.d ?? null,
     peak_day_seconds: dayRows[0]?.total ?? 0,
+    peak_day_pomos: dayRows[0]?.pomo_count ?? 0,
   };
 }

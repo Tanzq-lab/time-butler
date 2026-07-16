@@ -1,6 +1,6 @@
 import { Clock, Target, Flame, Timer } from "lucide-react";
 import type { Session } from "@/lib/session-utils";
-import { formatTotalTime } from "@/lib/session-utils";
+import { countCompletedPomos, formatPomoCount } from "@/lib/session-utils";
 import { cn } from "@/lib/cn";
 
 interface FocusSummaryBarProps {
@@ -66,26 +66,31 @@ export function FocusSummaryBar({
   topCategory,
 }: FocusSummaryBarProps) {
   const workSessions = sessions.filter((s) => s.phase === "work");
-  const totalFocusSec = workSessions.reduce(
-    (sum, s) => sum + s.duration_sec,
-    0,
-  );
-  const sessionCount = workSessions.length;
+  const completedPomos = countCompletedPomos(sessions);
+  const breakCount = sessions.filter(
+    (session) => session.completed === 1 && session.phase !== "work",
+  ).length;
+  const taskCount = new Set(
+    workSessions
+      .filter((session) => session.completed === 1 && session.pomo_counted === 1)
+      .map((session) => session.task_id)
+      .filter((taskId): taskId is number => taskId !== null),
+  ).size;
 
   return (
     <div className="grid grid-cols-2 gap-2.5 md:gap-4 lg:grid-cols-4">
-      <StatBox 
-        label="专注时长" 
-        value={formatTotalTime(totalFocusSec)} 
-        icon={Clock} 
-        styleKey="clock" 
+      <StatBox
+        label="完成番茄"
+        value={formatPomoCount(completedPomos)}
+        icon={Clock}
+        styleKey="clock"
       />
       
-      <StatBox 
-        label="记录数" 
-        value={sessionCount} 
-        icon={Target} 
-        styleKey="target" 
+      <StatBox
+        label="休息次数"
+        value={`${breakCount} 次`}
+        icon={Target}
+        styleKey="target"
       />
 
       <StatBox 
@@ -101,17 +106,17 @@ export function FocusSummaryBar({
                 style={{ backgroundColor: topCategory.color }}
               />
               <span className="text-[10px] font-medium tabular-nums text-sahara-text-secondary">
-                已记录 {topCategory.count} 次
+                已完成 {topCategory.count} 个番茄
               </span>
           </div>
         )}
       />
 
-      <StatBox 
-        label="平均专注" 
-        value={sessionCount > 0 ? formatTotalTime(Math.round(totalFocusSec / sessionCount)) : "0分钟"} 
-        icon={Timer} 
-        styleKey="timer" 
+      <StatBox
+        label="专注任务"
+        value={`${taskCount} 个`}
+        icon={Timer}
+        styleKey="timer"
       />
     </div>
   );

@@ -8,7 +8,7 @@ interface TopCategoryBadgeProps {
 export function TopCategoryBadge({ sessions }: TopCategoryBadgeProps) {
   const categoryCounts = sessions.reduce(
     (acc: Record<string, number>, s: Session) => {
-      if (s.intention) {
+      if (s.phase === "work" && s.completed === 1 && s.pomo_counted === 1 && s.intention) {
         acc[s.intention] = (acc[s.intention] || 0) + 1;
       }
       return acc;
@@ -37,7 +37,7 @@ export function TopCategoryBadge({ sessions }: TopCategoryBadgeProps) {
             {topCategory[0]}
           </span>
           <span className="text-[11px] font-medium text-sahara-text-secondary tabular-nums md:text-xs">
-            今天已记录 {topCategory[1]} 次
+            今天已完成 {topCategory[1]} 个番茄
           </span>
         </div>
       </div>

@@ -1,4 +1,18 @@
 export type { Session } from "@/lib/db";
+import type { Session } from "@/lib/db";
+
+export function countCompletedPomos(sessions: Session[]): number {
+  return sessions.filter(
+    (session) =>
+      session.phase === "work" &&
+      session.completed === 1 &&
+      session.pomo_counted === 1,
+  ).length;
+}
+
+export function formatPomoCount(count: number): string {
+  return `${count} 个番茄`;
+}
 
 export function formatTime(dateStr: string): string {
   const date = new Date(dateStr);

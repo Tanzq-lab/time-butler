@@ -1,5 +1,5 @@
 import type { CategoryBreakdown } from "@/lib/db";
-import { formatTotalTime } from "@/lib/session-utils";
+import { formatPomoCount } from "@/lib/session-utils";
 import { cn } from "@/lib/cn";
 
 interface CategoryBreakdownProps {
@@ -8,9 +8,8 @@ interface CategoryBreakdownProps {
 
 function isValidBreakdown(item: CategoryBreakdown): boolean {
   return (
-    Number.isFinite(item.total_seconds) &&
-    item.total_seconds > 0 &&
-    item.session_count > 0
+    Number.isFinite(item.pomo_count) &&
+    item.pomo_count > 0
   );
 }
 
@@ -25,12 +24,12 @@ export function CategoryBreakdown({ breakdowns }: CategoryBreakdownProps) {
 
   if (validBreakdowns.length === 0) return null;
 
-  const maxSeconds = Math.max(...validBreakdowns.map((b) => b.total_seconds), 1);
+  const maxPomos = Math.max(...validBreakdowns.map((b) => b.pomo_count), 1);
 
   return (
     <div className="space-y-6 md:space-y-7">
       {validBreakdowns.map((item) => {
-        const percentage = Math.round((item.total_seconds / maxSeconds) * 100);
+        const percentage = Math.round((item.pomo_count / maxPomos) * 100);
         const label = item.category_name || item.intention || "未分类";
         const color = item.category_color || "#94a3b8";
 
@@ -51,10 +50,10 @@ export function CategoryBreakdown({ breakdowns }: CategoryBreakdownProps) {
               </div>
               <div className="flex items-center gap-2.5 shrink-0 ml-4">
                 <span className="text-sm font-semibold text-sahara-text-secondary tabular-nums md:text-base">
-                  {formatTotalTime(item.total_seconds)}
+                  {formatPomoCount(item.pomo_count)}
                 </span>
                 <span className="hidden items-center rounded-md border border-sahara-border bg-sahara-card px-2 py-0.5 text-[10px] font-medium text-sahara-text-secondary sm:inline-flex">
-                  {item.session_count} 条记录
+                  完成 {item.pomo_count} 个
                 </span>
               </div>
             </div>

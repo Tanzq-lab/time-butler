@@ -3,17 +3,23 @@ import { Loader2 } from "lucide-react";
 import {
   getWeekSessions,
   getWeekSummary,
+  reassignCompletedPomo,
+  recordAppEvent,
   type WeekSession,
   type WeekSummary,
 } from "@/lib/db";
+import { CalendarSessionEditor } from "@/components/base/calendar-session-editor";
 import { CalendarWeekNav } from "@/components/base/calendar-week-nav";
 import { CalendarGrid } from "@/components/base/calendar-grid";
 import { CalendarWeekStats } from "@/components/base/calendar-week-stats";
 import { PageHeader } from "@/components/ui/page-header";
+import { useTaskStore } from "@/features/tasks/use-task-store";
 
 const START_HOUR = 6;
 const END_HOUR = 22;
-const HOUR_HEIGHT = 72;
+// A 25-minute focus block should have enough vertical room to scan at a glance
+// without pretending that it lasts longer than the real time it occupies.
+const HOUR_HEIGHT = 96;
 
 const EMPTY_SUMMARY: WeekSummary = {
   total_seconds: 0,
@@ -21,8 +27,11 @@ const EMPTY_SUMMARY: WeekSummary = {
   work_sessions: 0,
   break_sessions: 0,
   avg_daily_seconds: 0,
+  completed_pomos: 0,
+  avg_daily_pomos: 0,
   peak_day: null,
   peak_day_seconds: 0,
+  peak_day_pomos: 0,
 };
 
 function getMonday(date: Date): Date {
@@ -63,8 +72,11 @@ function normalizeWeekSummary(summary: WeekSummary | null | undefined): WeekSumm
     work_sessions: Number.isFinite(summary?.work_sessions) ? summary!.work_sessions : 0,
     break_sessions: Number.isFinite(summary?.break_sessions) ? summary!.break_sessions : 0,
     avg_daily_seconds: Number.isFinite(summary?.avg_daily_seconds) ? summary!.avg_daily_seconds : 0,
+    completed_pomos: Number.isFinite(summary?.completed_pomos) ? summary!.completed_pomos : 0,
+    avg_daily_pomos: Number.isFinite(summary?.avg_daily_pomos) ? summary!.avg_daily_pomos : 0,
     peak_day: summary?.peak_day ?? null,
     peak_day_seconds: Number.isFinite(summary?.peak_day_seconds) ? summary!.peak_day_seconds : 0,
+    peak_day_pomos: Number.isFinite(summary?.peak_day_pomos) ? summary!.peak_day_pomos : 0,
   };
 }
 
@@ -88,17 +100,22 @@ export function CalendarDashboard() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [data, dispatch] = useReducer(calendarReducer, CALENDAR_INIT);
   const [loading, setLoading] = useState(true);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const [sessionToEdit, setSessionToEdit] = useState<WeekSession | null>(null);
   const loadedRef = useRef<string | null>(null);
+  const tasks = useTaskStore((state) => state.tasks);
+  const loadTasks = useTaskStore((state) => state.loadTasks);
 
   const monday = getMonday(new Date(Date.now() + weekOffset * 7 * 86400000));
   const sunday = new Date(monday);
   sunday.setDate(sunday.getDate() + 6);
   const weekDays = getWeekDates(monday);
   const weekKey = `${toISODate(monday)}_${toISODate(sunday)}`;
+  const loadKey = `${weekKey}_${refreshVersion}`;
 
   useEffect(() => {
-    if (loadedRef.current === weekKey) return;
-    loadedRef.current = weekKey;
+    if (loadedRef.current === loadKey) return;
+    loadedRef.current = loadKey;
 
     let cancelled = false;
     setLoading(true);
@@ -132,7 +149,7 @@ export function CalendarDashboard() {
       cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [weekKey]);
+  }, [loadKey]);
 
   const handlePrev = useCallback(() => {
     loadedRef.current = null;
@@ -147,6 +164,39 @@ export function CalendarDashboard() {
     setWeekOffset(0);
   }, []);
 
+  const handleOpenPomoEditor = useCallback((session: WeekSession) => {
+    setSessionToEdit(session);
+    void recordAppEvent({
+      eventName: "calendar_completed_pomo_editor_opened",
+      route: "/calendar",
+      entityType: "session",
+      entityId: session.id,
+      metadata: { hasTask: session.task_id !== null },
+    });
+  }, []);
+
+  const handleReassignCompletedPomo = useCallback(
+    async (targetTaskId: number) => {
+      if (!sessionToEdit) return;
+
+      const result = await reassignCompletedPomo(sessionToEdit.id, targetTaskId);
+      void recordAppEvent({
+        eventName: "calendar_completed_pomo_reassigned",
+        route: "/calendar",
+        entityType: "session",
+        entityId: sessionToEdit.id,
+        metadata: {
+          sourceTaskId: result.sourceTaskId,
+          targetTaskId: result.targetTaskId,
+          categoryChanged: result.sourceCategoryId !== result.targetCategoryId,
+        },
+      });
+      await loadTasks();
+      setRefreshVersion((version) => version + 1);
+    },
+    [loadTasks, sessionToEdit],
+  );
+
   if (loading && data.sessions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
@@ -159,12 +209,12 @@ export function CalendarDashboard() {
   }
 
   return (
-    <div className="mx-auto flex h-full max-w-7xl flex-col gap-5 px-3 py-6 sm:px-6 md:gap-6 md:px-10 md:py-8">
+    <div className="mx-auto flex min-h-full max-w-7xl flex-col gap-5 px-3 py-6 sm:px-6 md:gap-6 md:px-10 md:py-8">
       {/* Header */}
       <PageHeader
         eyebrow="时间分布"
         title="每周时间线"
-        description="按时间轴查看专注与休息，分类色仅用于区分会话。"
+        description="按真实时间轴查看专注与休息，统计以完成番茄为准。"
         actions={<CalendarWeekNav
           weekStart={monday}
           weekEnd={sunday}
@@ -178,15 +228,24 @@ export function CalendarDashboard() {
       <CalendarWeekStats summary={data.summary} />
 
       {/* Calendar Grid */}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div>
         <CalendarGrid
           sessions={data.sessions}
           weekDays={weekDays}
           startHour={START_HOUR}
           endHour={END_HOUR}
           hourHeight={HOUR_HEIGHT}
+          onEditPomo={handleOpenPomoEditor}
         />
       </div>
+
+      <CalendarSessionEditor
+        open={sessionToEdit !== null}
+        session={sessionToEdit}
+        tasks={tasks}
+        onClose={() => setSessionToEdit(null)}
+        onSubmit={handleReassignCompletedPomo}
+      />
     </div>
   );
 }

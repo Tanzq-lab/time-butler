@@ -49,7 +49,9 @@ export function TodayFocus() {
     return () => clearInterval(interval);
   }, [refreshData]);
 
-  const workSessions = sessions.filter((s) => s.phase === "work");
+  const workSessions = sessions.filter(
+    (session) => session.phase === "work" && session.completed === 1 && session.pomo_counted === 1,
+  );
   const topCategoryEntry = (() => {
     const counts: Record<
       string,

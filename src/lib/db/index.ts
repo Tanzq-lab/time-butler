@@ -30,6 +30,7 @@ export {
   finishSession,
   creditSessionPomo,
   updateSessionAttribution,
+  reassignCompletedPomo,
   updateSessionReflection,
   abandonSession,
   getSessions,

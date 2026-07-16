@@ -6,33 +6,30 @@ interface CalendarWeekStatsProps {
   summary: WeekSummary;
 }
 
-function formatHours(sec: number): string {
-  if (sec === 0) return "0 小时";
-  const h = Math.floor(sec / 3600);
-  const m = Math.round((sec % 3600) / 60);
-  return m > 0 ? `${h} 小时 ${m} 分钟` : `${h} 小时`;
+function formatPomos(count: number): string {
+  return `${count} 个番茄`;
 }
 
 export function CalendarWeekStats({ summary }: CalendarWeekStatsProps) {
   const stats = [
     {
       icon: Clock,
-      label: "专注总时长",
-      value: formatHours(summary.total_seconds),
+      label: "完成番茄",
+      value: formatPomos(summary.completed_pomos),
       color: "text-sahara-text",
       bg: "bg-sahara-card",
     },
     {
       icon: Target,
-      label: "记录",
-      value: `${summary.work_sessions} 次专注 · ${summary.break_sessions} 次休息`,
+      label: "专注 / 休息",
+      value: `${summary.completed_pomos} 个 · ${summary.break_sessions} 次`,
       color: "text-sahara-text-secondary",
       bg: "bg-sahara-card",
     },
     {
       icon: Flame,
-      label: "日均专注",
-      value: formatHours(summary.avg_daily_seconds),
+      label: "日均番茄",
+      value: formatPomos(summary.avg_daily_pomos),
       color: "text-sahara-text",
       bg: "bg-sahara-card",
     },
@@ -40,7 +37,7 @@ export function CalendarWeekStats({ summary }: CalendarWeekStatsProps) {
       icon: TrendingUp,
       label: "高峰日",
       value: summary.peak_day
-        ? `${new Date(summary.peak_day + "T00:00:00").toLocaleDateString("zh-CN", { weekday: "short", month: "short", day: "numeric" })} (${formatHours(summary.peak_day_seconds)})`
+        ? `${new Date(summary.peak_day + "T00:00:00").toLocaleDateString("zh-CN", { weekday: "short", month: "short", day: "numeric" })} (${formatPomos(summary.peak_day_pomos)})`
         : "—",
       color: "text-emerald-600 dark:text-emerald-400",
       bg: "bg-emerald-50 dark:bg-emerald-950/30",

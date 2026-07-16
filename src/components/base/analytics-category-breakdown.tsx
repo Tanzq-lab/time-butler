@@ -18,7 +18,7 @@ export function AnalyticsCategoryBreakdown({ startDate, endDate }: AnalyticsCate
     setLoading(true);
     getCategoryBreakdown(startDate, endDate)
       .then((entries) => setBreakdowns(entries.filter((entry) =>
-        Number.isFinite(entry.total_seconds) && Number.isFinite(entry.session_count),
+        Number.isFinite(entry.pomo_count),
       )))
       .catch(() => setBreakdowns([]))
       .finally(() => setLoading(false));

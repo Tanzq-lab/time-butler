@@ -1,4 +1,5 @@
-import { Clock, CheckCircle2, Circle, Tag } from "lucide-react";
+import { Clock, CheckCircle2, Tag } from "lucide-react";
+import type { CSSProperties } from "react";
 import { cn } from "@/lib/cn";
 import type { WeekSession } from "@/lib/db";
 import { formatTimeAmPm, parseLocalDateTime } from "@/lib/time";
@@ -8,6 +9,7 @@ interface CalendarSessionBlockProps {
   topPx: number;
   heightPx: number;
   compact?: boolean;
+  onEditPomo?: (session: WeekSession) => void;
 }
 
 function getTimeRange(session: WeekSession): string {
@@ -16,11 +18,27 @@ function getTimeRange(session: WeekSession): string {
   return `${formatTimeAmPm(start)} – ${formatTimeAmPm(end)}`;
 }
 
-function hexToRgba(hex: string, alpha: number): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+const DEFAULT_WORK_COLOR = "#687B84";
+const WORK_CARD_CLASS = "calendar-work-session";
+const WORK_MUTED_CLASS = "calendar-work-session__muted";
+const WORK_CATEGORY_CLASS = "calendar-work-session__category";
+const BREAK_CARD_CLASS = "calendar-break-session";
+const BREAK_MUTED_CLASS = "calendar-break-session__muted";
+
+function getCardStyle(
+  topPx: number,
+  heightPx: number,
+  isWork: boolean,
+  workColor: string,
+): CSSProperties {
+  // The one-pixel inset lets adjacent sessions breathe while preserving their
+  // true position and duration on the time scale.
+  const hasBreathingRoom = isWork && heightPx >= 24;
+  return {
+    top: topPx + (hasBreathingRoom ? 1 : 0),
+    height: hasBreathingRoom ? heightPx - 2 : heightPx,
+    ...(isWork && { "--calendar-session-color": workColor }),
+  } as CSSProperties;
 }
 
 export function CalendarSessionBlock({
@@ -28,24 +46,66 @@ export function CalendarSessionBlock({
   topPx,
   heightPx,
   compact = false,
+  onEditPomo,
 }: CalendarSessionBlockProps) {
   const isWork = session.phase === "work";
   const isBreak = !isWork;
 
-  const title = session.task_name || session.intention || "";
-  const showDescription =
-    !isWork && session.intention && session.intention !== title;
+  const title = isWork
+    ? session.task_name || session.intention || ""
+    : session.intention || "";
   const timeRange = getTimeRange(session);
   const phaseLabel =
     isWork ? "专注" : session.phase === "long_break" ? "长休息" : "短休息";
-  const isMicro = heightPx < 22;
-
-  const catColor = session.category_color || undefined;
-
-  const bgColor = isWork && catColor ? catColor : undefined;
-  const borderColor = isWork && catColor ? hexToRgba(catColor, 0.6) : undefined;
+  const workColor = session.category_color || DEFAULT_WORK_COLOR;
+  const cardStyle = getCardStyle(topPx, heightPx, isWork, workColor);
+  const isMicro = Number(cardStyle.height) < 22;
+  const canEditPomo =
+    isWork &&
+    session.completed === 1 &&
+    session.pomo_counted === 1 &&
+    session.task_id !== null &&
+    onEditPomo;
+  const interactionClass = canEditPomo
+    ? "cursor-pointer text-left outline-none transition-[filter,box-shadow] hover:brightness-[0.96] focus-visible:ring-2 focus-visible:ring-sahara-focus focus-visible:ring-offset-2 focus-visible:ring-offset-sahara-bg"
+    : "";
+  const accessibleLabel = canEditPomo
+    ? `更正番茄归属：${title || "未命名任务"} ${timeRange}`
+    : `${phaseLabel}${title ? ` ${title}` : ""} ${timeRange}`;
 
   if (compact) {
+    if (canEditPomo) {
+      return (
+        <button
+          type="button"
+          className={cn(
+            "absolute left-1 right-1 z-10 overflow-hidden border md:left-1.5 md:right-1.5",
+            isMicro
+              ? "rounded-[4px]"
+              : "rounded-md md:rounded-lg px-1.5 md:px-2 py-0.5",
+            isWork ? WORK_CARD_CLASS : BREAK_CARD_CLASS,
+            interactionClass,
+          )}
+          style={cardStyle}
+          title={`点击更正归属 · ${phaseLabel}${title ? ` · ${title}` : ""} · ${timeRange}`}
+          aria-label={accessibleLabel}
+          onClick={() => onEditPomo(session)}
+        >
+          {!isMicro && (
+            <div className="flex h-full min-w-0 items-center">
+              {title && (
+                <span
+                  className="min-w-0 truncate text-[10px] font-medium leading-none"
+                >
+                  {title}
+                </span>
+              )}
+            </div>
+          )}
+        </button>
+      );
+    }
+
     return (
       <div
         role="group"
@@ -54,34 +114,24 @@ export function CalendarSessionBlock({
           isMicro
             ? "rounded-[4px]"
             : "rounded-md md:rounded-lg px-1.5 md:px-2 py-0.5",
-          isWork
-            ? "bg-sahara-primary text-sahara-bg border-sahara-primary/40"
-            : "bg-sahara-card text-sahara-text border-sahara-border",
-        )}
-        style={{
-          top: topPx,
-          height: heightPx,
-          ...(bgColor && { backgroundColor: bgColor }),
-          ...(borderColor && { borderColor }),
-        }}
+            isWork ? WORK_CARD_CLASS : BREAK_CARD_CLASS,
+          )}
+        style={cardStyle}
         title={`${phaseLabel}${title ? ` · ${title}` : ""} · ${timeRange}`}
-        aria-label={`${phaseLabel}${title ? ` ${title}` : ""} ${timeRange}`}
+        aria-label={accessibleLabel}
       >
         {!isMicro && (
           <div className="flex h-full min-w-0 items-center gap-1.5">
-            <span
-              className={cn(
-                "shrink-0 text-[10px] font-bold leading-none",
-                isWork ? "text-white" : "text-sahara-text",
-              )}
-            >
-              {phaseLabel}
-            </span>
+            {isBreak && (
+              <span className={cn("shrink-0 text-[10px] font-bold leading-none", BREAK_MUTED_CLASS)}>
+                {phaseLabel}
+              </span>
+            )}
             {title && (
               <span
                 className={cn(
                   "min-w-0 truncate text-[10px] font-medium leading-none",
-                  isWork ? "text-white/90" : "text-sahara-text-muted",
+                  isWork ? undefined : "calendar-break-session__title",
                 )}
               >
                 {title}
@@ -93,32 +143,70 @@ export function CalendarSessionBlock({
     );
   }
 
+  if (canEditPomo) {
+    return (
+      <button
+        type="button"
+        aria-label={accessibleLabel}
+        className={cn(
+          "absolute left-1 right-1 z-10 flex flex-col overflow-hidden rounded-md border px-2.5 py-1.5 md:left-1.5 md:right-1.5 md:rounded-[10px] md:px-3 md:py-2.5",
+          isWork ? WORK_CARD_CLASS : BREAK_CARD_CLASS,
+          interactionClass,
+        )}
+        style={cardStyle}
+        title={`点击更正归属 · ${phaseLabel}${title ? ` · ${title}` : ""} · ${timeRange}`}
+        onClick={() => onEditPomo(session)}
+      >
+        {title && (
+          <div className="flex items-start justify-between gap-1 md:gap-1 mb-0.5">
+            <span
+              className="font-semibold text-[11px] leading-tight line-clamp-2 md:text-[13px]"
+            >
+              {title}
+            </span>
+            <CheckCircle2
+              aria-hidden="true"
+              className={cn("mt-0.5 size-3 shrink-0 md:size-4", WORK_MUTED_CLASS)}
+            />
+          </div>
+        )}
+        {session.category_name && (
+          <div className="mb-0.5 md:mb-1.5">
+            <span
+              className={cn(
+                "inline-flex items-center rounded-md px-2 py-0.5 text-[9px] font-semibold md:text-[10px]",
+                WORK_CATEGORY_CLASS,
+              )}
+            >
+              {session.category_name}
+            </span>
+          </div>
+        )}
+        <div className="mt-auto flex items-center gap-1 pt-0.5 md:gap-1.5 md:pt-1">
+          <Clock aria-hidden="true" className={cn("size-2.5 md:size-3", WORK_MUTED_CLASS)} />
+          <span className={cn("text-[9px] font-medium tabular-nums tracking-wide md:text-[10px]", WORK_MUTED_CLASS)}>
+            {timeRange}
+          </span>
+        </div>
+      </button>
+    );
+  }
+
   return (
     <div
       role="group"
-      aria-label={`${phaseLabel}${title ? ` ${title}` : ""} ${timeRange}`}
+      aria-label={accessibleLabel}
       className={cn(
         "absolute left-1 right-1 z-10 flex flex-col overflow-hidden rounded-md border px-2.5 py-1.5 md:left-1.5 md:right-1.5 md:rounded-[10px] md:px-3 md:py-2.5",
-        isWork
-          ? "bg-sahara-primary text-sahara-bg border-sahara-primary/40"
-          : "bg-sahara-card text-sahara-text border-sahara-border",
+        isWork ? WORK_CARD_CLASS : BREAK_CARD_CLASS,
       )}
-      style={{
-        top: topPx,
-        height: heightPx,
-        ...(bgColor && { backgroundColor: bgColor }),
-        ...(borderColor && { borderColor }),
-      }}
+      style={cardStyle}
     >
-      {/* Type Label */}
-      <div
-        className={cn(
-          "font-bold text-[12px] md:text-sm leading-tight mb-0.5",
-          isWork ? "text-white" : "text-sahara-text",
-        )}
-      >
-        {phaseLabel}
-      </div>
+      {isBreak && (
+        <div className={cn("mb-0.5 text-[12px] font-bold leading-tight md:text-sm", BREAK_MUTED_CLASS)}>
+          {phaseLabel}
+        </div>
+      )}
 
       {/* Title / Task Name */}
       {title && (
@@ -126,30 +214,18 @@ export function CalendarSessionBlock({
           <span
             className={cn(
               "font-semibold text-[11px] md:text-[13px] leading-tight line-clamp-2",
-              isWork ? "text-white" : "text-sahara-text",
+              isWork ? undefined : "calendar-break-session__title",
             )}
           >
             {title}
           </span>
           {isWork && (
-            <CheckCircle2 aria-hidden="true" className="mt-0.5 size-3 shrink-0 text-white/80 md:size-4" />
+            <CheckCircle2
+              aria-hidden="true"
+              className={cn("mt-0.5 size-3 shrink-0 md:size-4", WORK_MUTED_CLASS)}
+            />
           )}
         </div>
-      )}
-
-      {isBreak && (
-        <Circle aria-hidden="true" className="mb-0.5 mt-auto size-3 text-sahara-text-muted md:mb-1 md:size-3.5" />
-      )}
-
-      {showDescription && (
-        <p
-          className={cn(
-            "text-[10px] md:text-[11px] leading-snug line-clamp-2 mb-0.5 md:mb-1",
-            isWork ? "text-white/80" : "text-sahara-text-muted",
-          )}
-        >
-          {session.intention}
-        </p>
       )}
 
       {isWork && session.category_name && (
@@ -157,16 +233,8 @@ export function CalendarSessionBlock({
           <span
             className={cn(
               "inline-flex items-center rounded-md px-2 py-0.5 text-[9px] font-semibold md:text-[10px]",
-              catColor ? "text-white" : "bg-white/20 text-white",
+              WORK_CATEGORY_CLASS,
             )}
-            style={
-              catColor
-                ? {
-                    backgroundColor: hexToRgba(catColor, 0.25),
-                    color: "#fff",
-                  }
-                : undefined
-            }
           >
             {session.category_name}
           </span>
@@ -176,14 +244,14 @@ export function CalendarSessionBlock({
       {/* Time Range */}
       <div className="flex items-center gap-1 md:gap-1.5 mt-auto pt-0.5 md:pt-1">
         {isBreak ? (
-          <Tag aria-hidden="true" className="size-2.5 text-sahara-text-muted md:size-3" />
+          <Tag aria-hidden="true" className={cn("size-2.5 md:size-3", BREAK_MUTED_CLASS)} />
         ) : (
-          <Clock aria-hidden="true" className="size-2.5 text-white/70 md:size-3" />
+          <Clock aria-hidden="true" className={cn("size-2.5 md:size-3", WORK_MUTED_CLASS)} />
         )}
         <span
           className={cn(
             "text-[9px] md:text-[10px] font-medium tabular-nums tracking-wide",
-            isWork ? "text-white/80" : "text-sahara-text-muted",
+            isWork ? WORK_MUTED_CLASS : BREAK_MUTED_CLASS,
           )}
         >
           {timeRange}

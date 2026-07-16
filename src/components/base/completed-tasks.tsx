@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { CheckCircle2, ClipboardList } from "lucide-react";
 import { getCompletedTasksForPeriod, type CompletedTaskEntry } from "@/lib/db";
-import { formatTotalTime } from "@/lib/session-utils";
+import { formatPomoCount } from "@/lib/session-utils";
 
 interface CompletedTasksProps {
   startDate?: string;
@@ -102,11 +102,10 @@ export function CompletedTasks({ startDate, endDate }: CompletedTasksProps) {
 
                 <div className="shrink-0 text-right ml-2">
                   <p className="text-sm font-bold text-sahara-text-secondary tabular-nums">
-                    {formatTotalTime(task.total_seconds)}
+                    {formatPomoCount(task.pomo_count)}
                   </p>
                   <p className="text-[11px] font-medium text-sahara-text-secondary">
-                    {task.session_count}
-                    条记录
+                    本期完成
                   </p>
                 </div>
               </div>

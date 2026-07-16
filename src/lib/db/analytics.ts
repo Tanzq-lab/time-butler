@@ -14,12 +14,14 @@ export async function getCategoryBreakdown(
         c.name AS category_name,
         c.color AS category_color,
         COALESCE(SUM(s.duration_sec), 0) AS total_seconds,
-        COUNT(*) AS session_count
+        COUNT(*) AS session_count,
+        COUNT(*) AS pomo_count
       FROM sessions s
       LEFT JOIN categories c ON s.category_id = c.id
-      WHERE date(s.started_at) >= $1 AND date(s.started_at) <= $2 AND s.completed = 1
+      WHERE date(s.started_at) >= $1 AND date(s.started_at) <= $2
+        AND s.completed = 1 AND s.phase = 'work' AND s.pomo_counted = 1
       GROUP BY s.category_id, s.intention, c.name, c.color
-      ORDER BY total_seconds DESC`,
+      ORDER BY pomo_count DESC`,
       [startDate, endDate],
     );
   }
@@ -30,12 +32,14 @@ export async function getCategoryBreakdown(
       c.name AS category_name,
       c.color AS category_color,
       COALESCE(SUM(s.duration_sec), 0) AS total_seconds,
-      COUNT(*) AS session_count
+      COUNT(*) AS session_count,
+      COUNT(*) AS pomo_count
     FROM sessions s
     LEFT JOIN categories c ON s.category_id = c.id
-    WHERE date(s.started_at) = date('now', 'localtime') AND s.completed = 1
+    WHERE date(s.started_at) = date('now', 'localtime')
+      AND s.completed = 1 AND s.phase = 'work' AND s.pomo_counted = 1
     GROUP BY s.category_id, s.intention, c.name, c.color
-    ORDER BY total_seconds DESC
+    ORDER BY pomo_count DESC
   `);
 }
 
@@ -48,12 +52,13 @@ export async function getAllCategoryBreakdown(): Promise<CategoryBreakdown[]> {
       c.name AS category_name,
       c.color AS category_color,
       COALESCE(SUM(s.duration_sec), 0) AS total_seconds,
-      COUNT(*) AS session_count
+      COUNT(*) AS session_count,
+      COUNT(*) AS pomo_count
     FROM sessions s
     LEFT JOIN categories c ON s.category_id = c.id
-    WHERE s.completed = 1
+    WHERE s.completed = 1 AND s.phase = 'work' AND s.pomo_counted = 1
     GROUP BY s.category_id, s.intention, c.name, c.color
-    ORDER BY total_seconds DESC
+    ORDER BY pomo_count DESC
   `);
 }
 
@@ -71,9 +76,11 @@ export async function getWeeklyData(
         ELSE '周六'
       END AS day_name,
       COALESCE(SUM(duration_sec), 0) AS total_seconds,
-      COUNT(*) AS session_count
+      COUNT(*) AS session_count,
+      COUNT(*) AS pomo_count
     FROM sessions
-    WHERE date(started_at) >= $1 AND date(started_at) <= $2 AND completed = 1
+    WHERE date(started_at) >= $1 AND date(started_at) <= $2
+      AND completed = 1 AND phase = 'work' AND pomo_counted = 1
     GROUP BY date(started_at)
     ORDER BY date(started_at) ASC`;
   return database.select<DayData[]>(query, [startDate ?? "", endDate ?? ""]);
@@ -254,15 +261,16 @@ export async function getCompletedTasksForPeriod(
         c.color AS category_color,
         COALESCE(SUM(s.duration_sec), 0) AS total_seconds,
         COUNT(*) AS session_count,
+        COUNT(*) AS pomo_count,
         t.completed_pomos,
         t.estimated_pomos
       FROM sessions s
       LEFT JOIN tasks t ON s.task_id = t.id
       LEFT JOIN categories c ON t.category_id = c.id
       WHERE date(s.started_at) >= $1 AND date(s.started_at) <= $2
-        AND s.completed = 1 AND s.task_id IS NOT NULL
+        AND s.completed = 1 AND s.phase = 'work' AND s.pomo_counted = 1 AND s.task_id IS NOT NULL
       GROUP BY s.task_id
-      ORDER BY total_seconds DESC`,
+      ORDER BY pomo_count DESC`,
       [startDate, endDate],
     );
   }
@@ -274,13 +282,14 @@ export async function getCompletedTasksForPeriod(
       c.color AS category_color,
       COALESCE(SUM(s.duration_sec), 0) AS total_seconds,
       COUNT(*) AS session_count,
+      COUNT(*) AS pomo_count,
       t.completed_pomos,
       t.estimated_pomos
     FROM sessions s
     LEFT JOIN tasks t ON s.task_id = t.id
     LEFT JOIN categories c ON t.category_id = c.id
-    WHERE s.completed = 1 AND s.task_id IS NOT NULL
+    WHERE s.completed = 1 AND s.phase = 'work' AND s.pomo_counted = 1 AND s.task_id IS NOT NULL
     GROUP BY s.task_id
-    ORDER BY total_seconds DESC`,
+    ORDER BY pomo_count DESC`,
   );
 }

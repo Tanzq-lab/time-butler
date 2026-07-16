@@ -76,6 +76,67 @@ body {
   height: 100vh;
 }
 
+/* Calendar: category colour is an accent, not a wall of ink. */
+.calendar-work-session {
+  border-color: color-mix(in srgb, var(--calendar-session-color) 45%, var(--color-sahara-surface));
+  background: color-mix(in srgb, var(--calendar-session-color) 14%, var(--color-sahara-surface));
+  box-shadow: inset 3px 0 0 var(--calendar-session-color);
+  color: var(--color-sahara-text);
+}
+
+.calendar-work-session__muted {
+  color: color-mix(in srgb, var(--color-sahara-text) 64%, transparent);
+}
+
+.calendar-work-session__category {
+  background: color-mix(in srgb, var(--calendar-session-color) 22%, var(--color-sahara-surface));
+  color: var(--color-sahara-text-secondary);
+}
+
+.calendar-break-session {
+  border-color: #94cba2;
+  background: #d9f0de;
+  box-shadow: inset 3px 0 0 #6eb77d;
+  color: #285c3a;
+}
+
+.calendar-break-session__muted {
+  color: #467455;
+}
+
+.calendar-break-session__title {
+  color: #285c3a;
+}
+
+.dark .calendar-work-session {
+  border-color: color-mix(in srgb, var(--calendar-session-color) 42%, var(--color-sahara-card));
+  background: color-mix(in srgb, var(--calendar-session-color) 22%, var(--color-sahara-card));
+}
+
+.dark .calendar-work-session__muted {
+  color: color-mix(in srgb, var(--color-sahara-text) 68%, transparent);
+}
+
+.dark .calendar-work-session__category {
+  background: color-mix(in srgb, var(--calendar-session-color) 26%, var(--color-sahara-card));
+  color: var(--color-sahara-text-secondary);
+}
+
+.dark .calendar-break-session {
+  border-color: #4a8a5b;
+  background: #173b25;
+  box-shadow: inset 3px 0 0 #75bd85;
+  color: #c9f2d4;
+}
+
+.dark .calendar-break-session__muted {
+  color: #9dd8ae;
+}
+
+.dark .calendar-break-session__title {
+  color: #c9f2d4;
+}
+
 ::-webkit-scrollbar {
   width: 4px;
 }

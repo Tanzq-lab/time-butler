@@ -1,6 +1,6 @@
 import { CheckCircle2, Target, TrendingUp, Zap } from "lucide-react";
 import type { Session } from "@/lib/session-utils";
-import { formatDuration, formatTotalTime } from "@/lib/session-utils";
+import { countCompletedPomos, formatPomoCount } from "@/lib/session-utils";
 import { cn } from "@/lib/cn";
 
 interface StatItem {
@@ -16,44 +16,42 @@ interface SessionStatsCardsProps {
 }
 
 export function SessionStatsCards({ sessions }: SessionStatsCardsProps) {
-  const workSessions = sessions.filter((s) => s.phase === "work");
-  const totalFocusSec = workSessions.reduce(
-    (acc, s) => acc + s.duration_sec,
-    0,
-  );
-  const totalBreakSec = sessions
-    .filter((s) => s.phase !== "work")
-    .reduce((acc, s) => acc + s.duration_sec, 0);
-  const avgSessionLength =
-    workSessions.length > 0
-      ? Math.round(totalFocusSec / workSessions.length)
-      : 0;
+  const completedPomos = countCompletedPomos(sessions);
+  const breakCount = sessions.filter(
+    (session) => session.completed === 1 && session.phase !== "work",
+  ).length;
+  const taskCount = new Set(
+    sessions
+      .filter((session) => session.phase === "work" && session.completed === 1 && session.pomo_counted === 1)
+      .map((session) => session.task_id)
+      .filter((taskId): taskId is number => taskId !== null),
+  ).size;
 
   const stats: StatItem[] = [
     {
-      label: "专注时长",
-      value: formatTotalTime(totalFocusSec),
+      label: "完成番茄",
+      value: formatPomoCount(completedPomos),
       icon: Target,
       color: "text-sahara-text",
       bg: "bg-sahara-card",
     },
     {
-      label: "记录数",
-      value: String(workSessions.length),
+      label: "专注任务",
+      value: `${taskCount} 个`,
       icon: CheckCircle2,
       color: "text-sahara-text-secondary",
       bg: "bg-sahara-card",
     },
     {
-      label: "平均时长",
-      value: formatDuration(avgSessionLength),
+      label: "休息次数",
+      value: `${breakCount} 次`,
       icon: TrendingUp,
       color: "text-sahara-text-secondary",
       bg: "bg-sahara-card",
     },
     {
-      label: "休息时长",
-      value: formatTotalTime(totalBreakSec),
+      label: "总记录",
+      value: `${sessions.length} 条`,
       icon: Zap,
       color: "text-sahara-text-secondary",
       bg: "bg-sahara-card",

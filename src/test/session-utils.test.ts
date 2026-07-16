@@ -1,5 +1,37 @@
 import { describe, it, expect } from "vitest";
-import { formatTime, formatDuration, formatTotalTime } from "@/lib/session-utils";
+import { countCompletedPomos, formatTime, formatDuration, formatTotalTime } from "@/lib/session-utils";
+import type { Session } from "@/lib/db";
+
+function makeSession(overrides: Partial<Session>): Session {
+  return {
+    id: 1,
+    task_id: 1,
+    phase: "work",
+    started_at: "2026-07-16 09:00:00",
+    ended_at: "2026-07-16 09:25:00",
+    duration_sec: 1500,
+    completed: 1,
+    pomo_counted: 1,
+    category_id: null,
+    intention: null,
+    mood: null,
+    notes: null,
+    ...overrides,
+  };
+}
+
+describe("countCompletedPomos", () => {
+  it("counts only completed work sessions that were credited as pomodoros", () => {
+    const sessions = [
+      makeSession({ id: 1 }),
+      makeSession({ id: 2, pomo_counted: 0 }),
+      makeSession({ id: 3, completed: 0 }),
+      makeSession({ id: 4, phase: "short_break", pomo_counted: 0 }),
+    ];
+
+    expect(countCompletedPomos(sessions)).toBe(1);
+  });
+});
 
 describe("formatDuration", () => {
   it("formats seconds only", () => {

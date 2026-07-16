@@ -12,7 +12,6 @@ import { DateRangePicker } from "@/components/base/date-range-picker";
 import { MoodDistribution } from "@/components/base/mood-distribution";
 import { SessionNotes } from "@/components/base/session-notes";
 import { CompletedTasks } from "@/components/base/completed-tasks";
-import { formatTotalTime, formatDuration } from "@/lib/session-utils";
 import { type DatePeriod, getDateRange } from "@/lib/date-range";
 import { SectionHeader } from "@/components/ui/page-header";
 
@@ -46,6 +45,7 @@ export function AnalyticsDashboard({ period: externalPeriod, onPeriodChange }: A
               ...day,
               total_seconds: Number.isFinite(day.total_seconds) ? day.total_seconds : 0,
               session_count: Number.isFinite(day.session_count) ? day.session_count : 0,
+              pomo_count: Number.isFinite(day.pomo_count) ? day.pomo_count : 0,
             })),
         );
         loadingRef.current = false;
@@ -57,13 +57,12 @@ export function AnalyticsDashboard({ period: externalPeriod, onPeriodChange }: A
     };
   }, [range.startDate, range.endDate]);
 
-  const totalFocusSec = weekData.reduce((s, d) => s + d.total_seconds, 0);
-  const totalSessions = weekData.reduce((s, d) => s + d.session_count, 0);
-  const avgSessionSec =
-    totalSessions > 0 ? Math.round(totalFocusSec / totalSessions) : 0;
-  const avgDailySec = weekData.length > 0
-    ? Math.round(totalFocusSec / weekData.length)
+  const totalPomos = weekData.reduce((sum, day) => sum + day.pomo_count, 0);
+  const activePomoDays = weekData.filter((day) => day.pomo_count > 0);
+  const avgDailyPomos = activePomoDays.length > 0
+    ? Math.round((totalPomos / activePomoDays.length) * 10) / 10
     : 0;
+  const peakDailyPomos = Math.max(...weekData.map((day) => day.pomo_count), 0);
 
   if (loadingRef.current && weekData.length === 0) {
     return (
@@ -83,36 +82,36 @@ export function AnalyticsDashboard({ period: externalPeriod, onPeriodChange }: A
         <SectionHeader title="概览" actions={<DateRangePicker value={period} onChange={setPeriod} />} className="mb-4 md:mb-6" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
           <StatCard
-            label="专注总时长"
-            value={formatTotalTime(totalFocusSec)}
-            icon="clock"
-          />
-          <StatCard
-            label="记录数"
-            value={String(totalSessions)}
+            label="完成番茄"
+            value={`${totalPomos} 个番茄`}
             icon="target"
           />
           <StatCard
-            label="平均单次"
-            value={avgSessionSec > 0 ? formatDuration(avgSessionSec) : "0分钟"}
+            label="日均番茄"
+            value={`${avgDailyPomos} 个番茄`}
+            icon="flame"
+          />
+          <StatCard
+            label="高峰单日"
+            value={`${peakDailyPomos} 个番茄`}
             icon="trending"
           />
           <StatCard
-            label="日均专注"
-            value={avgDailySec > 0 ? formatTotalTime(avgDailySec) : "0分钟"}
-            icon="flame"
+            label="活跃天数"
+            value={`${activePomoDays.length} 天`}
+            icon="clock"
           />
         </div>
       </section>
 
       {/* Weekly Chart */}
       <section>
-        <SectionHeader title={range.label} className="mb-4 md:mb-6" />
+        <SectionHeader title={`${range.label} · 每日番茄`} className="mb-4 md:mb-6" />
         <div className="border-y border-sahara-border bg-sahara-surface py-4 md:py-5">
           {weekData.length > 0 ? (
             <WeeklyChart data={weekData.map(d => ({
               day_name: d.day_name || "",
-              focus_seconds: d.total_seconds,
+              pomo_count: d.pomo_count,
             }))} />
           ) : (
             <div className="flex h-24 items-center justify-center text-sm text-sahara-text-secondary md:h-28">

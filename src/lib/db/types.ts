@@ -39,6 +39,7 @@ export interface CategoryBreakdown {
   category_color: string | null;
   total_seconds: number;
   session_count: number;
+  pomo_count: number;
 }
 
 export interface DayData {
@@ -46,6 +47,7 @@ export interface DayData {
   day_name: string;
   total_seconds: number;
   session_count: number;
+  pomo_count: number;
 }
 
 export interface WeekSession {
@@ -56,6 +58,7 @@ export interface WeekSession {
   started_at: string;
   duration_sec: number;
   completed: number;
+  pomo_counted: number;
   category_id: number | null;
   category_name: string | null;
   category_color: string | null;
@@ -70,8 +73,11 @@ export interface WeekSummary {
   work_sessions: number;
   break_sessions: number;
   avg_daily_seconds: number;
+  completed_pomos: number;
+  avg_daily_pomos: number;
   peak_day: string | null;
   peak_day_seconds: number;
+  peak_day_pomos: number;
 }
 
 export interface MoodStat {
@@ -111,6 +117,7 @@ export interface CompletedTaskEntry {
   category_color: string | null;
   total_seconds: number;
   session_count: number;
+  pomo_count: number;
   completed_pomos: number;
   estimated_pomos: number;
 }

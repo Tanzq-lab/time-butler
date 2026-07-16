@@ -3,7 +3,7 @@ import { Text } from "@/components/ui/text";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { getTodaySessions } from "@/lib/db";
 import type { Session } from "@/lib/db";
-import { formatTotalTime } from "@/lib/session-utils";
+import { countCompletedPomos, formatPomoCount } from "@/lib/session-utils";
 import { SessionCard } from "@/components/base/session-card";
 import { SessionStatsCards } from "@/components/base/session-stats-cards";
 import { TopCategoryBadge } from "@/components/base/top-category-badge";
@@ -28,9 +28,7 @@ export function TodaySessions() {
     return () => clearInterval(interval);
   }, [refreshSessions]);
 
-  const totalFocusSec = sessions
-    .filter((s) => s.phase === "work")
-    .reduce((acc, s) => acc + s.duration_sec, 0);
+  const completedPomos = countCompletedPomos(sessions);
 
   return (
     <section className="mt-7 w-full border-t border-sahara-border pt-7 md:mt-9 md:pt-9">
@@ -45,14 +43,14 @@ export function TodaySessions() {
           </Text>
           {sessions.length > 0 && (
             <span className="rounded-md bg-sahara-card px-2 py-0.5 text-xs text-sahara-text-secondary">
-              已完成 {sessions.length} 条
+              已完成 {formatPomoCount(completedPomos)}
             </span>
           )}
         </div>
         <div className="flex items-center gap-2 md:gap-3">
           {sessions.length > 0 && !isCollapsed && (
             <span className="text-[10px] md:text-xs font-medium text-sahara-text-muted hidden sm:block">
-              专注总计：{formatTotalTime(totalFocusSec)}
+              专注总计：{formatPomoCount(completedPomos)}
             </span>
           )}
           {isCollapsed ? (

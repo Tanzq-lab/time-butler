@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import { cn } from "@/lib/cn";
 import type { WeekSession } from "@/lib/db";
 import { formatTimeAmPm, parseLocalDateTime } from "@/lib/time";
@@ -10,6 +10,7 @@ interface CalendarGridProps {
   startHour: number;
   endHour: number;
   hourHeight: number;
+  onEditPomo?: (session: WeekSession) => void;
 }
 
 const DAY_LABELS_FULL = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
@@ -74,6 +75,18 @@ function formatGapDuration(durationMin: number): string {
   const hours = Math.floor(rounded / 60);
   const minutes = rounded % 60;
   return minutes > 0 ? `${hours}小时${minutes}分钟` : `${hours}小时`;
+}
+
+export function formatTimeAtCalendarPosition(
+  topPx: number,
+  startHour: number,
+  hourHeight: number,
+): string {
+  const elapsedMinutes = Math.max(0, Math.round((topPx / hourHeight) * 60));
+  const totalMinutes = startHour * 60 + elapsedMinutes;
+  const hour = Math.floor(totalMinutes / 60) % 24;
+  const minute = totalMinutes % 60;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
 function CalendarIdleGap({ gap }: { gap: IdleGap }) {
@@ -186,10 +199,11 @@ interface CalendarMobileViewProps {
   formatHour: (h: number) => string;
   currentTimePos: number | null;
   sessions: WeekSession[];
+  onEditPomo?: (session: WeekSession) => void;
 }
 
 function CalendarMobileView({
-  weekDays, allDayLayouts, hours, formatHour, currentTimePos, sessions,
+  weekDays, allDayLayouts, hours, formatHour, currentTimePos, sessions, onEditPomo,
 }: CalendarMobileViewProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const todayIdx = weekDays.findIndex(isToday);
@@ -288,6 +302,7 @@ function CalendarMobileView({
                     topPx={topPx}
                     heightPx={heightPx}
                     compact={compact}
+                    onEditPomo={onEditPomo}
                   />
                 ))}
                 {currentTimePos !== null && today && (
@@ -320,14 +335,35 @@ interface CalendarDesktopViewProps {
   todayIdx: number;
   desktopGridTotalHeight: number;
   sessions: WeekSession[];
+  onEditPomo?: (session: WeekSession) => void;
+  startHour: number;
+  hourHeight: number;
 }
 
 function CalendarDesktopView({
   weekDays, allDayLayouts, hours, formatHour,
-  currentTimePos, todayIdx, desktopGridTotalHeight, sessions,
+  currentTimePos, todayIdx, desktopGridTotalHeight, sessions, onEditPomo,
+  startHour, hourHeight,
 }: CalendarDesktopViewProps) {
+  const [hoverTimePosition, setHoverTimePosition] = useState<number | null>(null);
+
+  const updateHoverTime = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "touch") return;
+
+    const timeline = event.currentTarget;
+    const bounds = timeline.getBoundingClientRect();
+    const position = Math.max(
+      0,
+      Math.min(
+        desktopGridTotalHeight,
+        event.clientY - bounds.top + timeline.scrollTop,
+      ),
+    );
+    setHoverTimePosition(position);
+  };
+
   return (
-    <div className="hidden md:flex flex-col flex-1 min-h-0">
+    <div className="hidden flex-col md:flex">
       <div className="sticky top-0 z-20 grid border-b border-sahara-border bg-sahara-surface" style={{ gridTemplateColumns: `64px repeat(${weekDays.length}, 1fr)` }}>
         <div className="sticky left-0 z-30 border-r border-sahara-border bg-sahara-surface p-4" />
         {weekDays.map((day) => {
@@ -347,9 +383,12 @@ function CalendarDesktopView({
         role="region"
         aria-label="日历时间轴"
         tabIndex={0}
-        className="relative flex-1 overflow-y-auto focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sahara-focus"
+        data-testid="calendar-desktop-timeline"
+        onPointerMove={updateHoverTime}
+        onPointerLeave={() => setHoverTimePosition(null)}
+        className="relative focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sahara-focus"
       >
-        <div className="grid" style={{ gridTemplateColumns: `64px repeat(${weekDays.length}, 1fr)`, minHeight: desktopGridTotalHeight }}>
+        <div className="relative grid" style={{ gridTemplateColumns: `64px repeat(${weekDays.length}, 1fr)`, minHeight: desktopGridTotalHeight }}>
           <div className="sticky left-0 z-10 w-16 shrink-0 border-r border-sahara-border bg-sahara-card">
             {hours.map((hour, hIdx) => {
               const maxH = Math.max(
@@ -375,7 +414,7 @@ function CalendarDesktopView({
                   <CalendarIdleGap key={gap.id} gap={gap} />
                 ))}
                 {layout.positioned.map(({ session, topPx, heightPx, compact }) => (
-                  <CalendarSessionBlock key={session.id} session={session} topPx={topPx} heightPx={heightPx} compact={compact} />
+                  <CalendarSessionBlock key={session.id} session={session} topPx={topPx} heightPx={heightPx} compact={compact} onEditPomo={onEditPomo} />
                 ))}
                 {currentTimePos !== null && idx === todayIdx && (
                   <div className="absolute left-0 right-0 z-30 pointer-events-none flex items-center" style={{ top: currentTimePos }}>
@@ -386,6 +425,20 @@ function CalendarDesktopView({
               </div>
             );
           })}
+
+          {hoverTimePosition !== null && (
+            <div
+              data-testid="calendar-hover-time-ruler"
+              aria-label={`悬浮时间 ${formatTimeAtCalendarPosition(hoverTimePosition, startHour, hourHeight)}`}
+              className="pointer-events-none absolute inset-x-0 z-40 h-px"
+              style={{ top: hoverTimePosition }}
+            >
+              <div className="absolute left-16 right-0 border-t border-sahara-text-secondary/35" />
+              <span className="absolute -top-3 left-1 w-14 rounded-sm border border-sahara-border bg-sahara-surface/95 px-1 py-0.5 text-center font-mono text-[10px] font-medium tabular-nums text-sahara-text-secondary shadow-sm">
+                {formatTimeAtCalendarPosition(hoverTimePosition, startHour, hourHeight)}
+              </span>
+            </div>
+          )}
         </div>
 
         {sessions.length === 0 && (
@@ -407,6 +460,7 @@ export function CalendarGrid({
   startHour,
   endHour,
   hourHeight,
+  onEditPomo,
 }: CalendarGridProps) {
   const hours = Array.from(
     { length: endHour - startHour + 1 },
@@ -461,7 +515,7 @@ export function CalendarGrid({
   );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden border border-sahara-border bg-sahara-surface">
+    <div className="border border-sahara-border bg-sahara-surface">
       <CalendarMobileView
         weekDays={weekDays}
         allDayLayouts={allDayLayouts}
@@ -469,6 +523,7 @@ export function CalendarGrid({
         formatHour={formatHour}
         currentTimePos={currentTimePos}
         sessions={sessions}
+        onEditPomo={onEditPomo}
       />
       <CalendarDesktopView
         weekDays={weekDays}
@@ -479,6 +534,9 @@ export function CalendarGrid({
         todayIdx={todayIdx}
         desktopGridTotalHeight={desktopGridTotalHeight}
         sessions={sessions}
+        onEditPomo={onEditPomo}
+        startHour={startHour}
+        hourHeight={hourHeight}
       />
     </div>
   );

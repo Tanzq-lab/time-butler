@@ -1,5 +1,10 @@
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { computeDayLayout } from "@/components/base/calendar-grid";
+import {
+  CalendarGrid,
+  computeDayLayout,
+  formatTimeAtCalendarPosition,
+} from "@/components/base/calendar-grid";
 import type { WeekSession } from "@/lib/db";
 
 function makeSession(
@@ -16,6 +21,7 @@ function makeSession(
     started_at: startedAt,
     duration_sec: durationSec,
     completed: 1,
+    pomo_counted: 1,
     category_id: null,
     category_name: null,
     category_color: null,
@@ -81,5 +87,40 @@ describe("computeDayLayout", () => {
     expect(layout.hourTopPx).toHaveLength(18);
     expect(layout.hourTopPx.at(-1)).toBe(1224);
     expect(layout.totalHeight).toBe(1224);
+  });
+});
+
+describe("calendar hover time ruler", () => {
+  it("converts the calendar position to a precise minute label", () => {
+    expect(formatTimeAtCalendarPosition(0, 6, 72)).toBe("06:00");
+    expect(formatTimeAtCalendarPosition(270, 6, 72)).toBe("09:45");
+    expect(formatTimeAtCalendarPosition(1224, 6, 72)).toBe("23:00");
+  });
+
+  it("shows a ruler while the pointer is inside the desktop timeline and clears it on leave", () => {
+    render(
+      <CalendarGrid
+        sessions={[]}
+        weekDays={[new Date("2026-07-13T00:00:00")]}
+        startHour={6}
+        endHour={22}
+        hourHeight={72}
+      />,
+    );
+
+    const timeline = screen.getByTestId("calendar-desktop-timeline");
+    expect(timeline).not.toHaveClass("overflow-y-auto");
+    Object.defineProperty(timeline, "getBoundingClientRect", {
+      value: () => ({ top: 100 }),
+    });
+
+    fireEvent.pointerMove(timeline, { clientY: 370 });
+    expect(screen.getByTestId("calendar-hover-time-ruler")).toHaveAttribute(
+      "aria-label",
+      "悬浮时间 09:45",
+    );
+
+    fireEvent.pointerLeave(timeline);
+    expect(screen.queryByTestId("calendar-hover-time-ruler")).not.toBeInTheDocument();
   });
 });

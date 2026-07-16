@@ -10,7 +10,7 @@ import {
 
 interface WeekPoint {
   day_name: string;
-  focus_seconds: number;
+  pomo_count: number;
 }
 
 interface WeeklyChartProps {
@@ -27,32 +27,28 @@ function CustomTooltip({
   active?: boolean;
   payload?: Array<{
     value: number;
-    payload: { day_name: string; focus_seconds: number; minutes: number };
+    payload: { day_name: string; pomo_count: number };
   }>;
   label?: string;
 }) {
   if (!active || !payload?.length) return null;
 
   const d = payload[0];
-  const min = d.value;
+  const pomos = d.value;
 
-  if (!min)
+  if (!pomos)
     return (
       <div className="bg-sahara-bg border border-sahara-border/30 rounded-lg px-3 py-2 shadow-lg">
         <p className="text-[11px] font-semibold text-sahara-text">{label}</p>
-        <p className="text-[10px] text-sahara-text-muted">没有记录</p>
+        <p className="text-[10px] text-sahara-text-muted">没有完成番茄</p>
       </div>
     );
-
-  const h = Math.floor(min / 60);
-  const m = Math.round(min % 60);
-  const timeStr = h > 0 ? `${h}小时 ${m}分钟` : `${m}分钟`;
 
   return (
     <div className="bg-sahara-bg border border-sahara-border/30 rounded-lg px-3 py-2 shadow-lg">
       <p className="text-[11px] font-semibold text-sahara-text">{label}</p>
       <p className="text-[10px] text-sahara-primary font-bold tabular-nums">
-        专注 {timeStr}
+        完成 {pomos} 个番茄
       </p>
     </div>
   );
@@ -63,12 +59,8 @@ export function WeeklyChart({ data }: WeeklyChartProps) {
     (a, b) => DAY_ORDER.indexOf(a.day_name) - DAY_ORDER.indexOf(b.day_name),
   );
 
-  const chartData = sorted.map((d) => ({
-    ...d,
-    minutes: Math.round(d.focus_seconds / 60),
-  }));
-
-  const maxVal = Math.max(...chartData.map((d) => d.minutes), 1);
+  const chartData = sorted;
+  const maxVal = Math.max(...chartData.map((d) => d.pomo_count), 1);
 
   return (
     <div className="w-full" style={{ height: 200 }}>
@@ -90,13 +82,13 @@ export function WeeklyChart({ data }: WeeklyChartProps) {
             }}
             dy={8}
           />
-          <YAxis hide domain={[0, Math.ceil(maxVal / 15) * 15 || 15]} />
+          <YAxis hide domain={[0, Math.ceil(maxVal / 4) * 4 || 4]} />
           <Tooltip
             content={<CustomTooltip />}
             cursor={{ fill: "rgba(120, 119, 116, 0.08)", radius: 4 }}
           />
           <Bar
-            dataKey="minutes"
+            dataKey="pomo_count"
             radius={[3, 3, 0, 0]}
             maxBarSize={48}
             animationDuration={800}
@@ -105,8 +97,8 @@ export function WeeklyChart({ data }: WeeklyChartProps) {
             {chartData.map((entry, index) => (
               <Cell
                 key={`cell-${index}`}
-                fill={entry.minutes > 0 ? "var(--color-sahara-primary)" : "var(--color-sahara-border)"}
-                fillOpacity={entry.minutes > 0 ? 1 : 0.3}
+                fill={entry.pomo_count > 0 ? "var(--color-sahara-primary)" : "var(--color-sahara-border)"}
+                fillOpacity={entry.pomo_count > 0 ? 1 : 0.3}
               />
             ))}
           </Bar>
