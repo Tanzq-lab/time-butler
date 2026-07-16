@@ -56,6 +56,24 @@ describe("useTodoStore", () => {
     );
   });
 
+  it("appends a new todo after the existing open todos", async () => {
+    useTodoStore.setState({
+      todos: [
+        storedTodos[0],
+        { ...storedTodos[0], id: 3, title: "预约体检", sort_order: 1 },
+      ],
+    });
+
+    const todo = await useTodoStore.getState().addTodo("收快递");
+
+    expect(todo).toMatchObject({ title: "收快递", sort_order: 2 });
+    expect(useTodoStore.getState().todos.map((item) => item.title)).toEqual([
+      "买打印纸",
+      "预约体检",
+      "收快递",
+    ]);
+  });
+
   it("ignores an empty todo", async () => {
     const { addTodo } = await import("@/lib/db");
 

@@ -41,11 +41,11 @@ function sortTodos(todos: Todo[]): Todo[] {
   });
 }
 
-function getNextOpenTodoSortOrder(todos: Todo[]): number {
+function getLastOpenTodoSortOrder(todos: Todo[]): number {
   const openSortOrders = todos
     .filter((todo) => !todo.completed_at)
     .map((todo) => todo.sort_order);
-  return Math.min(0, ...openSortOrders) - 1;
+  return Math.max(-1, ...openSortOrders) + 1;
 }
 
 export const useTodoStore = create<TodoStore>((set, get) => ({
@@ -74,7 +74,7 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
       const todo: Todo = {
         id,
         title: cleanTitle,
-        sort_order: getNextOpenTodoSortOrder(get().todos),
+        sort_order: getLastOpenTodoSortOrder(get().todos),
         completed_at: null,
         archived: 0,
         created_at: now,

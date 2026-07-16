@@ -25,9 +25,9 @@ export async function addTodo(
      VALUES (
        $1,
        COALESCE(
-         (SELECT MIN(sort_order) FROM todos WHERE archived = 0 AND completed_at IS NULL),
-         0
-       ) - 1,
+         (SELECT MAX(sort_order) FROM todos WHERE archived = 0 AND completed_at IS NULL),
+         -1
+       ) + 1,
        $2,
        $3
      )`,
