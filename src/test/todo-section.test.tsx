@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TodoSection } from "@/components/base/todo-section";
 import { useTodoStore } from "@/features/todos/use-todo-store";
 
@@ -28,6 +28,10 @@ beforeEach(async () => {
   useTodoStore.setState({ todos: [], loading: false, error: null });
   const { getTodos } = await import("@/lib/db");
   vi.mocked(getTodos).mockResolvedValue([]);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe("TodoSection", () => {
@@ -114,16 +118,30 @@ describe("TodoSection", () => {
 
     const firstRow = (await screen.findByText("买咖啡豆")).closest("[data-todo-id]")!;
     const secondRow = screen.getByText("预约体检").closest("[data-todo-id]")!;
-    const elementFromPoint = vi.fn().mockReturnValue(secondRow);
-    Object.defineProperty(document, "elementFromPoint", {
-      configurable: true,
-      value: elementFromPoint,
+    vi.spyOn(firstRow, "getBoundingClientRect").mockReturnValue({
+      top: 0,
+      bottom: 40,
+      height: 40,
+    } as DOMRect);
+    vi.spyOn(secondRow, "getBoundingClientRect").mockReturnValue({
+      top: 40,
+      bottom: 80,
+      height: 40,
+    } as DOMRect);
+    const frameCallbacks: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      frameCallbacks.push(callback);
+      return frameCallbacks.length;
     });
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
 
     fireEvent.pointerDown(firstRow, { button: 0, clientY: 0, isPrimary: true, pointerId: 1 });
-    fireEvent.pointerMove(firstRow, { clientX: 0, clientY: 12, isPrimary: true, pointerId: 1 });
-    expect(firstRow).toHaveStyle({ transform: "translateY(12px) scale(1.01)" });
-    fireEvent.pointerUp(firstRow, { clientX: 0, clientY: 12, isPrimary: true, pointerId: 1 });
+    fireEvent.pointerMove(firstRow, { clientX: 0, clientY: 45, isPrimary: true, pointerId: 1 });
+    fireEvent.pointerMove(firstRow, { clientX: 0, clientY: 65, isPrimary: true, pointerId: 1 });
+    expect(frameCallbacks).toHaveLength(1);
+    frameCallbacks[0](0);
+    expect(firstRow).toHaveStyle({ transform: "translate3d(0, 65px, 0) scale(1.01)" });
+    fireEvent.pointerUp(firstRow, { clientX: 0, clientY: 65, isPrimary: true, pointerId: 1 });
 
     await waitFor(() => expect(reorderTodos).toHaveBeenCalledWith([12, 11], expect.any(String)));
     expect(

@@ -37,6 +37,17 @@ interface PointerDrag {
   pointerId: number;
   startY: number;
   isDragging: boolean;
+  latestOffsetY: number;
+  frameId: number | null;
+  rowElement: HTMLDivElement;
+  rowBounds: TodoRowBounds[];
+}
+
+interface TodoRowBounds {
+  id: number;
+  top: number;
+  bottom: number;
+  midpoint: number;
 }
 
 interface TodoRowProps {
@@ -53,7 +64,6 @@ interface TodoRowProps {
   onOpenMobileMenu: () => void;
   reorderable: boolean;
   dragging: boolean;
-  dragOffset: number;
   dropIndicator: TodoDropPosition | null;
   onPointerDown: (event: PointerEvent<HTMLDivElement>) => void;
   onPointerMove: (event: PointerEvent<HTMLDivElement>) => void;
@@ -75,7 +85,6 @@ function TodoRow({
   onOpenMobileMenu,
   reorderable,
   dragging,
-  dragOffset,
   dropIndicator,
   onPointerDown,
   onPointerMove,
@@ -91,15 +100,6 @@ function TodoRow({
       onPointerMove={reorderable ? onPointerMove : undefined}
       onPointerUp={reorderable ? onPointerUp : undefined}
       onPointerCancel={reorderable ? onPointerCancel : undefined}
-      style={
-        dragging
-          ? {
-              transform: `translateY(${dragOffset}px) scale(1.01)`,
-              zIndex: 20,
-              pointerEvents: "none",
-            }
-          : undefined
-      }
       className={cn(
         "group relative flex min-h-11 items-center gap-3 border-b border-sahara-border/75 px-1 py-2.5 last:border-b-0 transition-[background-color,box-shadow,opacity,transform] duration-150 motion-reduce:transition-none",
         reorderable && "cursor-grab select-none hover:bg-sahara-card/35",
@@ -260,10 +260,7 @@ export function TodoSection({ searchQuery, onConvert }: TodoSectionProps) {
   const [showCompleted, setShowCompleted] = useState(false);
   const [mobileTodo, setMobileTodo] = useState<Todo | null>(null);
   const [todoToDelete, setTodoToDelete] = useState<Todo | null>(null);
-  const [draggingTodo, setDraggingTodo] = useState<{
-    id: number;
-    offsetY: number;
-  } | null>(null);
+  const [draggingTodoId, setDraggingTodoId] = useState<number | null>(null);
   const [dropTarget, setDropTarget] = useState<TodoDropTarget | null>(null);
   const pointerDragRef = useRef<PointerDrag | null>(null);
   const dropTargetRef = useRef<TodoDropTarget | null>(null);
@@ -324,15 +321,37 @@ export function TodoSection({ searchQuery, onConvert }: TodoSectionProps) {
   };
 
   const setCurrentDropTarget = (target: TodoDropTarget | null) => {
+    if (
+      dropTargetRef.current?.id === target?.id
+      && dropTargetRef.current?.position === target?.position
+    ) {
+      return;
+    }
     dropTargetRef.current = target;
-    setDropTarget((current) =>
-      current?.id === target?.id && current?.position === target?.position ? current : target,
-    );
+    setDropTarget(target);
+  };
+
+  const applyPointerTransform = (pointerDrag: PointerDrag) => {
+    pointerDrag.rowElement.style.transform =
+      `translate3d(0, ${pointerDrag.latestOffsetY}px, 0) scale(1.01)`;
+  };
+
+  const releasePointerDrag = (pointerDrag: PointerDrag) => {
+    if (pointerDrag.frameId !== null && typeof cancelAnimationFrame === "function") {
+      cancelAnimationFrame(pointerDrag.frameId);
+    }
+    pointerDrag.frameId = null;
+    pointerDrag.rowElement.style.removeProperty("transform");
+    pointerDrag.rowElement.style.removeProperty("transition");
+    pointerDrag.rowElement.style.removeProperty("will-change");
+    pointerDrag.rowElement.style.removeProperty("pointer-events");
   };
 
   const clearPointerDrag = () => {
+    const pointerDrag = pointerDragRef.current;
+    if (pointerDrag) releasePointerDrag(pointerDrag);
     pointerDragRef.current = null;
-    setDraggingTodo(null);
+    setDraggingTodoId(null);
     setCurrentDropTarget(null);
   };
 
@@ -340,23 +359,37 @@ export function TodoSection({ searchQuery, onConvert }: TodoSectionProps) {
     target instanceof Element
     && Boolean(target.closest("button, input, textarea, select, a, [data-todo-drag-exempt]"));
 
-  const getDropTargetAtPoint = (
-    clientX: number,
-    clientY: number,
-    draggedTodoId: number,
-  ): TodoDropTarget | null => {
-    const element = document.elementFromPoint(clientX, clientY);
-    const row = element?.closest<HTMLElement>("[data-todo-id]");
-    const targetTodoId = Number(row?.dataset.todoId);
-    if (!row || !Number.isInteger(targetTodoId) || targetTodoId === draggedTodoId) {
-      return null;
-    }
-    if (!openTodos.some((todo) => todo.id === targetTodoId)) return null;
+  const captureTodoRowBounds = (): TodoRowBounds[] => {
+    const openTodoIds = new Set(openTodos.map((todo) => todo.id));
+    return Array.from(document.querySelectorAll<HTMLElement>("[data-todo-id]"))
+      .map((row) => {
+        const id = Number(row.dataset.todoId);
+        const bounds = row.getBoundingClientRect();
+        return {
+          id,
+          top: bounds.top,
+          bottom: bounds.bottom,
+          midpoint: bounds.top + bounds.height / 2,
+        };
+      })
+      .filter((row) => Number.isInteger(row.id) && openTodoIds.has(row.id));
+  };
 
-    const bounds = row.getBoundingClientRect();
+  const getDropTargetAtY = (
+    clientY: number,
+    pointerDrag: PointerDrag,
+  ): TodoDropTarget | null => {
+    const row = pointerDrag.rowBounds.find(
+      (bounds) =>
+        bounds.id !== pointerDrag.todoId
+        && clientY >= bounds.top
+        && clientY <= bounds.bottom,
+    );
+    if (!row) return null;
+
     return {
-      id: targetTodoId,
-      position: clientY < bounds.top + bounds.height / 2 ? "before" : "after",
+      id: row.id,
+      position: clientY < row.midpoint ? "before" : "after",
     };
   };
 
@@ -370,6 +403,10 @@ export function TodoSection({ searchQuery, onConvert }: TodoSectionProps) {
       pointerId: event.pointerId,
       startY: event.clientY,
       isDragging: false,
+      latestOffsetY: 0,
+      frameId: null,
+      rowElement: event.currentTarget,
+      rowBounds: [],
     };
     setCurrentDropTarget(null);
   };
@@ -382,11 +419,28 @@ export function TodoSection({ searchQuery, onConvert }: TodoSectionProps) {
     if (!pointerDrag.isDragging && Math.abs(offsetY) < 6) return;
 
     event.preventDefault();
-    pointerDrag.isDragging = true;
-    setDraggingTodo({ id: pointerDrag.todoId, offsetY });
-    setCurrentDropTarget(
-      getDropTargetAtPoint(event.clientX, event.clientY, pointerDrag.todoId),
-    );
+    if (!pointerDrag.isDragging) {
+      pointerDrag.isDragging = true;
+      pointerDrag.rowBounds = captureTodoRowBounds();
+      pointerDrag.rowElement.style.transition = "none";
+      pointerDrag.rowElement.style.willChange = "transform";
+      pointerDrag.rowElement.style.pointerEvents = "none";
+      setDraggingTodoId(pointerDrag.todoId);
+    }
+
+    pointerDrag.latestOffsetY = offsetY;
+    if (pointerDrag.frameId === null) {
+      if (typeof requestAnimationFrame === "function") {
+        pointerDrag.frameId = requestAnimationFrame(() => {
+          if (pointerDragRef.current !== pointerDrag) return;
+          pointerDrag.frameId = null;
+          applyPointerTransform(pointerDrag);
+        });
+      } else {
+        applyPointerTransform(pointerDrag);
+      }
+    }
+    setCurrentDropTarget(getDropTargetAtY(event.clientY, pointerDrag));
   };
 
   const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
@@ -398,7 +452,10 @@ export function TodoSection({ searchQuery, onConvert }: TodoSectionProps) {
     }
 
     const target = dropTargetRef.current;
-    clearPointerDrag();
+    releasePointerDrag(pointerDrag);
+    pointerDragRef.current = null;
+    setDraggingTodoId(null);
+    setCurrentDropTarget(null);
     if (!pointerDrag.isDragging || !target) return;
 
     const draggedTodoId = pointerDrag.todoId;
@@ -434,8 +491,7 @@ export function TodoSection({ searchQuery, onConvert }: TodoSectionProps) {
       onDelete={() => setTodoToDelete(todo)}
       onOpenMobileMenu={() => setMobileTodo(todo)}
       reorderable={canReorder && editingId === null}
-      dragging={draggingTodo?.id === todo.id}
-      dragOffset={draggingTodo?.id === todo.id ? draggingTodo.offsetY : 0}
+      dragging={draggingTodoId === todo.id}
       dropIndicator={dropTarget?.id === todo.id ? dropTarget.position : null}
       onPointerDown={(event) => handlePointerDown(event, todo.id)}
       onPointerMove={handlePointerMove}
