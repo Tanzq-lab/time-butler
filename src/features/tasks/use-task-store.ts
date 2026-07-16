@@ -12,6 +12,7 @@ import {
   toggleTaskArchived,
   incrementTaskPomos,
   completeTask as dbCompleteTask,
+  appendTaskNote as dbAppendTaskNote,
   getCategories,
   getSetting,
   recordAppEvent,
@@ -67,6 +68,11 @@ interface TaskStore {
     actualPomos: number,
     review?: string,
   ) => Promise<void>;
+  appendTaskNote: (
+    id: number,
+    content: string,
+    source: "task-card" | "timer",
+  ) => Promise<boolean>;
 }
 
 export const useTaskStore = create<TaskStore>((set) => ({
@@ -130,6 +136,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
         scheduled_for: scheduledFor ?? null,
         completed_at: null,
         completion_review: null,
+        notes: null,
         created_at: new Date().toISOString(),
         archived: 0,
       };
@@ -350,6 +357,36 @@ export const useTaskStore = create<TaskStore>((set) => ({
     } catch (err) {
       console.error("[TaskStore] Failed to complete task:", err);
       set({ error: String(err) });
+    }
+  },
+
+  appendTaskNote: async (id, content, source) => {
+    const trimmedContent = content.trim();
+    if (!trimmedContent) return false;
+
+    try {
+      const notes = await dbAppendTaskNote(id, trimmedContent);
+      set((state) => ({
+        tasks: state.tasks.map((task) =>
+          task.id === id ? { ...task, notes } : task,
+        ),
+        error: null,
+      }));
+      void recordAppEvent({
+        eventName: "task_note_appended",
+        route: source === "timer" ? "/" : "/tasks",
+        entityType: "task",
+        entityId: id,
+        metadata: {
+          source,
+          characterCount: trimmedContent.length,
+        },
+      });
+      return true;
+    } catch (err) {
+      console.error("[TaskStore] Failed to append task note:", err);
+      set({ error: String(err) });
+      return false;
     }
   },
 }));

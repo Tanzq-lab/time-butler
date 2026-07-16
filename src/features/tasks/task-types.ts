@@ -9,6 +9,7 @@ export interface Task {
   scheduled_for?: string | null;
   completed_at?: string | null;
   completion_review?: string | null;
+  notes?: string | null;
   created_at: string;
   archived: number;
 }

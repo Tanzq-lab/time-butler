@@ -214,9 +214,12 @@ export async function initDb(): Promise<void> {
       `CREATE INDEX IF NOT EXISTS idx_todos_open_order
         ON todos (archived, completed_at, sort_order)`,
     ],
+    13: [
+      "ALTER TABLE tasks ADD COLUMN notes TEXT",
+    ],
   };
 
-  const targetVersion = 12;
+  const targetVersion = 13;
 
   for (let v = currentVersion + 1; v <= targetVersion; v++) {
     const statements = migrations[v];

@@ -8,6 +8,7 @@ import {
   Edit3,
   Play,
   MoreHorizontal,
+  NotebookPen,
 } from "lucide-react";
 import { useState } from "react";
 import type { Task } from "@/features/tasks/task-types";
@@ -22,6 +23,7 @@ interface TaskListCardProps {
   isActive: boolean;
   onToggleActive: () => void;
   onFocus?: () => void;
+  onRecord?: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onCompleteTask: () => void;
@@ -48,6 +50,7 @@ export function TaskListCard({
   isActive,
   onToggleActive,
   onFocus,
+  onRecord,
   onEdit,
   onDelete,
   onCompleteTask,
@@ -109,6 +112,19 @@ export function TaskListCard({
                 <CircleCheckBig className="size-3.5" />
               </button>
             </>
+          )}
+          {!isDone && onRecord && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onRecord();
+              }}
+              aria-label={`记录任务：${task.name}`}
+              className="rounded-md p-1.5 text-sahara-text-muted transition-colors hover:bg-sahara-card hover:text-sahara-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sahara-focus"
+              title="记录任务"
+            >
+              <NotebookPen className="size-3.5" />
+            </button>
           )}
           <button
             onClick={(e) => {
@@ -261,6 +277,21 @@ export function TaskListCard({
               >
                 <CircleCheckBig aria-hidden="true" className="size-4" />
                 完成任务
+              </Button>
+            )}
+            {!isDone && onRecord && (
+              <Button
+                variant="ghost"
+                intent="default"
+                fullWidth
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onRecord();
+                }}
+                className="justify-start gap-3 px-3 py-3"
+              >
+                <NotebookPen aria-hidden="true" className="size-4" />
+                记录任务
               </Button>
             )}
             <Button

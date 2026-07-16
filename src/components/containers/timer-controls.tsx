@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { m, AnimatePresence } from "framer-motion";
 import { useTimerStore } from "@/features/timer/use-timer-store";
+import { useTaskStore } from "@/features/tasks/use-task-store";
 import { TimerDisplay } from "@/components/base/timer-display";
 import { IntentionSelector } from "@/components/intention-selector";
 import { TaskSelector } from "@/components/task-selector";
@@ -8,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import {
   FinishSessionModal,
 } from "@/components/base/finish-session-modal";
+import { TaskNoteModal } from "@/components/base/task-note-modal";
 import {
   Plus,
   Minus,
@@ -19,6 +21,7 @@ import { FullscreenTaskLabel } from "@/components/timer/fullscreen-task-label";
 import { IdleActions } from "@/components/timer/idle-actions";
 import { RunningActions } from "@/components/timer/running-actions";
 import type { SessionMood } from "@/features/timer/timer-types";
+import { getTaskPomoProgressVisual } from "@/lib/task-pomo-progress";
 
 export function TimerControls() {
   const {
@@ -54,8 +57,19 @@ export function TimerControls() {
     (s) => s.setDurationForCurrentPhase,
   );
   const breakReminderActive = useTimerStore((s) => s.breakReminderActive);
+  const activeTaskId = useTimerStore((s) => s.activeTaskId);
+  const tasks = useTaskStore((s) => s.tasks);
+  const appendTaskNote = useTaskStore((s) => s.appendTaskNote);
+  const activeTask = tasks.find((task) => task.id === activeTaskId);
+  const taskPomoProgress = activeTask
+    ? getTaskPomoProgressVisual(
+        activeTask.completed_pomos,
+        activeTask.estimated_pomos,
+      )
+    : null;
 
   const [showFinishModal, setShowFinishModal] = useState(false);
+  const [showTaskNoteModal, setShowTaskNoteModal] = useState(false);
   const [finishModalMode, setFinishModalMode] = useState<
     "manual" | "pending-review"
   >("manual");
@@ -163,6 +177,7 @@ export function TimerControls() {
           editable={status === "idle"}
           onDurationChange={setDurationForCurrentPhase}
           style={timerStyle}
+          taskPomoProgress={taskPomoProgress}
         />
       </m.div>
 
@@ -230,6 +245,8 @@ export function TimerControls() {
               setShowFinishModal(true);
             }}
             onAbandon={() => abandonSession()}
+            onRecord={() => setShowTaskNoteModal(true)}
+            recordDisabled={!activeTask}
           />
         )}
       </m.div>
@@ -240,6 +257,16 @@ export function TimerControls() {
         onSubmit={handleFinishWithReflection}
         category={selectedCategory}
         durationMinutes={finishModalDurationMinutes}
+      />
+      <TaskNoteModal
+        open={showTaskNoteModal}
+        task={activeTask ?? null}
+        onClose={() => setShowTaskNoteModal(false)}
+        onSubmit={(content) =>
+          activeTask
+            ? appendTaskNote(activeTask.id, content, "timer")
+            : false
+        }
       />
     </m.div>
   );

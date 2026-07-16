@@ -24,6 +24,7 @@ import {
   type AddTaskData,
 } from "@/components/base/add-task-modal";
 import { TaskCompletionReviewModal } from "@/components/base/task-completion-review-modal";
+import { TaskNoteModal } from "@/components/base/task-note-modal";
 import { TaskListCard } from "@/components/base/task-list-card";
 import { TodoSection } from "@/components/base/todo-section";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -37,6 +38,7 @@ interface ListState {
   showAddModal: boolean;
   taskToEdit: Task | null;
   taskToComplete: Task | null;
+  taskToRecord: Task | null;
   taskToDelete: Task | null;
   todoToConvert: Todo | null;
   showDone: boolean;
@@ -51,6 +53,8 @@ type ListAction =
   | { type: "CLOSE_ADD_MODAL" }
   | { type: "OPEN_COMPLETE_MODAL"; task: Task }
   | { type: "CLOSE_COMPLETE_MODAL" }
+  | { type: "OPEN_NOTE_MODAL"; task: Task }
+  | { type: "CLOSE_NOTE_MODAL" }
   | { type: "OPEN_DELETE_DIALOG"; task: Task }
   | { type: "CLOSE_DELETE_DIALOG" }
   | { type: "TOGGLE_DONE" }
@@ -62,6 +66,7 @@ const INITIAL_LIST_STATE: ListState = {
   showAddModal: false,
   taskToEdit: null,
   taskToComplete: null,
+  taskToRecord: null,
   taskToDelete: null,
   todoToConvert: null,
   showDone: false,
@@ -99,6 +104,10 @@ function listReducer(state: ListState, action: ListAction): ListState {
       return { ...state, taskToComplete: action.task };
     case "CLOSE_COMPLETE_MODAL":
       return { ...state, taskToComplete: null };
+    case "OPEN_NOTE_MODAL":
+      return { ...state, taskToRecord: action.task };
+    case "CLOSE_NOTE_MODAL":
+      return { ...state, taskToRecord: null };
     case "OPEN_DELETE_DIALOG":
       return { ...state, taskToDelete: action.task };
     case "CLOSE_DELETE_DIALOG":
@@ -119,6 +128,7 @@ export function TasksList() {
   const updateTask = useTaskStore((s) => s.updateTask);
   const deleteTask = useTaskStore((s) => s.deleteTask);
   const completeTask = useTaskStore((s) => s.completeTask);
+  const appendTaskNote = useTaskStore((s) => s.appendTaskNote);
   const loadTasks = useTaskStore((s) => s.loadTasks);
   const todos = useTodoStore((s) => s.todos);
   const archiveTodo = useTodoStore((s) => s.archiveTodo);
@@ -133,6 +143,7 @@ export function TasksList() {
     showAddModal,
     taskToEdit,
     taskToComplete,
+    taskToRecord,
     taskToDelete,
     todoToConvert,
     showDone,
@@ -249,6 +260,11 @@ export function TasksList() {
     dispatch({ type: "OPEN_COMPLETE_MODAL", task });
   };
 
+  const handleAppendTaskNote = async (content: string) => {
+    if (!taskToRecord) return false;
+    return appendTaskNote(taskToRecord.id, content, "task-card");
+  };
+
   const handleDeleteTask = async () => {
     if (!taskToDelete) return;
     await deleteTask(taskToDelete.id);
@@ -301,6 +317,12 @@ export function TasksList() {
         task={taskToComplete}
         onClose={() => dispatch({ type: "CLOSE_COMPLETE_MODAL" })}
         onSubmit={handleCompleteTask}
+      />
+      <TaskNoteModal
+        open={!!taskToRecord}
+        task={taskToRecord}
+        onClose={() => dispatch({ type: "CLOSE_NOTE_MODAL" })}
+        onSubmit={handleAppendTaskNote}
       />
       <ConfirmDialog
         open={!!taskToDelete}
@@ -406,6 +428,9 @@ export function TasksList() {
                       setActiveTask(activeTaskId === task.id ? null : task.id)
                     }
                     onFocus={() => handleFocus(task.id)}
+                    onRecord={() =>
+                      dispatch({ type: "OPEN_NOTE_MODAL", task })
+                    }
                     onEdit={() =>
                       dispatch({ type: "OPEN_ADD_MODAL", taskToEdit: task })
                     }
@@ -455,6 +480,9 @@ export function TasksList() {
                     isActive={false}
                     isScheduled
                     onToggleActive={() => undefined}
+                    onRecord={() =>
+                      dispatch({ type: "OPEN_NOTE_MODAL", task })
+                    }
                     onEdit={() =>
                       dispatch({ type: "OPEN_ADD_MODAL", taskToEdit: task })
                     }

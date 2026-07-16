@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   XCircle,
   RotateCcw,
+  NotebookPen,
 } from "lucide-react";
 import { FullscreenButton } from "@/components/timer/idle-actions";
 import type { TimerStatus } from "@/features/timer/timer-types";
@@ -16,6 +17,8 @@ interface RunningActionsProps {
   isFullscreenFocus: boolean;
   onFinish: () => void;
   onAbandon: () => void;
+  onRecord?: () => void;
+  recordDisabled?: boolean;
 }
 
 export function RunningActions({
@@ -23,6 +26,8 @@ export function RunningActions({
   isFullscreenFocus,
   onFinish,
   onAbandon,
+  onRecord,
+  recordDisabled = false,
 }: RunningActionsProps) {
   const pause = useTimerStore((s) => s.pause);
   const resume = useTimerStore((s) => s.resume);
@@ -57,6 +62,20 @@ export function RunningActions({
       )}
 
       <Separator />
+
+      <Button
+        variant="outline"
+        intent="default"
+        size="sm"
+        shape="rounded-full"
+        onClick={onRecord}
+        disabled={!onRecord || recordDisabled}
+        title={recordDisabled ? "选择任务后即可记录" : "记录到当前任务"}
+        className="gap-1 md:gap-1.5 text-[10px]"
+      >
+        <NotebookPen className="size-3.5 md:w-4 md:h-4" />
+        记录
+      </Button>
 
       <Button
         variant="outline"

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo, type CSSProperties } from "react";
 import { useAnimationFrame } from "framer-motion";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/cn";
@@ -10,6 +10,7 @@ import {
   formatEditingDisplay,
 } from "@/lib/timer-utils";
 import type { TimerPhase } from "@/features/timer/timer-types";
+import type { TaskPomoProgressVisual } from "@/lib/task-pomo-progress";
 
 interface TimerDisplayProps {
   secondsRemaining: number;
@@ -18,6 +19,7 @@ interface TimerDisplayProps {
   editable?: boolean;
   onDurationChange?: (seconds: number) => void;
   style?: "solid" | "zigzag";
+  taskPomoProgress?: TaskPomoProgressVisual | null;
 }
 
 const SIZE_DESKTOP = 400;
@@ -61,6 +63,7 @@ function WavyRing({
   style,
   strokeWidth,
   className,
+  dotClassName = "fill-sahara-primary",
   showDot,
   isRunning,
 }: {
@@ -71,6 +74,7 @@ function WavyRing({
   style: string;
   strokeWidth: string;
   className: string;
+  dotClassName?: string;
   showDot?: boolean;
   isRunning?: boolean;
 }) {
@@ -129,7 +133,7 @@ function WavyRing({
           cx={cx + r * Math.cos((progress / 100) * 2 * Math.PI)}
           cy={cy + r * Math.sin((progress / 100) * 2 * Math.PI)}
           r="5"
-          className="fill-sahara-primary"
+          className={dotClassName}
           style={{ transition: "opacity 1000ms ease" }}
         />
       )}
@@ -144,6 +148,7 @@ export function TimerDisplay({
   editable = false,
   onDurationChange,
   style = "solid",
+  taskPomoProgress = null,
 }: TimerDisplayProps) {
   const isRunning = secondsRemaining > 0 && secondsRemaining < totalSeconds;
   const isComplete = secondsRemaining <= 0;
@@ -151,6 +156,25 @@ export function TimerDisplay({
     totalSeconds > 0
       ? Math.min(100, ((totalSeconds - secondsRemaining) / totalSeconds) * 100)
       : 100;
+  const visibleTaskPomoProgress =
+    phase === "work" ? taskPomoProgress : null;
+  const progressRingClassName = visibleTaskPomoProgress
+    ? cn(
+        "timer-task-progress-ring",
+        visibleTaskPomoProgress.isOverrun && "timer-task-overrun-ring",
+      )
+    : isComplete
+      ? "stroke-sahara-ring-complete"
+      : "stroke-sahara-primary";
+  const progressDotClassName = visibleTaskPomoProgress
+    ? "timer-task-progress-dot"
+    : "fill-sahara-primary";
+  const taskPomoStyle = visibleTaskPomoProgress
+    ? ({
+        "--timer-task-progress-color": visibleTaskPomoProgress.color,
+        "--timer-task-progress-color-dark": visibleTaskPomoProgress.darkColor,
+      } as CSSProperties)
+    : undefined;
       
   const [rawInput, setRawInput] = useState(() =>
     formatEditableValueFromSeconds(secondsRemaining),
@@ -182,7 +206,10 @@ export function TimerDisplay({
   };
 
   return (
-    <div className="relative inline-flex items-center justify-center">
+    <div
+      className="relative inline-flex items-center justify-center"
+      style={taskPomoStyle}
+    >
       {/* Desktop SVG */}
       <svg
         width={SIZE_DESKTOP}
@@ -219,11 +246,8 @@ export function TimerDisplay({
           progress={progress}
           style={style}
           strokeWidth={style === "zigzag" ? "6" : "4"}
-          className={cn(
-            isComplete
-              ? "stroke-sahara-ring-complete"
-              : "stroke-sahara-primary",
-          )}
+          className={progressRingClassName}
+          dotClassName={progressDotClassName}
           showDot={true}
           isRunning={isRunning}
         />
@@ -265,7 +289,8 @@ export function TimerDisplay({
           progress={progress}
           style={style}
           strokeWidth={style === "zigzag" ? "5" : "3"}
-          className={cn(isComplete ? "stroke-sahara-ring-complete" : "stroke-sahara-primary")}
+          className={progressRingClassName}
+          dotClassName={progressDotClassName}
           showDot={true}
           isRunning={isRunning}
         />
@@ -349,6 +374,22 @@ export function TimerDisplay({
                 ? "短休息"
                 : "长休息"}
         </p>
+        {visibleTaskPomoProgress && (
+          <p
+            className="mt-1.5 flex items-center justify-center gap-1 text-[11px] font-medium tabular-nums text-sahara-text-secondary"
+            aria-live="polite"
+            aria-label={`任务预算：${visibleTaskPomoProgress.label} 个番茄${visibleTaskPomoProgress.isOverrun ? `，已超 ${visibleTaskPomoProgress.overrunPomos} 个番茄` : ""}`}
+          >
+            <span className="text-sahara-text-muted">任务预算</span>
+            <span className="timer-task-progress-value font-semibold">
+              {visibleTaskPomoProgress.completedPomos} / {visibleTaskPomoProgress.estimatedPomos}
+            </span>
+            <span>个番茄</span>
+            {visibleTaskPomoProgress.isOverrun && (
+              <span className="timer-task-overrun-text">· 已超 {visibleTaskPomoProgress.overrunPomos} 个</span>
+            )}
+          </p>
+        )}
       </div>
     </div>
   );

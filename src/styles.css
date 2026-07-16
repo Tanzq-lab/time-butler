@@ -182,6 +182,41 @@ textarea {
   }
 }
 
+/* The timer sweep measures this session; its colour measures the selected task's budget. */
+.timer-task-progress-ring {
+  stroke: var(--timer-task-progress-color);
+}
+
+.timer-task-progress-dot {
+  fill: var(--timer-task-progress-color);
+}
+
+.timer-task-progress-value,
+.timer-task-overrun-text {
+  color: var(--timer-task-progress-color);
+}
+
+.dark .timer-task-progress-ring {
+  stroke: var(--timer-task-progress-color-dark);
+}
+
+.dark .timer-task-progress-dot {
+  fill: var(--timer-task-progress-color-dark);
+}
+
+.dark .timer-task-progress-value,
+.dark .timer-task-overrun-text {
+  color: var(--timer-task-progress-color-dark);
+}
+
+.timer-task-overrun-ring {
+  filter: drop-shadow(0 0 4px var(--timer-task-progress-color));
+}
+
+.dark .timer-task-overrun-ring {
+  filter: drop-shadow(0 0 4px var(--timer-task-progress-color-dark));
+}
+
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;

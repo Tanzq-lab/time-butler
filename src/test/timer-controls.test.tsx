@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { TimerControls } from "@/components/containers/timer-controls";
 import { useTimerStore } from "@/features/timer/use-timer-store";
+import { useTaskStore } from "@/features/tasks/use-task-store";
 import {
   DEFAULT_LONG_BREAK_SEC,
   DEFAULT_SHORT_BREAK_SEC,
@@ -44,10 +45,23 @@ vi.mock("@/components/timer/idle-actions", () => ({
 }));
 
 vi.mock("@/components/timer/running-actions", () => ({
-  RunningActions: ({ onFinish }: { onFinish: () => void }) => (
-    <button type="button" onClick={onFinish}>
-      完成
-    </button>
+  RunningActions: ({
+    onFinish,
+    onRecord,
+    recordDisabled,
+  }: {
+    onFinish: () => void;
+    onRecord?: () => void;
+    recordDisabled?: boolean;
+  }) => (
+    <>
+      <button type="button" onClick={onFinish}>
+        完成
+      </button>
+      <button type="button" onClick={onRecord} disabled={recordDisabled}>
+        记录
+      </button>
+    </>
   ),
 }));
 
@@ -70,11 +84,13 @@ vi.mock("@/lib/db", () => ({
   finishSession: vi.fn().mockResolvedValue(undefined),
   updateSessionReflection: vi.fn().mockResolvedValue(undefined),
   abandonSession: vi.fn().mockResolvedValue(undefined),
+  appendTaskNote: vi.fn().mockResolvedValue("**2026-07-16 16:00**\n\n新记录"),
   recordAppEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
 beforeEach(() => {
   vi.clearAllMocks();
+  useTaskStore.setState({ tasks: [], error: null });
   useTimerStore.setState({
     phase: "work",
     status: "idle",
@@ -148,5 +164,28 @@ describe("TimerControls", () => {
       ),
     );
     expect(useTimerStore.getState().pendingFocusReview).toBeNull();
+  });
+
+  it("opens a task record from the running timer without ending the session", () => {
+    useTimerStore.setState({ status: "running", activeTaskId: 31 });
+    useTaskStore.setState({
+      tasks: [
+        {
+          id: 31,
+          name: "运行中的任务",
+          estimated_pomos: 2,
+          completed_pomos: 0,
+          category_id: null,
+          created_at: "2026-07-16T15:00:00.000Z",
+          archived: 0,
+        },
+      ],
+    });
+
+    render(<TimerControls />);
+    fireEvent.click(screen.getByRole("button", { name: "记录" }));
+
+    expect(screen.getByRole("dialog", { name: "记录任务" })).toBeVisible();
+    expect(useTimerStore.getState().status).toBe("running");
   });
 });

@@ -12,6 +12,7 @@ export async function getTasks(): Promise<
     scheduled_for: string | null;
     completed_at: string | null;
     completion_review: string | null;
+    notes: string | null;
     created_at: string;
     archived: number;
   }[]
@@ -29,6 +30,7 @@ export async function getTasks(): Promise<
       scheduled_for: string | null;
       completed_at: string | null;
       completion_review: string | null;
+      notes: string | null;
       created_at: string;
       archived: number;
     }[]
@@ -146,6 +148,50 @@ export async function completeTask(
     `,
     [id, Math.max(0, actualPomos), review?.trim() || null],
   );
+}
+
+function formatTaskNoteTimestamp(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/**
+ * Appends a timestamped entry without reading and rewriting the whole note in
+ * application state, so concurrent record actions cannot overwrite each other.
+ */
+export async function appendTaskNote(
+  id: number,
+  content: string,
+  recordedAt = new Date(),
+): Promise<string> {
+  const trimmedContent = content.trim();
+  if (!trimmedContent) {
+    throw new Error("记录内容不能为空");
+  }
+
+  const entry = `**${formatTaskNoteTimestamp(recordedAt)}**\n\n${trimmedContent}`;
+  const database = await getDb();
+
+  await database.execute(
+    `UPDATE tasks
+     SET notes = CASE
+       WHEN notes IS NULL OR trim(notes) = '' THEN $2
+       ELSE notes || char(10) || char(10) || $2
+     END
+     WHERE id = $1`,
+    [id, entry],
+  );
+
+  const rows = await database.select<{ notes: string | null }[]>(
+    "SELECT notes FROM tasks WHERE id = $1",
+    [id],
+  );
+  const notes = rows[0]?.notes;
+  if (notes == null) {
+    throw new Error("任务不存在，无法保存记录");
+  }
+
+  return notes;
 }
 
 export async function getTaskTimeToday(taskId: number): Promise<number> {

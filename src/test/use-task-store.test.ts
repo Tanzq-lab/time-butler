@@ -55,6 +55,7 @@ vi.mock("@/lib/db", () => ({
   toggleTaskArchived: vi.fn().mockResolvedValue(undefined),
   incrementTaskPomos: vi.fn().mockResolvedValue(undefined),
   completeTask: vi.fn().mockResolvedValue(undefined),
+  appendTaskNote: vi.fn().mockResolvedValue("**2026-07-16 15:30**\n\n记录的卡点"),
   getCategories: vi.fn().mockResolvedValue([
     {
       id: 69,
@@ -377,6 +378,46 @@ describe("useTaskStore", () => {
       expect(updated.completed_pomos).toBe(2);
       expect(updated.completed_at).toBeTruthy();
       expect(appendPomodoroEstimationLog).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("appendTaskNote", () => {
+    it("updates the task note without replacing the rest of the task", async () => {
+      const { appendTaskNote } = await import("@/lib/db");
+      useTaskStore.setState({ tasks: [...mockTasks] });
+
+      const saved = await useTaskStore
+        .getState()
+        .appendTaskNote(1, "记录的卡点", "task-card");
+
+      expect(saved).toBe(true);
+      expect(appendTaskNote).toHaveBeenCalledWith(1, "记录的卡点");
+      expect(useTaskStore.getState().tasks[0]).toMatchObject({
+        id: 1,
+        name: "Task A",
+        notes: "**2026-07-16 15:30**\n\n记录的卡点",
+      });
+    });
+
+    it("only records non-sensitive capture metadata", async () => {
+      const { recordAppEvent } = await import("@/lib/db");
+      useTaskStore.setState({ tasks: [...mockTasks] });
+
+      await useTaskStore
+        .getState()
+        .appendTaskNote(1, "不要写入埋点的内容", "timer");
+
+      expect(recordAppEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventName: "task_note_appended",
+          route: "/",
+          entityId: 1,
+          metadata: {
+            source: "timer",
+            characterCount: 9,
+          },
+        }),
+      );
     });
   });
 });

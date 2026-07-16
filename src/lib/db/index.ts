@@ -15,6 +15,7 @@ export {
   toggleTaskArchived,
   incrementTaskPomos,
   completeTask,
+  appendTaskNote,
   getTaskTimeToday,
 } from "./tasks";
 export {
