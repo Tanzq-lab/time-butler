@@ -10,13 +10,14 @@ const CLEANUP_INTERVAL_SECS: u64 = 24 * 60 * 60;
 const LOG_RETENTION_SECS: u64 = 14 * 24 * 60 * 60;
 const BACKUP_RETENTION_SECS: u64 = 30 * 24 * 60 * 60;
 const MIN_BACKUPS_TO_KEEP: usize = 5;
-const PRIVATE_GITIGNORE_RULES: [&str; 6] = [
+const PRIVATE_GITIGNORE_RULES: [&str; 7] = [
     ".DS_Store",
     ".runtime-cleanup",
     "*.db-shm",
     "*.db-wal",
     "logs/",
     "backups/",
+    "data/openai-api-key",
 ];
 
 #[tauri::command]

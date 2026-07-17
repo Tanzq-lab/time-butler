@@ -1,7 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useTaskStore } from "@/features/tasks/use-task-store";
+import { useSettingsStore } from "@/features/settings/use-settings-store";
 import { appendPomodoroEstimationLog } from "@/features/tasks/pomodoro-estimation-log";
 import { ensureRecurringSummaryTasks } from "@/features/tasks/recurring-summary-tasks";
+
+const { classifyTaskCategoryMock } = vi.hoisted(() => ({
+  classifyTaskCategoryMock: vi.fn(),
+}));
+
+vi.mock("@/lib/ai-category", () => ({
+  classifyTaskCategory: classifyTaskCategoryMock,
+}));
 
 const mockTasks = [
   {
@@ -51,6 +60,7 @@ vi.mock("@/lib/db", () => ({
   ]),
   addTask: vi.fn().mockResolvedValue(3),
   updateTask: vi.fn().mockResolvedValue(undefined),
+  updateTaskCategoryIfUnchanged: vi.fn().mockResolvedValue(true),
   deleteTask: vi.fn().mockResolvedValue(undefined),
   toggleTaskArchived: vi.fn().mockResolvedValue(undefined),
   incrementTaskPomos: vi.fn().mockResolvedValue(undefined),
@@ -109,6 +119,9 @@ vi.mock("@/features/tasks/recurring-summary-tasks", () => ({
 beforeEach(async () => {
   vi.clearAllMocks();
   useTaskStore.setState({ tasks: [], loading: false, error: null });
+  useSettingsStore.setState((state) => ({
+    settings: { ...state.settings, aiAutoCategorization: false },
+  }));
 });
 
 describe("useTaskStore", () => {
@@ -153,20 +166,27 @@ describe("useTaskStore", () => {
     });
 
     it("infers category when manual task category is empty", async () => {
-      const { addTask: dbAddTask } = await import("@/lib/db");
+      const {
+        addTask: dbAddTask,
+        updateTaskCategoryIfUnchanged,
+      } = await import("@/lib/db");
       useTaskStore.setState({ tasks: [...mockTasks] });
 
-      await useTaskStore
+      const task = await useTaskStore
         .getState()
         .addTask("背诵：赛车 UGC 的产品内核是什么？", 2);
 
+      expect(task?.category_id).toBeNull();
       expect(dbAddTask).toHaveBeenLastCalledWith(
         "背诵：赛车 UGC 的产品内核是什么？",
         2,
         undefined,
         undefined,
-        69,
+        null,
         undefined,
+      );
+      await vi.waitFor(() =>
+        expect(updateTaskCategoryIfUnchanged).toHaveBeenCalledWith(3, null, 69),
       );
       expect(useTaskStore.getState().tasks[0].category_id).toBe(69);
     });
@@ -188,6 +208,127 @@ describe("useTaskStore", () => {
         undefined,
       );
       expect(useTaskStore.getState().tasks[0].category_id).toBe(63);
+      expect(classifyTaskCategoryMock).not.toHaveBeenCalled();
+      const { updateTaskCategoryIfUnchanged } = await import("@/lib/db");
+      expect(updateTaskCategoryIfUnchanged).not.toHaveBeenCalled();
+    });
+
+    it("creates immediately and applies sufficient AI classification in the background", async () => {
+      const {
+        addTask: dbAddTask,
+        updateTaskCategoryIfUnchanged,
+      } = await import("@/lib/db");
+      useTaskStore.setState({ tasks: [...mockTasks] });
+      useSettingsStore.setState((state) => ({
+        settings: { ...state.settings, aiAutoCategorization: true },
+      }));
+      let resolveClassification: (value: {
+        categoryId: number;
+        confidence: "high";
+      }) => void = () => undefined;
+      classifyTaskCategoryMock.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveClassification = resolve;
+        }),
+      );
+
+      const task = await useTaskStore
+        .getState()
+        .addTask("把访谈记录整理成发布稿", 2, "Time Butler");
+
+      expect(task?.category_id).toBeNull();
+      expect(dbAddTask).toHaveBeenLastCalledWith(
+        "把访谈记录整理成发布稿",
+        2,
+        "Time Butler",
+        undefined,
+        null,
+        undefined,
+      );
+      expect(updateTaskCategoryIfUnchanged).not.toHaveBeenCalled();
+
+      await vi.waitFor(() =>
+        expect(classifyTaskCategoryMock).toHaveBeenCalledWith({
+          taskName: "把访谈记录整理成发布稿",
+          project: "Time Butler",
+          categories: [
+            { id: 69, name: "记忆复习" },
+            { id: 63, name: "写作输出" },
+          ],
+        }),
+      );
+      expect(useTaskStore.getState().tasks[0].category_id).toBeNull();
+
+      resolveClassification({ categoryId: 63, confidence: "high" });
+      await vi.waitFor(() =>
+        expect(updateTaskCategoryIfUnchanged).toHaveBeenCalledWith(3, null, 63),
+      );
+      expect(useTaskStore.getState().tasks[0].category_id).toBe(63);
+    });
+
+    it("falls back to local rules when AI classification fails", async () => {
+      const {
+        addTask: dbAddTask,
+        updateTaskCategoryIfUnchanged,
+      } = await import("@/lib/db");
+      useTaskStore.setState({ tasks: [...mockTasks] });
+      useSettingsStore.setState((state) => ({
+        settings: { ...state.settings, aiAutoCategorization: true },
+      }));
+      classifyTaskCategoryMock.mockRejectedValueOnce(new Error("network_error"));
+
+      const task = await useTaskStore
+        .getState()
+        .addTask("背诵产品内核", 1);
+
+      expect(task).not.toBeNull();
+      expect(task?.category_id).toBeNull();
+      expect(dbAddTask).toHaveBeenLastCalledWith(
+        "背诵产品内核",
+        1,
+        undefined,
+        undefined,
+        null,
+        undefined,
+      );
+      await vi.waitFor(() =>
+        expect(updateTaskCategoryIfUnchanged).toHaveBeenCalledWith(3, null, 69),
+      );
+      expect(useTaskStore.getState().tasks[0].category_id).toBe(69);
+    });
+
+    it("does not overwrite a category changed while AI is pending", async () => {
+      const { updateTaskCategoryIfUnchanged } = await import("@/lib/db");
+      vi.mocked(updateTaskCategoryIfUnchanged).mockResolvedValueOnce(false);
+      useTaskStore.setState({ tasks: [...mockTasks] });
+      useSettingsStore.setState((state) => ({
+        settings: { ...state.settings, aiAutoCategorization: true },
+      }));
+      let resolveClassification: (value: {
+        categoryId: number;
+        confidence: "high";
+      }) => void = () => undefined;
+      classifyTaskCategoryMock.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveClassification = resolve;
+        }),
+      );
+
+      await useTaskStore.getState().addTask("整理访谈记录", 1);
+      await vi.waitFor(() =>
+        expect(classifyTaskCategoryMock).toHaveBeenCalledTimes(1),
+      );
+      useTaskStore.setState((state) => ({
+        tasks: state.tasks.map((task) =>
+          task.id === 3 ? { ...task, category_id: 69 } : task,
+        ),
+      }));
+
+      resolveClassification({ categoryId: 63, confidence: "high" });
+      await vi.waitFor(() =>
+        expect(updateTaskCategoryIfUnchanged).toHaveBeenCalledWith(3, null, 63),
+      );
+      expect(useTaskStore.getState().tasks[0].category_id).toBe(69);
     });
 
     it("sets error on failure", async () => {

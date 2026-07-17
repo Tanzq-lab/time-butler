@@ -10,4 +10,5 @@ export interface Settings {
   soundEnabled: boolean;
   theme: ThemeMode;
   timerStyle: "solid" | "zigzag";
+  aiAutoCategorization: boolean;
 }

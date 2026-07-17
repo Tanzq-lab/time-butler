@@ -267,3 +267,41 @@ Codex 直接把任务写进 `Time-butler.db` 后，就认为任务已经交给 T
 ### 下次执行规则
 
 遇到“自动任务没产出”时，依次检查：是否触发、是否取得锁、目标日期是否正确、CLI 是否启动、Codex 是否成功退出、final/备份/marker 是否齐全。修复后必须横向搜索同类脚本，并把验证证据写入自动化记忆。
+
+## 2026-07-17：不要用 bundle id 或旧 `.app` 打开 Time Butler
+
+### 错误
+
+用户已经明确只维护 Tauri dev 版本，日常入口是 `open-time-butler-dev.command`。Codex 为了进入设置页，却把 `com.timebutler.desktop` 交给 Computer Use 作为启动目标。
+
+macOS LaunchServices 随后命中了 `src-tauri/target/debug/bundle/macos/Time-butler.app` 里的旧打包版本，导致旧版和 dev 版同时出现。之后又直接在 Codex 命令会话里执行 `.command`；虽然日志短暂显示 Vite ready，但后台子进程随命令会话被回收，没有形成稳定启动。
+
+### 根因
+
+- 把 bundle id 当成了“当前 dev 窗口”的可靠标识，但 bundle id 只能让 LaunchServices 选择某个已注册 `.app`，不能保证版本正确。
+- README 已经写了 dev-only，但 `AGENTS.md` 没有把“禁止通过 bundle 启动”写成 AI 硬规则。
+- 生成目录、废纸篓和 LaunchServices 中仍残留旧 `.app`，为误命中提供了入口。
+- 启动脚本只停止 1420 端口，没有同时清理旧打包进程和孤立的 dev 运行时。
+
+### 正确做法
+
+- 需要打开 Time Butler 时，只运行：
+
+  ```zsh
+  open /Users/amos/time-butler/open-time-butler-dev.command
+  ```
+
+- 不使用 `open -a Time-butler`、`open -b com.timebutler.desktop`、生成的 `.app` 路径或 Computer Use `get_app_state` 来启动应用。
+- Computer Use 只能在确认 dev 已运行之后附着：1420 端口正在监听，并且进程路径为 `target/debug/time-butler`。
+- `src-tauri/target/**/bundle/` 是可删除构建产物，不是日常运行入口；发现后应注销 LaunchServices 注册并清理。
+- 启动脚本必须先清理旧打包进程、旧生成 bundle 和孤立 dev 进程，再启动唯一一套 dev runtime。
+
+### 下次执行规则
+
+凡是用户说“打开 Time Butler”或需要操作其 UI：
+
+1. 先读 `AGENTS.md` 的 `Single App Version`。
+2. 只通过 `open-time-butler-dev.command` 启动。
+3. 验证 1420 端口、`npm run tauri dev`、Tauri dev supervisor 和 `target/debug/time-butler` 同时存在。
+4. 验证没有任何 `*.app/Contents/MacOS/time-butler` 打包进程。
+5. 如果启动失败，读 `~/Library/Logs/Time Butler/time-butler-dev.log`，不要换用旧 `.app` 兜底。

@@ -19,6 +19,7 @@ const DEFAULTS: Settings = {
   soundEnabled: true,
   theme: "system",
   timerStyle: "solid",
+  aiAutoCategorization: false,
 };
 
 async function loadSetting<K extends keyof Settings>(

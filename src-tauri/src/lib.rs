@@ -32,6 +32,10 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![
+            commands::ai_category::ai_api_key_status,
+            commands::ai_category::ai_api_key_save,
+            commands::ai_category::ai_api_key_clear,
+            commands::ai_category::ai_classify_task,
             commands::audio::notification_audio_play,
             commands::audio::notification_audio_stop,
             commands::hotkey::register_hotkey,

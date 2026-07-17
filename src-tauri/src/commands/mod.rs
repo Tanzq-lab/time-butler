@@ -1,3 +1,4 @@
+pub mod ai_category;
 pub mod audio;
 pub mod hotkey;
 pub mod menubar;

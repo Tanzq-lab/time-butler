@@ -11,6 +11,7 @@ test.describe("Settings", () => {
     await expect(page.getByRole("button", { name: "专注节奏" })).toBeVisible();
     await expect(page.getByRole("button", { name: "通知" })).toBeVisible();
     await expect(page.getByRole("button", { name: "快捷键" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "AI 分类" })).toBeVisible();
     await expect(page.getByRole("button", { name: "隐私与数据" })).toBeVisible();
   });
 
@@ -42,6 +43,13 @@ test.describe("Settings", () => {
     await expect(page.getByRole("dialog", { name: "清除所有数据？" })).toBeVisible();
     await page.getByRole("button", { name: "取消" }).click();
     await expect(page.getByRole("dialog", { name: "清除所有数据？" })).not.toBeVisible();
+  });
+
+  test("AI tab explains automatic categorization and key status", async ({ page }) => {
+    await page.getByRole("button", { name: "AI 分类" }).click();
+    await expect(page.getByRole("heading", { name: "AI 自动分类" })).toBeVisible();
+    await expect(page.getByText("尚未配置")).toBeVisible();
+    await expect(page.getByLabel("OpenAI API 密钥")).toBeVisible();
   });
 
   test("Notifications tab shows notification controls", async ({ page }) => {

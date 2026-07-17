@@ -7,9 +7,11 @@ cd -- "$(dirname "$0")" || exit 1
 export PATH="${HOME}/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:${PATH}"
 
 PORT=1420
+PROJECT_ROOT="$(pwd)"
 LOG_DIR="${HOME}/Library/Logs/Time Butler"
 LOG_FILE="${LOG_DIR}/time-butler-dev.log"
 TERMINAL_TITLE="Time Butler Launcher"
+LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 
 printf '\033]0;%s\007' "${TERMINAL_TITLE}"
 
@@ -17,17 +19,61 @@ has_command() {
   command -v "$1" >/dev/null 2>&1
 }
 
-port_is_listening() {
-  lsof -nP -iTCP:"${PORT}" -sTCP:LISTEN >/dev/null 2>&1
+stop_packaged_app_processes() {
+  local packaged_pattern='/(Time-butler|时间管家)\.app/Contents/MacOS/time-butler$'
+
+  if pgrep -f "${packaged_pattern}" >/dev/null 2>&1; then
+    echo "检测到旧打包 App，先停止它。"
+    pkill -TERM -f "${packaged_pattern}" >/dev/null 2>&1 || true
+    sleep 0.5
+  fi
 }
 
-stop_existing_frontend() {
-  local listener_pids
+clean_generated_app_bundles() {
+  local bundle_root app_path
+
+  for bundle_root in \
+    "${PROJECT_ROOT}/src-tauri/target/debug/bundle" \
+    "${PROJECT_ROOT}/src-tauri/target/release/bundle"; do
+    if [ ! -d "${bundle_root}" ]; then
+      continue
+    fi
+
+    if [ -x "${LSREGISTER}" ]; then
+      while IFS= read -r -d '' app_path; do
+        "${LSREGISTER}" -u "${app_path}" >/dev/null 2>&1 || true
+      done < <(find "${bundle_root}" -type d -name '*.app' -prune -print0)
+    fi
+
+    rm -rf -- "${bundle_root}"
+  done
+}
+
+stop_existing_dev_runtime() {
+  local listener_pids stopped_runtime
   listener_pids="$(lsof -tiTCP:"${PORT}" -sTCP:LISTEN 2>/dev/null || true)"
+  stopped_runtime=0
 
   if [ -n "${listener_pids}" ]; then
     echo "检测到 ${PORT} 端口已有本地服务，先停止它。"
-    kill ${listener_pids} >/dev/null 2>&1 || true
+    kill ${=listener_pids} >/dev/null 2>&1 || true
+    stopped_runtime=1
+  fi
+
+  if pgrep -f "^node ${PROJECT_ROOT}/node_modules/.bin/tauri dev" >/dev/null 2>&1; then
+    pkill -TERM -f "^node ${PROJECT_ROOT}/node_modules/.bin/tauri dev" >/dev/null 2>&1 || true
+    stopped_runtime=1
+  fi
+  if pgrep -f "^node ${PROJECT_ROOT}/node_modules/.bin/vite" >/dev/null 2>&1; then
+    pkill -TERM -f "^node ${PROJECT_ROOT}/node_modules/.bin/vite" >/dev/null 2>&1 || true
+    stopped_runtime=1
+  fi
+  if pgrep -f "^(target/debug/time-butler|${PROJECT_ROOT}/src-tauri/target/debug/time-butler)$" >/dev/null 2>&1; then
+    pkill -TERM -f "^(target/debug/time-butler|${PROJECT_ROOT}/src-tauri/target/debug/time-butler)$" >/dev/null 2>&1 || true
+    stopped_runtime=1
+  fi
+
+  if [ "${stopped_runtime}" -eq 1 ]; then
     sleep 1
   fi
 }
@@ -90,9 +136,9 @@ if ! has_command cargo; then
   exit 1
 fi
 
-if port_is_listening; then
-  stop_existing_frontend
-fi
+stop_packaged_app_processes
+clean_generated_app_bundles
+stop_existing_dev_runtime
 
 install_with_npm_if_needed || exit 1
 

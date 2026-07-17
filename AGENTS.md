@@ -35,7 +35,11 @@ Do not use broad domains like "工作", "投资", or "个人事务" as categorie
 
 This is a personal-use app. Keep one runtime/data path unless the user explicitly asks otherwise:
 
-- Use the Tauri desktop app as the only real app surface.
+- Use the Tauri dev desktop app as the only real app surface.
+- Open it only through `open /Users/amos/time-butler/open-time-butler-dev.command`. The launcher owns cleanup and startup; do not launch the runtime by bundle id, app name, or generated `.app` path.
+- Never use `open -a Time-butler`, `open -b com.timebutler.desktop`, `src-tauri/target/**/bundle/**/*.app`, a copied `/Applications` app, or Computer Use `get_app_state` as a launcher. macOS LaunchServices can resolve those paths to a stale packaged build.
+- If UI control is needed, first verify that port `1420` is listening and the running executable is `target/debug/time-butler`; Computer Use may attach only after that verification and must not launch a missing app.
+- Treat `src-tauri/target/**/bundle/` as disposable build output. It is not a supported runtime and may be removed to prevent LaunchServices interference.
 - Use `../time-butler-data/Time-butler.db` as the single task database.
 - Do not introduce separate dev/prod task databases or browser-preview task data.
 

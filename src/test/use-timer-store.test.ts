@@ -498,6 +498,7 @@ describe("useTimerStore", () => {
           soundEnabled: true,
           theme: "system",
           timerStyle: "solid",
+          aiAutoCategorization: false,
         },
         loaded: true,
         error: null,

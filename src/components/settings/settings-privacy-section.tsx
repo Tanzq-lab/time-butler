@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { getDb } from "@/lib/db";
 import { isTauri } from "@/lib/tauri";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { clearAiApiKey } from "@/lib/ai-category";
 
 export function SettingsPrivacySection() {
   const [clearing, setClearing] = useState(false);
@@ -21,6 +22,7 @@ export function SettingsPrivacySection() {
         db.execute("DELETE FROM settings"),
         db.execute("DELETE FROM _schema_meta"),
       ]);
+      await clearAiApiKey();
       setCleared(true);
       setShowConfirm(false);
     } catch {}
@@ -44,7 +46,8 @@ export function SettingsPrivacySection() {
       </h3>
       <div className="space-y-4 border-y border-sahara-border py-5">
         <p className="text-sm text-sahara-text-secondary leading-relaxed">
-          你的所有数据都会通过 SQLite 保存在本设备本地，不会发送到任何外部服务器。
+          任务、番茄记录和设置默认只保存在本设备。只有你启用 AI 自动分类后，
+          新任务名称、项目名和候选分类名称才会发送给 OpenAI；历史任务、番茄记录和笔记不会发送。
         </p>
         <div className="pt-4 border-t border-sahara-border/20">
           {cleared ? (

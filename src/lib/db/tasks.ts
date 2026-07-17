@@ -118,6 +118,23 @@ export async function updateTask(
   );
 }
 
+export async function updateTaskCategoryIfUnchanged(
+  id: number,
+  expectedCategoryId: number | null,
+  categoryId: number,
+): Promise<boolean> {
+  const database = await getDb();
+  const result = await database.execute(
+    `UPDATE tasks
+     SET category_id = $3
+     WHERE id = $1
+       AND archived = 0
+       AND category_id IS $2`,
+    [id, expectedCategoryId, categoryId],
+  );
+  return result.rowsAffected === 1;
+}
+
 export async function deleteTask(id: number): Promise<void> {
   const database = await getDb();
   await database.execute("DELETE FROM sessions WHERE task_id = $1", [id]);
