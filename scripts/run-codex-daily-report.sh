@@ -83,6 +83,8 @@ PROMPT=$(cat <<PROMPT
 - 读取 AGENTS.md、README.md、docs/codex-mistake-notebook.md、../time-butler-data/README.md 和 SQLite schema。
 - 从 ../time-butler-data/Time-butler.db 与 ../time-butler-data/data/pomodoro-estimation-log.jsonl 读取 TARGET_DATE=$TARGET_DATE 的数据，包括 sessions、tasks、completion_review、time_pages、task_activity_log 和 app_events。
 - 读取本次预先生成的本地产品路径分析 $PRODUCT_INSIGHT_MARKDOWN 与 $PRODUCT_INSIGHT_JSON；如果文件缺失或分析失败，运行 node scripts/analyze-daily-product-usage.mjs --date $TARGET_DATE 后再继续。
+- 按 skill 的“AI知识库项目的 Git 收尾与目标日提交”规则执行：用 Finder 的“AI知识库”标签动态发现目录，不得硬编码当前项目清单；逐仓库理解现有修改、按独立意图和明确路径安全拆分本地 commit，并运行最小验证。不得推送远端，不得提交凭据、数据库、备份、日志、构建产物或其他私密运行数据；冲突、历史改写状态、验证失败或归属不清时跳过并报告。
+- 读取所有发现仓库在 Asia/Shanghai 的 TARGET_DATE=$TARGET_DATE 时间窗内的本地分支提交；不能只看提交标题，必须检查 commit stat，必要时检查 diff，再按仓库和工作主题归纳具体完成内容。本次运行今天新建的收尾 commit 不得倒填到目标日日报。
 - 路径分析必须检查 App 使用会话覆盖率、常见路径、页面有效停留、前后台切换、计时/任务关键动作和通知音频诊断；用 sessions、tasks、completion_review、时间页手写反馈等本地信号交叉验证，不能只凭单一埋点推断用户心理。
 - 生成 DAILY_AI_REPORT:$TARGET_DATE 标记包裹的紧凑日报整理区块。
 - 必须单独生成“任务完成记录（原文）”：只收集 completed_at 按 Asia/Shanghai 归属于 TARGET_DATE=$TARGET_DATE 且非空的每一条 completion_review，按完成时间排列。
@@ -100,10 +102,12 @@ PROMPT=$(cat <<PROMPT
 - 必要时按 skill 创建缺失 day 页面链路。
 - 写入前备份数据库到 ../time-butler-data/backups。
 - 写入后重新读取验证 start/end 标记、页面 id、标题、updated_at 和 content length。
+- 最终结果必须列出动态发现的 Git 仓库、每个新建 commit 的仓库/hash/提交信息/验证结果、跳过项及原因，以及目标日 Git 复盘覆盖的仓库数与 commit 数。
 
 禁止修改 tasks、sessions、pomodoro-estimation-log.jsonl。
 禁止重启 Tauri dev server。
 禁止提交数据库备份、日志、构建产物或私密数据。
+禁止执行 git push、改写历史、强制操作，或为了凑提交而修改其他项目。
 禁止删除用户原有日报内容。
 如果 marker 不完整、数据库不可写、或写入后疑似被打开中的 App 旧缓存覆盖，停止并在最终结果中明确报告。
 PROMPT
