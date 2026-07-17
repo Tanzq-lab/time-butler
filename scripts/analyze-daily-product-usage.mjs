@@ -359,6 +359,7 @@ function buildMarkdown(report) {
     "",
     `- 事件：${report.coverage.eventCount} 条；带 App 会话字段：${report.coverage.sessionizedEventCount} 条（${report.coverage.sessionizedPercent}%）`,
     `- App 使用会话：${report.coverage.appSessionCount} 个；页面退出停留样本：${report.coverage.measuredRouteExits} 个`,
+    `- App 会话事件：开始 ${report.coverage.appSessionStartedCount} 条，结束 ${report.coverage.appSessionEndedCount} 条（跨日或异常退出可能不成对）`,
     `- 数据库交叉验证：完成计时 ${report.databaseSignals.sessions.completed} 次、未完成计时记录 ${report.databaseSignals.sessions.incomplete} 次、创建任务 ${report.databaseSignals.tasks.created} 个、完成任务 ${report.databaseSignals.tasks.completed} 个`,
     "",
     "## 使用路径",
@@ -542,6 +543,8 @@ function analyze(options) {
     sessionizedEventCount,
     sessionizedPercent: percent(sessionizedEventCount, events.length),
     appSessionCount: pathData.sessions.length,
+    appSessionStartedCount: getCount("app_usage_session_started"),
+    appSessionEndedCount: getCount("app_usage_session_ended"),
     measuredRouteExits: sum(routeStats.map((route) => route.measuredExits)),
   };
   const databaseSignals = {
