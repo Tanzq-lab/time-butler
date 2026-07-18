@@ -305,3 +305,9 @@ macOS LaunchServices 随后命中了 `src-tauri/target/debug/bundle/macos/Time-b
 3. 验证 1420 端口、`npm run tauri dev`、Tauri dev supervisor 和 `target/debug/time-butler` 同时存在。
 4. 验证没有任何 `*.app/Contents/MacOS/time-butler` 打包进程。
 5. 如果启动失败，读 `~/Library/Logs/Time Butler/time-butler-dev.log`，不要换用旧 `.app` 兜底。
+
+## 2026-07-17：不要在 Time Butler 重引入自动 AI 任务分类
+
+用户明确撤回该能力：它引入独立 API 额度、网络依赖和分类失败成本，不是当前产品内核。
+
+除非用户再次明确提出并同意外部 API 计费，否则不要在任务创建、打开、编辑或后台流程中调用 AI；不要新增 API 密钥保存、AI 设置页、外部任务文本传输或自动分类队列。保留本地规则和手动分类。

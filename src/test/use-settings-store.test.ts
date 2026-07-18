@@ -40,7 +40,6 @@ beforeEach(() => {
       soundEnabled: true,
       theme: "system",
       timerStyle: "solid",
-      aiAutoCategorization: false,
     },
     loaded: false,
   });
@@ -54,7 +53,6 @@ describe("useSettingsStore", () => {
       expect(settings.shortBreakDuration).toBe(DEFAULT_SHORT_BREAK_SEC);
       expect(settings.longBreakDuration).toBe(DEFAULT_LONG_BREAK_SEC);
       expect(settings.autoStartBreaks).toBe(false);
-      expect(settings.aiAutoCategorization).toBe(false);
       expect(settings.hotkey).toBe(HOTKEY_DEFAULT);
       expect(settings.soundEnabled).toBe(true);
       expect(settings.theme).toBe("system");

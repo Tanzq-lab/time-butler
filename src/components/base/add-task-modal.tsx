@@ -2,10 +2,9 @@ import {
   useReducer,
   useEffect,
   useMemo,
-  useState,
 } from "react";
 import type React from "react";
-import { Edit3, LoaderCircle, Plus, Tag } from "lucide-react";
+import { Edit3, Plus, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModalOverlay } from "@/components/ui/modal-overlay";
 import type { Task } from "@/features/tasks/task-types";
@@ -97,7 +96,6 @@ export function AddTaskModal({
     formReducer,
     initialStateForTask(editTask, initialName),
   );
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -105,7 +103,6 @@ export function AddTaskModal({
       type: "SET_ALL",
       payload: initialStateForTask(editTask, initialName),
     });
-    setSubmitting(false);
   }, [open, editTask, initialName]);
 
   const matchedCategory = useMemo(
@@ -115,21 +112,16 @@ export function AddTaskModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim() || submitting) return;
+    if (!form.name.trim()) return;
 
-    setSubmitting(true);
-    try {
-      const submitted = await onSubmit({
-        name: form.name.trim(),
-        estimatedPomos: form.estimatedPomos,
-        project: form.project.trim() || "",
-        priority: form.priority || "",
-        categoryId: form.categoryId,
-      });
-      if (submitted !== false) onClose();
-    } finally {
-      setSubmitting(false);
-    }
+    const submitted = await onSubmit({
+      name: form.name.trim(),
+      estimatedPomos: form.estimatedPomos,
+      project: form.project.trim() || "",
+      priority: form.priority || "",
+      categoryId: form.categoryId,
+    });
+    if (submitted !== false) onClose();
   };
 
   return (
@@ -270,7 +262,7 @@ export function AddTaskModal({
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm text-sahara-text marker:hidden">
               <span className="inline-flex items-center gap-2 font-medium">
                 <Tag className="size-4 text-sahara-text-muted" />
-                分类（可选）
+                手动指定分类
               </span>
               {matchedCategory ? (
                 <span
@@ -288,7 +280,7 @@ export function AddTaskModal({
                 </span>
               ) : (
                 <span className="shrink-0 text-xs font-bold text-sahara-text-muted">
-                  {isEditing ? "未指定" : "创建时自动判断"}
+                  默认留空
                 </span>
               )}
             </summary>
@@ -297,7 +289,7 @@ export function AddTaskModal({
                 htmlFor="task-category"
                 className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
               >
-                手动指定分类
+                分类（可选）
               </label>
               <select
                 id="task-category"
@@ -312,9 +304,7 @@ export function AddTaskModal({
                 }
                 className="h-10 w-full cursor-pointer appearance-none rounded-md border border-sahara-border bg-sahara-surface px-3 text-sm text-sahara-text outline-none focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
               >
-                <option value="">
-                  {isEditing ? "未指定" : "自动判断"}
-                </option>
+                <option value="">未分类</option>
                 {categories.map((cat) => (
                   <option key={cat.id} value={cat.id}>
                     {cat.name}
@@ -340,19 +330,10 @@ export function AddTaskModal({
               variant="solid"
               intent={form.name.trim() ? "sahara" : "default"}
               fullWidth
-              disabled={!form.name.trim() || submitting}
+              disabled={!form.name.trim()}
               className="gap-2"
             >
-              {submitting ? (
-                <>
-                  <LoaderCircle className="size-4 animate-spin" />
-                  {isEditing
-                    ? "保存中…"
-                    : form.categoryId == null
-                      ? "正在判断分类…"
-                      : "创建中…"}
-                </>
-              ) : isEditing ? (
+              {isEditing ? (
                 <>
                   <Edit3 className="size-4" /> 保存修改
                 </>

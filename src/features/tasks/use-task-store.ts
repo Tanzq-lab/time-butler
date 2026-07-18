@@ -8,7 +8,6 @@ import {
   getTasks,
   addTask as dbAddTask,
   updateTask as dbUpdateTask,
-  updateTaskCategoryIfUnchanged as dbUpdateTaskCategoryIfUnchanged,
   deleteTask as dbDeleteTask,
   toggleTaskArchived,
   incrementTaskPomos,
@@ -21,208 +20,18 @@ import {
 } from "@/lib/db";
 import { ensureRecurringSummaryTasks } from "@/features/tasks/recurring-summary-tasks";
 import { parseTaskDraft } from "@/features/tasks/task-intake";
-import {
-  classifyTaskCategory,
-  type AiCategoryConfidence,
-} from "@/lib/ai-category";
-import { useSettingsStore } from "@/features/settings/use-settings-store";
 
-type CategoryInferenceSource = "manual" | "ai" | "rule" | "none";
-
-interface CategoryResolution {
-  categoryId: number | null;
-  source: CategoryInferenceSource;
-  aiAttempted: boolean;
-  aiConfidence?: AiCategoryConfidence;
-  aiFailure?: string;
-}
-
-const AI_FAILURE_CODES = [
-  "api_key_missing",
-  "api_key_read_failed",
-  "api_key_rejected",
-  "rate_limited",
-  "network_error",
-  "service_unavailable",
-  "invalid_ai_response",
-  "invalid_api_request",
-  "no_categories",
-  "ai_unavailable",
-] as const;
-
-function normalizeAiFailure(error: unknown): string {
-  const message = String(error);
-  return AI_FAILURE_CODES.find((code) => message.includes(code)) ?? "unknown";
-}
-
-async function resolveAutomaticCategory(
+async function inferCategoryIdFromTaskName(
   name: string,
-  project?: string,
-  categoryName?: string,
-  aiEnabled = false,
-): Promise<CategoryResolution> {
+  categoryId?: number | null,
+): Promise<number | null> {
+  if (categoryId) return categoryId;
+
+  const categoryName = parseTaskDraft(name).categoryName;
+  if (!categoryName) return categoryId ?? null;
+
   const categories = await getCategories();
-  let aiAttempted = false;
-  let aiConfidence: AiCategoryConfidence | undefined;
-  let aiFailure: string | undefined;
-
-  if (aiEnabled && categories.length === 0) {
-    aiFailure = "no_categories";
-  }
-
-  if (aiEnabled && categories.length > 0) {
-    aiAttempted = true;
-    try {
-      const result = await classifyTaskCategory({
-        taskName: name,
-        project: project?.trim() || undefined,
-        categories: categories.map(({ id, name: categoryLabel }) => ({
-          id,
-          name: categoryLabel,
-        })),
-      });
-      aiConfidence = result.confidence;
-      const matchedCategory = categories.find(
-        (category) => category.id === result.categoryId,
-      );
-      if (matchedCategory && result.confidence !== "low") {
-        return {
-          categoryId: matchedCategory.id,
-          source: "ai",
-          aiAttempted: true,
-          aiConfidence: result.confidence,
-        };
-      }
-      aiFailure = matchedCategory ? "low_confidence" : "invalid_ai_response";
-    } catch (error) {
-      aiFailure = normalizeAiFailure(error);
-    }
-  }
-
-  const ruleCategory = categoryName
-    ? categories.find((category) => category.name === categoryName)
-    : null;
-  return {
-    categoryId: ruleCategory?.id ?? null,
-    source: ruleCategory ? "rule" : "none",
-    aiAttempted,
-    aiConfidence,
-    aiFailure,
-  };
-}
-
-interface PostCreationCategorizationInput {
-  taskId: number;
-  name: string;
-  project?: string;
-  expectedCategoryId: number | null;
-  categoryName?: string;
-  aiEnabled: boolean;
-}
-
-async function categorizeTaskAfterCreation({
-  taskId,
-  name,
-  project,
-  expectedCategoryId,
-  categoryName,
-  aiEnabled,
-}: PostCreationCategorizationInput): Promise<void> {
-  const startedAt = Date.now();
-  let resolution: CategoryResolution;
-
-  try {
-    resolution = await resolveAutomaticCategory(
-      name,
-      project,
-      categoryName,
-      aiEnabled,
-    );
-  } catch {
-    void recordAppEvent({
-      eventName: "task_category_auto_assignment_finished",
-      route: "/tasks",
-      entityType: "task",
-      entityId: taskId,
-      metadata: {
-        outcome: "failed",
-        categoryInferenceSource: "none",
-        aiCategorizationAttempted: false,
-        aiCategorizationConfidence: null,
-        aiCategorizationFailure: "category_lookup_failed",
-        durationMs: Date.now() - startedAt,
-      },
-    });
-    return;
-  }
-
-  if (resolution.categoryId == null) {
-    void recordAppEvent({
-      eventName: "task_category_auto_assignment_finished",
-      route: "/tasks",
-      entityType: "task",
-      entityId: taskId,
-      metadata: {
-        outcome: resolution.aiFailure ? "failed" : "no_match",
-        categoryInferenceSource: resolution.source,
-        aiCategorizationAttempted: resolution.aiAttempted,
-        aiCategorizationConfidence: resolution.aiConfidence ?? null,
-        aiCategorizationFailure: resolution.aiFailure ?? null,
-        durationMs: Date.now() - startedAt,
-      },
-    });
-    return;
-  }
-
-  try {
-    const applied = await dbUpdateTaskCategoryIfUnchanged(
-      taskId,
-      expectedCategoryId,
-      resolution.categoryId,
-    );
-
-    if (applied) {
-      useTaskStore.setState((state) => ({
-        tasks: state.tasks.map((task) =>
-          task.id === taskId && task.category_id === expectedCategoryId
-            ? { ...task, category_id: resolution.categoryId }
-            : task,
-        ),
-      }));
-    }
-
-    void recordAppEvent({
-      eventName: "task_category_auto_assignment_finished",
-      route: "/tasks",
-      entityType: "task",
-      entityId: taskId,
-      metadata: {
-        outcome: applied ? "applied" : "skipped_changed",
-        categoryId: resolution.categoryId,
-        categoryInferenceSource: resolution.source,
-        aiCategorizationAttempted: resolution.aiAttempted,
-        aiCategorizationConfidence: resolution.aiConfidence ?? null,
-        aiCategorizationFailure: resolution.aiFailure ?? null,
-        durationMs: Date.now() - startedAt,
-      },
-    });
-  } catch {
-    void recordAppEvent({
-      eventName: "task_category_auto_assignment_finished",
-      route: "/tasks",
-      entityType: "task",
-      entityId: taskId,
-      metadata: {
-        outcome: "failed",
-        categoryId: resolution.categoryId,
-        categoryInferenceSource: resolution.source,
-        aiCategorizationAttempted: resolution.aiAttempted,
-        aiCategorizationConfidence: resolution.aiConfidence ?? null,
-        aiCategorizationFailure: "category_update_failed",
-        durationMs: Date.now() - startedAt,
-      },
-    });
-  }
+  return categories.find((category) => category.name === categoryName)?.id ?? null;
 }
 
 interface TaskStore {
@@ -266,7 +75,7 @@ interface TaskStore {
   ) => Promise<boolean>;
 }
 
-export const useTaskStore = create<TaskStore>((set, get) => ({
+export const useTaskStore = create<TaskStore>((set) => ({
   tasks: [],
   loading: false,
   error: null,
@@ -307,20 +116,13 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     scheduledFor,
   ) => {
     try {
-      const initialCategoryId = categoryId ?? null;
-      const categoryName =
-        categoryId == null ? parseTaskDraft(name).categoryName : undefined;
-      const aiEnabled =
-        categoryId == null &&
-        useSettingsStore.getState().settings.aiAutoCategorization;
-      const automaticCategorizationScheduled =
-        categoryId == null && (aiEnabled || Boolean(categoryName));
+      const resolvedCategoryId = await inferCategoryIdFromTaskName(name, categoryId);
       const id = await dbAddTask(
         name,
         estimatedPomos,
         project,
         priority,
-        initialCategoryId,
+        resolvedCategoryId,
         scheduledFor,
       );
       const newTask: Task = {
@@ -330,7 +132,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         completed_pomos: 0,
         project: project ?? undefined,
         priority: priority as Task["priority"] | undefined,
-        category_id: initialCategoryId,
+        category_id: resolvedCategoryId,
         scheduled_for: scheduledFor ?? null,
         completed_at: null,
         completion_review: null,
@@ -351,34 +153,11 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           estimatedPomos,
           hasProject: Boolean(project?.trim()),
           hasPriority: Boolean(priority?.trim()),
-          hasCategory: initialCategoryId != null,
-          categoryId: initialCategoryId,
+          hasCategory: resolvedCategoryId != null,
           hasSchedule: Boolean(scheduledFor),
-          categoryInferred: false,
-          categoryInferenceSource:
-            initialCategoryId == null ? "none" : "manual",
-          automaticCategorizationScheduled,
-          aiCategorizationScheduled:
-            automaticCategorizationScheduled && aiEnabled,
-          aiCategorizationAttempted: false,
-          aiCategorizationConfidence: null,
-          aiCategorizationFailure: null,
-          taskCreationWaitedForAi: false,
+          categoryInferred: resolvedCategoryId != null && categoryId == null,
         },
       });
-
-      if (automaticCategorizationScheduled) {
-        window.setTimeout(() => {
-          void categorizeTaskAfterCreation({
-            taskId: id,
-            name,
-            project,
-            expectedCategoryId: initialCategoryId,
-            categoryName,
-            aiEnabled,
-          });
-        }, 0);
-      }
       return newTask;
     } catch (err) {
       console.error("[TaskStore] Failed to add task:", err);
@@ -397,8 +176,6 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     scheduledFor,
   ) => {
     try {
-      const previousCategoryId = get().tasks.find((task) => task.id === id)
-        ?.category_id ?? null;
       await dbUpdateTask(
         id,
         name,
@@ -445,11 +222,6 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
             categoryId !== undefined ? "category_id" : null,
             scheduledFor !== undefined ? "scheduled_for" : null,
           ].filter(Boolean),
-          ...(categoryId !== undefined && {
-            categoryChanged: previousCategoryId !== (categoryId ?? null),
-            previousCategoryId,
-            nextCategoryId: categoryId ?? null,
-          }),
         },
       });
     } catch (err) {

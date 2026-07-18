@@ -35,7 +35,7 @@ describe("AddTaskModal", () => {
     fireEvent.change(screen.getByLabelText("优先级"), {
       target: { value: "medium" },
     });
-    fireEvent.click(screen.getByText("分类（可选）"));
+    fireEvent.click(screen.getByText("手动指定分类"));
     fireEvent.change(screen.getByLabelText(/分类/), {
       target: { value: "1" },
     });
@@ -98,7 +98,7 @@ describe("AddTaskModal", () => {
       />,
     );
 
-    fireEvent.click(screen.getByText("分类（可选）"));
+    fireEvent.click(screen.getByText("手动指定分类"));
 
     expect(screen.getByRole("option", { name: "工作流优化" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "新增分类" })).toBeNull();

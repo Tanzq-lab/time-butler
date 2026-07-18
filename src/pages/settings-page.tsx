@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useSettingsStore } from "@/features/settings/use-settings-store";
 import { useNotificationStore } from "@/features/notifications/use-notification-store";
-import { Monitor, Zap, Bell, Keyboard, Shield, Sparkles } from "lucide-react";
+import { Monitor, Zap, Bell, Keyboard, Shield } from "lucide-react";
 
 import { MainLayout } from "@/components/template/main-layout";
 import { SettingsSidebar } from "@/components/settings/settings-sidebar";
@@ -12,7 +12,6 @@ import { SettingsFocusSection } from "@/components/settings/settings-focus-secti
 import { SettingsNotifications } from "@/components/settings/settings-notifications-section";
 import { SettingsHotkeysSection } from "@/components/settings/settings-hotkeys-section";
 import { SettingsPrivacySection } from "@/components/settings/settings-privacy-section";
-import { SettingsAiSection } from "@/components/settings/settings-ai-section";
 import { PageHeader } from "@/components/ui/page-header";
 
 const TABS: SidebarTab[] = [
@@ -20,7 +19,6 @@ const TABS: SidebarTab[] = [
   { id: "focus", label: "专注节奏", icon: Zap },
   { id: "notifications", label: "通知", icon: Bell },
   { id: "hotkeys", label: "快捷键", icon: Keyboard },
-  { id: "ai", label: "AI 分类", icon: Sparkles },
   { id: "privacy", label: "隐私与数据", icon: Shield },
 ];
 
@@ -90,15 +88,6 @@ export function SettingsPage() {
               )}
 
               {activeTab === "hotkeys" && <SettingsHotkeysSection />}
-
-              {activeTab === "ai" && (
-                <SettingsAiSection
-                  enabled={settings.aiAutoCategorization}
-                  onEnabledChange={(enabled) =>
-                    updateSetting("aiAutoCategorization", enabled)
-                  }
-                />
-              )}
 
               {activeTab === "privacy" && <SettingsPrivacySection />}
             </div>

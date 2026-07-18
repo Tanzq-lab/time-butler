@@ -11,7 +11,6 @@ export {
   getTasks,
   addTask,
   updateTask,
-  updateTaskCategoryIfUnchanged,
   deleteTask,
   toggleTaskArchived,
   incrementTaskPomos,
