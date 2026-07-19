@@ -12,6 +12,8 @@ Before changing product behavior, UX, instrumentation, reporting workflow, or op
 4. Use local product signals where available: `app_events`, sessions, tasks, completion reviews, time pages, and user feedback.
 5. State the user path, extracted need, key assumption, smallest useful change, validation, and risk boundary before or during implementation.
 
+When the change touches visual design, layout, navigation, responsive behavior, accessibility, dialogs, scrolling, native window chrome, or brand assets, Codex must also read `docs/ui-optimization-playbook.md` before editing. Follow its representative-screen gate, viewport matrix, native Tauri checks, icon/runtime rules, and Definition of Done. Do not expand a new visual direction across the whole app before the representative screen has been validated.
+
 The user delegates product and design judgment to Codex for small, locally verifiable Time Butler improvements. Prefer making a reasonable product decision and implementing it over asking for design direction. Still preserve the safety rules in this file: do not rewrite user data casually, do not restart the Tauri dev server for data-only work, and do not make destructive changes without an explicit request.
 
 ## Task Intake Memory Policy
@@ -51,6 +53,18 @@ Assume the user may be actively timing when they ask for task/data updates.
 - Do not edit app source files for a pure data update.
 - Do not run commands that restart the dev server for a pure data update.
 - If a requested fix requires source/config changes while the app may be open, warn the user that the app can refresh and preserve timer state before proceeding.
+
+## Git Completion Policy
+
+Every completed change to this repository's source, configuration, tests, scripts, or documentation must end with a Git commit before Codex reports completion, unless the user explicitly asks not to commit.
+
+- Inspect `git status` before editing and preserve pre-existing user changes.
+- Run validation appropriate to the change before committing.
+- Stage only files that belong to the current request. Never sweep unrelated or pre-existing changes into the commit.
+- Review the staged diff and use a concise commit message that describes the completed outcome.
+- If the change cannot be validated or committed, report it as incomplete and explain the blocker.
+- Do not push, create a PR, rewrite history, or amend an unrelated commit unless the user explicitly requests it.
+- Pure task/session/category data changes in `../time-butler-data` follow the data persistence rules instead; do not force private user data into this code repository.
 
 ## User-Visible Completion
 
