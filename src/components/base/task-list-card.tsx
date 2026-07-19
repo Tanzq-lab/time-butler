@@ -9,8 +9,10 @@ import {
   Play,
   MoreHorizontal,
   NotebookPen,
+  GripVertical,
 } from "lucide-react";
 import { useState } from "react";
+import type { PointerEvent } from "react";
 import type { Task } from "@/features/tasks/task-types";
 import { isTaskDone } from "@/features/tasks/task-completion";
 import { cn } from "@/lib/cn";
@@ -29,6 +31,13 @@ interface TaskListCardProps {
   onCompleteTask: () => void;
   isScheduled?: boolean;
   layout?: "list" | "grid";
+  reorderable?: boolean;
+  dragging?: boolean;
+  dropIndicator?: "before" | "after" | null;
+  onPointerDown?: (event: PointerEvent<HTMLElement>) => void;
+  onPointerMove?: (event: PointerEvent<HTMLElement>) => void;
+  onPointerUp?: (event: PointerEvent<HTMLElement>) => void;
+  onPointerCancel?: (event: PointerEvent<HTMLElement>) => void;
 }
 
 function formatScheduledFor(value?: string | null): string {
@@ -56,6 +65,13 @@ export function TaskListCard({
   onCompleteTask,
   isScheduled = false,
   layout = "list",
+  reorderable = false,
+  dragging = false,
+  dropIndicator = null,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
 }: TaskListCardProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isDone = isTaskDone(task);
@@ -63,8 +79,13 @@ export function TaskListCard({
 
   return (
     <article
+      data-task-id={task.id}
+      onPointerDown={reorderable ? onPointerDown : undefined}
+      onPointerMove={reorderable ? onPointerMove : undefined}
+      onPointerUp={reorderable ? onPointerUp : undefined}
+      onPointerCancel={reorderable ? onPointerCancel : undefined}
       className={cn(
-        "group relative border border-sahara-border bg-sahara-surface transition-[border-color,background-color,opacity] duration-150",
+        "group relative border border-sahara-border bg-sahara-surface transition-[border-color,background-color,box-shadow,opacity,transform] duration-150 motion-reduce:transition-none",
         layout === "grid" ? "rounded-[10px] p-4" : "rounded-md px-3 py-2.5 md:px-4",
         isDone
           ? "opacity-65 hover:opacity-90"
@@ -73,17 +94,43 @@ export function TaskListCard({
           : "hover:border-sahara-text-muted",
         isActive && !isDone &&
           "border-sahara-text-muted bg-sahara-card",
+        reorderable && "cursor-grab select-none hover:bg-sahara-card/35",
+        dragging && "cursor-grabbing rounded-lg bg-sahara-surface shadow-lg ring-1 ring-sahara-primary/25",
+        dropIndicator && "bg-sahara-card/50",
       )}
     >
-      <div className="mb-1.5 flex items-start justify-between gap-2">
+      {dropIndicator === "before" && (
         <span
-          className={cn(
-            "rounded-md bg-sahara-card px-2 py-0.5 text-[10px] font-medium text-sahara-text-muted",
-            isActive ? "bg-sahara-surface text-sahara-text" : "",
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-2 top-0 z-10 h-0.5 rounded-full bg-sahara-primary"
+        />
+      )}
+      {dropIndicator === "after" && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-2 bottom-0 z-10 h-0.5 rounded-full bg-sahara-primary"
+        />
+      )}
+      <div className="mb-1.5 flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-1.5">
+          {reorderable && (
+            <span
+              aria-hidden="true"
+              title="按住任务空白处或点阵拖动调整顺序"
+              className="flex shrink-0 items-center justify-center rounded-md p-1 text-sahara-text-muted/80"
+            >
+              <GripVertical className="size-4" />
+            </span>
           )}
-        >
-          {task.project || "通用"}
-        </span>
+          <span
+            className={cn(
+              "rounded-md bg-sahara-card px-2 py-0.5 text-[10px] font-medium text-sahara-text-muted",
+              isActive ? "bg-sahara-surface text-sahara-text" : "",
+            )}
+          >
+            {task.project || "通用"}
+          </span>
+        </div>
         <div className="hidden shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-150 md:flex md:group-hover:opacity-100 md:group-focus-within:opacity-100">
           {!isDone && !isScheduled && (
             <>

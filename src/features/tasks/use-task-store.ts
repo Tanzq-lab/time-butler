@@ -8,6 +8,7 @@ import {
   getTasks,
   addTask as dbAddTask,
   updateTask as dbUpdateTask,
+  reorderTasks as dbReorderTasks,
   deleteTask as dbDeleteTask,
   toggleTaskArchived,
   incrementTaskPomos,
@@ -56,6 +57,7 @@ interface TaskStore {
     categoryId?: number | null,
     scheduledFor?: string | null,
   ) => Promise<void>;
+  reorderTasks: (orderedIds: number[]) => Promise<boolean>;
   deleteTask: (id: number) => Promise<void>;
   archiveTask: (id: number) => Promise<void>;
   incrementPomos: (
@@ -75,7 +77,15 @@ interface TaskStore {
   ) => Promise<boolean>;
 }
 
-export const useTaskStore = create<TaskStore>((set) => ({
+function sortTasks(tasks: Task[]): Task[] {
+  return [...tasks].sort((a, b) => {
+    const sortOrder = (a.sort_order ?? 0) - (b.sort_order ?? 0);
+    if (sortOrder !== 0) return sortOrder;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+}
+
+export const useTaskStore = create<TaskStore>((set, get) => ({
   tasks: [],
   loading: false,
   error: null,
@@ -100,7 +110,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
 
       await ensureRecurringSummaryTasks();
       tasks = await getTasks();
-      set({ tasks, loading: false });
+      set({ tasks: sortTasks(tasks), loading: false });
     } catch (err) {
       console.error("[TaskStore] Failed to load tasks:", err);
       set({ loading: false, error: String(err) });
@@ -132,6 +142,11 @@ export const useTaskStore = create<TaskStore>((set) => ({
         completed_pomos: 0,
         project: project ?? undefined,
         priority: priority as Task["priority"] | undefined,
+        sort_order:
+          Math.min(
+            0,
+            ...get().tasks.map((task) => task.sort_order ?? 0),
+          ) - 1,
         category_id: resolvedCategoryId,
         scheduled_for: scheduledFor ?? null,
         completed_at: null,
@@ -141,7 +156,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
         archived: 0,
       };
       set((state) => ({
-        tasks: [newTask, ...state.tasks],
+        tasks: sortTasks([newTask, ...state.tasks]),
         error: null,
       }));
       void recordAppEvent({
@@ -227,6 +242,46 @@ export const useTaskStore = create<TaskStore>((set) => ({
     } catch (err) {
       console.error("[TaskStore] Failed to update task:", err);
       set({ error: String(err) });
+    }
+  },
+
+  reorderTasks: async (orderedIds) => {
+    const visibleTaskIds = new Set(get().tasks.map((task) => task.id));
+    const validIds =
+      orderedIds.length > 0
+      && new Set(orderedIds).size === orderedIds.length
+      && orderedIds.every((id) => Number.isInteger(id) && visibleTaskIds.has(id));
+    if (!validIds) return false;
+
+    const currentOrder = get()
+      .tasks
+      .filter((task) => orderedIds.includes(task.id))
+      .map((task) => task.id);
+    if (orderedIds.every((id, index) => id === currentOrder[index])) return true;
+
+    try {
+      await dbReorderTasks(orderedIds);
+      const sortOrderById = new Map(orderedIds.map((id, index) => [id, index]));
+      set((state) => ({
+        tasks: sortTasks(
+          state.tasks.map((task) => {
+            const sortOrder = sortOrderById.get(task.id);
+            return sortOrder === undefined ? task : { ...task, sort_order: sortOrder };
+          }),
+        ),
+        error: null,
+      }));
+      void recordAppEvent({
+        eventName: "task_reordered",
+        route: "/tasks",
+        entityType: "task_list",
+        metadata: { scope: "active", count: orderedIds.length },
+      });
+      return true;
+    } catch (err) {
+      console.error("[TaskStore] Failed to reorder tasks:", err);
+      set({ error: String(err) });
+      return false;
     }
   },
 

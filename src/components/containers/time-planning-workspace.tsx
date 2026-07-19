@@ -33,7 +33,6 @@ import { getWeekDateRangeFromKey, toLocalISODate } from "@/lib/time-pages";
 import { isTaskDone } from "@/features/tasks/task-completion";
 import type { Task } from "@/features/tasks/task-types";
 import { useTaskStore } from "@/features/tasks/use-task-store";
-import { useCategoriesStore } from "@/features/categories/use-categories-store";
 import { useTimerStore } from "@/features/timer/use-timer-store";
 import { useTimePageStore } from "@/features/time-pages/use-time-page-store";
 
@@ -412,8 +411,6 @@ export function TimePlanningWorkspace() {
   const [taskToMove, setTaskToMove] = useState<Task | null>(null);
   const [moveDate, setMoveDate] = useState("");
   const [moveDateError, setMoveDateError] = useState("");
-  const categories = useCategoriesStore((state) => state.categories);
-  const loadCategories = useCategoriesStore((state) => state.loadCategories);
 
   const activePage = useMemo(
     () => pages.find((page) => page.id === activePageId) ?? null,
@@ -477,8 +474,7 @@ export function TimePlanningWorkspace() {
   useEffect(() => {
     void loadWorkspace();
     void loadTasks();
-    void loadCategories();
-  }, [loadCategories, loadTasks, loadWorkspace]);
+  }, [loadTasks, loadWorkspace]);
 
   const refreshWorkspace = useCallback(async () => {
     if (hasUnsavedDraft) return;
@@ -566,9 +562,9 @@ export function TimePlanningWorkspace() {
       taskToEdit.id,
       data.name,
       data.estimatedPomos,
-      data.project || null,
-      data.priority || null,
-      data.categoryId,
+      undefined,
+      undefined,
+      undefined,
       taskToEdit.scheduled_for,
     );
     setTaskToEdit(null);
@@ -647,7 +643,6 @@ export function TimePlanningWorkspace() {
         onClose={() => setTaskToEdit(null)}
         onSubmit={handleSubmitEditTask}
         editTask={taskToEdit}
-        categories={categories}
       />
       <ConfirmDialog
         open={!!taskToDelete}

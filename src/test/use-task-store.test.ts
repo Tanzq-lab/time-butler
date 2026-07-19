@@ -18,8 +18,8 @@ const mockTasks = [
     name: "Task B",
     project: "Work",
     priority: "high" as const,
-    estimated_pomos: 5,
-    completed_pomos: 5,
+    estimated_pomos: 4,
+    completed_pomos: 4,
     category_id: 1,
     created_at: "2026-01-02T00:00:00",
     archived: 0,
@@ -42,8 +42,8 @@ vi.mock("@/lib/db", () => ({
       name: "Task B",
       project: "Work",
       priority: "high",
-      estimated_pomos: 5,
-      completed_pomos: 5,
+      estimated_pomos: 4,
+      completed_pomos: 4,
       category_id: 1,
       created_at: "2026-01-02T00:00:00",
       archived: 0,
@@ -51,6 +51,7 @@ vi.mock("@/lib/db", () => ({
   ]),
   addTask: vi.fn().mockResolvedValue(3),
   updateTask: vi.fn().mockResolvedValue(undefined),
+  reorderTasks: vi.fn().mockResolvedValue(undefined),
   deleteTask: vi.fn().mockResolvedValue(undefined),
   toggleTaskArchived: vi.fn().mockResolvedValue(undefined),
   incrementTaskPomos: vi.fn().mockResolvedValue(undefined),
@@ -126,7 +127,7 @@ describe("useTaskStore", () => {
       await useTaskStore.getState().loadTasks();
       const state = useTaskStore.getState();
       expect(state.tasks).toHaveLength(2);
-      expect(state.tasks[0].name).toBe("Task A");
+      expect(state.tasks[0].name).toBe("Task B");
       expect(state.loading).toBe(false);
       expect(state.error).toBeNull();
       expect(ensureRecurringSummaryTasks).toHaveBeenCalledTimes(1);
@@ -201,11 +202,11 @@ describe("useTaskStore", () => {
   describe("updateTask", () => {
     it("optimistically updates task fields", async () => {
       useTaskStore.setState({ tasks: [...mockTasks] });
-      await useTaskStore.getState().updateTask(1, "Updated Name", 10);
+      await useTaskStore.getState().updateTask(1, "Updated Name", 4);
       const state = useTaskStore.getState();
       const updated = state.tasks.find((t) => t.id === 1)!;
       expect(updated.name).toBe("Updated Name");
-      expect(updated.estimated_pomos).toBe(10);
+      expect(updated.estimated_pomos).toBe(4);
       expect(updated.completed_pomos).toBe(1);
     });
 
@@ -215,6 +216,52 @@ describe("useTaskStore", () => {
       const updated = useTaskStore.getState().tasks.find((t) => t.id === 1)!;
       expect(updated.name).toBe("Task A");
       expect(updated.project).toBe("NewProject");
+    });
+  });
+
+  describe("reorderTasks", () => {
+    it("persists the active task order and records a local event", async () => {
+      const { reorderTasks, recordAppEvent } = await import("@/lib/db");
+      useTaskStore.setState({
+        tasks: [
+          { ...mockTasks[0], sort_order: 0 },
+          { ...mockTasks[1], sort_order: 1 },
+        ],
+      });
+
+      expect(await useTaskStore.getState().reorderTasks([2, 1])).toBe(true);
+
+      expect(reorderTasks).toHaveBeenCalledWith([2, 1]);
+      expect(useTaskStore.getState().tasks.map((task) => task.id)).toEqual([2, 1]);
+      expect(recordAppEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventName: "task_reordered",
+          metadata: { scope: "active", count: 2 },
+        }),
+      );
+    });
+
+    it("rejects an invalid order without changing local task state", async () => {
+      const { reorderTasks } = await import("@/lib/db");
+      useTaskStore.setState({ tasks: [...mockTasks] });
+
+      expect(await useTaskStore.getState().reorderTasks([1, 1])).toBe(false);
+      expect(reorderTasks).not.toHaveBeenCalled();
+      expect(useTaskStore.getState().tasks.map((task) => task.id)).toEqual([1, 2]);
+    });
+
+    it("keeps the in-memory order when persistence fails", async () => {
+      const { reorderTasks } = await import("@/lib/db");
+      vi.mocked(reorderTasks).mockRejectedValueOnce(new Error("database unavailable"));
+      useTaskStore.setState({
+        tasks: [
+          { ...mockTasks[0], sort_order: 0 },
+          { ...mockTasks[1], sort_order: 1 },
+        ],
+      });
+
+      expect(await useTaskStore.getState().reorderTasks([2, 1])).toBe(false);
+      expect(useTaskStore.getState().tasks.map((task) => task.id)).toEqual([1, 2]);
     });
   });
 
@@ -256,7 +303,7 @@ describe("useTaskStore", () => {
       useTaskStore.setState({ tasks: [...mockTasks] });
       await useTaskStore.getState().incrementPomos(1);
       const other = useTaskStore.getState().tasks.find((t) => t.id === 2)!;
-      expect(other.completed_pomos).toBe(5);
+      expect(other.completed_pomos).toBe(4);
     });
 
     it("reflects a session credit without incrementing the database twice", async () => {

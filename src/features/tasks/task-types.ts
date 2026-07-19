@@ -3,6 +3,7 @@ export interface Task {
   name: string;
   project?: string;
   priority?: "low" | "medium" | "high";
+  sort_order?: number;
   estimated_pomos: number;
   completed_pomos: number;
   category_id?: number | null;

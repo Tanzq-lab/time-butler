@@ -1,9 +1,9 @@
-import { useReducer, useEffect } from "react";
+import { useReducer, useEffect, useRef, useState } from "react";
+import type { PointerEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTaskStore } from "@/features/tasks/use-task-store";
 import { useTimerStore } from "@/features/timer/use-timer-store";
 import { useTaskFilter } from "@/features/tasks/use-task-filter";
-import { useCategoriesStore } from "@/features/categories/use-categories-store";
 import { useTodoStore } from "@/features/todos/use-todo-store";
 import {
   Plus,
@@ -43,6 +43,31 @@ interface ListState {
   todoToConvert: Todo | null;
   showDone: boolean;
   doneVisibleCount: number;
+}
+
+type TaskDropPosition = "before" | "after";
+
+interface TaskDropTarget {
+  id: number;
+  position: TaskDropPosition;
+}
+
+interface TaskRowBounds {
+  id: number;
+  top: number;
+  bottom: number;
+  midpoint: number;
+}
+
+interface PointerDrag {
+  taskId: number;
+  pointerId: number;
+  startY: number;
+  isDragging: boolean;
+  latestOffsetY: number;
+  frameId: number | null;
+  rowElement: HTMLElement;
+  rowBounds: TaskRowBounds[];
 }
 
 type ListAction =
@@ -126,6 +151,7 @@ export function TasksList() {
   const tasks = useTaskStore((s) => s.tasks);
   const addTask = useTaskStore((s) => s.addTask);
   const updateTask = useTaskStore((s) => s.updateTask);
+  const reorderTasks = useTaskStore((s) => s.reorderTasks);
   const deleteTask = useTaskStore((s) => s.deleteTask);
   const completeTask = useTaskStore((s) => s.completeTask);
   const appendTaskNote = useTaskStore((s) => s.appendTaskNote);
@@ -137,6 +163,10 @@ export function TasksList() {
   const setActiveTask = useTimerStore((s) => s.setActiveTask);
 
   const [listState, dispatch] = useReducer(listReducer, INITIAL_LIST_STATE);
+  const [draggingTaskId, setDraggingTaskId] = useState<number | null>(null);
+  const [dropTarget, setDropTarget] = useState<TaskDropTarget | null>(null);
+  const pointerDragRef = useRef<PointerDrag | null>(null);
+  const dropTargetRef = useRef<TaskDropTarget | null>(null);
   const {
     searchQuery,
     viewMode,
@@ -149,13 +179,6 @@ export function TasksList() {
     showDone,
     doneVisibleCount,
   } = listState;
-
-  const categories = useCategoriesStore((s) => s.categories);
-  const loadCategories = useCategoriesStore((s) => s.loadCategories);
-
-  useEffect(() => {
-    loadCategories();
-  }, [loadCategories]);
 
   useEffect(() => {
     let disposed = false;
@@ -197,6 +220,8 @@ export function TasksList() {
   const hasTodoMatch = todos.some(
     (todo) => !normalizedSearch || todo.title.toLowerCase().includes(normalizedSearch),
   );
+  const canReorderActiveTasks =
+    viewMode === "list" && !searchQuery.trim() && activeTasks.length > 1;
 
   const handleFocus = async (taskId: number) => {
     await setActiveTask(taskId);
@@ -204,14 +229,7 @@ export function TasksList() {
   };
 
   const handleAddTask = async (data: AddTaskData) => {
-    const task = await addTask(
-      data.name,
-      data.estimatedPomos,
-      data.project,
-      data.priority,
-      data.categoryId,
-      data.scheduledFor,
-    );
+    const task = await addTask(data.name, data.estimatedPomos);
     return Boolean(task);
   };
 
@@ -221,24 +239,13 @@ export function TasksList() {
       taskToEdit.id,
       data.name,
       data.estimatedPomos,
-      data.project || null,
-      data.priority || null,
-      data.categoryId,
-      data.scheduledFor,
     );
     return true;
   };
 
   const handleConvertTodo = async (data: AddTaskData) => {
     if (!todoToConvert) return false;
-    const task = await addTask(
-      data.name,
-      data.estimatedPomos,
-      data.project,
-      data.priority,
-      data.categoryId,
-      data.scheduledFor,
-    );
+    const task = await addTask(data.name, data.estimatedPomos);
     if (!task) return false;
 
     return archiveTodo(todoToConvert.id, "todo_converted_to_task");
@@ -270,6 +277,159 @@ export function TasksList() {
     await deleteTask(taskToDelete.id);
     if (activeTaskId === taskToDelete.id) await setActiveTask(null);
     dispatch({ type: "CLOSE_DELETE_DIALOG" });
+  };
+
+  const setCurrentDropTarget = (target: TaskDropTarget | null) => {
+    if (
+      dropTargetRef.current?.id === target?.id
+      && dropTargetRef.current?.position === target?.position
+    ) {
+      return;
+    }
+    dropTargetRef.current = target;
+    setDropTarget(target);
+  };
+
+  const applyPointerTransform = (pointerDrag: PointerDrag) => {
+    pointerDrag.rowElement.style.transform =
+      `translate3d(0, ${pointerDrag.latestOffsetY}px, 0) scale(1.01)`;
+  };
+
+  const releasePointerDrag = (pointerDrag: PointerDrag) => {
+    if (pointerDrag.frameId !== null && typeof cancelAnimationFrame === "function") {
+      cancelAnimationFrame(pointerDrag.frameId);
+    }
+    pointerDrag.frameId = null;
+    pointerDrag.rowElement.style.removeProperty("transform");
+    pointerDrag.rowElement.style.removeProperty("transition");
+    pointerDrag.rowElement.style.removeProperty("will-change");
+    pointerDrag.rowElement.style.removeProperty("pointer-events");
+  };
+
+  const clearPointerDrag = () => {
+    const pointerDrag = pointerDragRef.current;
+    if (pointerDrag) releasePointerDrag(pointerDrag);
+    pointerDragRef.current = null;
+    setDraggingTaskId(null);
+    setCurrentDropTarget(null);
+  };
+
+  const isTaskControl = (target: EventTarget | null) =>
+    target instanceof Element
+    && Boolean(target.closest("button, input, textarea, select, a, [data-task-drag-exempt]"));
+
+  const captureTaskRowBounds = (): TaskRowBounds[] => {
+    const activeTaskIds = new Set(activeTasks.map((task) => task.id));
+    return Array.from(document.querySelectorAll<HTMLElement>("[data-task-id]"))
+      .map((row) => {
+        const id = Number(row.dataset.taskId);
+        const bounds = row.getBoundingClientRect();
+        return {
+          id,
+          top: bounds.top,
+          bottom: bounds.bottom,
+          midpoint: bounds.top + bounds.height / 2,
+        };
+      })
+      .filter((row) => Number.isInteger(row.id) && activeTaskIds.has(row.id));
+  };
+
+  const getDropTargetAtY = (
+    clientY: number,
+    pointerDrag: PointerDrag,
+  ): TaskDropTarget | null => {
+    const row = pointerDrag.rowBounds.find(
+      (bounds) =>
+        bounds.id !== pointerDrag.taskId
+        && clientY >= bounds.top
+        && clientY <= bounds.bottom,
+    );
+    if (!row) return null;
+
+    return {
+      id: row.id,
+      position: clientY < row.midpoint ? "before" : "after",
+    };
+  };
+
+  const handleTaskPointerDown = (
+    event: PointerEvent<HTMLElement>,
+    taskId: number,
+  ) => {
+    if (event.button !== 0 || event.isPrimary === false || isTaskControl(event.target)) return;
+
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    pointerDragRef.current = {
+      taskId,
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      isDragging: false,
+      latestOffsetY: 0,
+      frameId: null,
+      rowElement: event.currentTarget,
+      rowBounds: [],
+    };
+    setCurrentDropTarget(null);
+  };
+
+  const handleTaskPointerMove = (event: PointerEvent<HTMLElement>) => {
+    const pointerDrag = pointerDragRef.current;
+    if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+
+    const offsetY = event.clientY - pointerDrag.startY;
+    if (!pointerDrag.isDragging && Math.abs(offsetY) < 6) return;
+
+    event.preventDefault();
+    if (!pointerDrag.isDragging) {
+      pointerDrag.isDragging = true;
+      pointerDrag.rowBounds = captureTaskRowBounds();
+      pointerDrag.rowElement.style.transition = "none";
+      pointerDrag.rowElement.style.willChange = "transform";
+      pointerDrag.rowElement.style.pointerEvents = "none";
+      setDraggingTaskId(pointerDrag.taskId);
+    }
+
+    pointerDrag.latestOffsetY = offsetY;
+    if (pointerDrag.frameId === null) {
+      if (typeof requestAnimationFrame === "function") {
+        pointerDrag.frameId = requestAnimationFrame(() => {
+          if (pointerDragRef.current !== pointerDrag) return;
+          pointerDrag.frameId = null;
+          applyPointerTransform(pointerDrag);
+        });
+      } else {
+        applyPointerTransform(pointerDrag);
+      }
+    }
+    setCurrentDropTarget(getDropTargetAtY(event.clientY, pointerDrag));
+  };
+
+  const handleTaskPointerUp = (event: PointerEvent<HTMLElement>) => {
+    const pointerDrag = pointerDragRef.current;
+    if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
+
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+    }
+
+    const target = dropTargetRef.current;
+    releasePointerDrag(pointerDrag);
+    pointerDragRef.current = null;
+    setDraggingTaskId(null);
+    setCurrentDropTarget(null);
+    if (!pointerDrag.isDragging || !target || pointerDrag.taskId === target.id) return;
+
+    const orderedIds = activeTasks.map((task) => task.id);
+    const sourceIndex = orderedIds.indexOf(pointerDrag.taskId);
+    const targetIndex = orderedIds.indexOf(target.id);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+
+    const nextIds = [...orderedIds];
+    nextIds.splice(sourceIndex, 1);
+    const insertIndex = nextIds.indexOf(target.id) + (target.position === "after" ? 1 : 0);
+    nextIds.splice(insertIndex, 0, pointerDrag.taskId);
+    void reorderTasks(nextIds);
   };
 
   return (
@@ -310,7 +470,6 @@ export function TasksList() {
         }
         initialName={todoToConvert?.title}
         editTask={taskToEdit}
-        categories={categories}
       />
       <TaskCompletionReviewModal
         open={!!taskToComplete}
@@ -339,7 +498,11 @@ export function TasksList() {
         onConvert={(todo) => dispatch({ type: "OPEN_CONVERT_MODAL", todo })}
       />
 
-      <section aria-label="专注任务" className="border-t border-sahara-border pt-8 md:pt-9">
+      <section
+        aria-label="专注任务"
+        aria-describedby={canReorderActiveTasks ? "task-reorder-help" : undefined}
+        className="border-t border-sahara-border pt-8 md:pt-9"
+      >
         <SectionHeader
           title="专注任务"
           meta={
@@ -437,9 +600,23 @@ export function TasksList() {
                     onDelete={() => dispatch({ type: "OPEN_DELETE_DIALOG", task })}
                     onCompleteTask={() => handleCompleteTaskRequest(task)}
                     layout={viewMode}
+                    reorderable={canReorderActiveTasks}
+                    dragging={draggingTaskId === task.id}
+                    dropIndicator={
+                      dropTarget?.id === task.id ? dropTarget.position : null
+                    }
+                    onPointerDown={(event) => handleTaskPointerDown(event, task.id)}
+                    onPointerMove={handleTaskPointerMove}
+                    onPointerUp={handleTaskPointerUp}
+                    onPointerCancel={clearPointerDrag}
                   />
                 ))}
               </div>
+              {canReorderActiveTasks && (
+                <p id="task-reorder-help" className="sr-only">
+                  按住任务空白处或点阵，拖到另一项任务的上方或下方以调整优先顺序。
+                </p>
+              )}
             </div>
           )}
 

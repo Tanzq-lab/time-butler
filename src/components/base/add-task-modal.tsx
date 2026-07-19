@@ -1,22 +1,19 @@
 import {
   useReducer,
   useEffect,
-  useMemo,
 } from "react";
 import type React from "react";
-import { Edit3, Plus, Tag } from "lucide-react";
+import { Edit3, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModalOverlay } from "@/components/ui/modal-overlay";
 import type { Task } from "@/features/tasks/task-types";
-import type { Category } from "@/lib/db/types";
+
+const POMODORO_OPTIONS = [1, 2, 3, 4] as const;
+type PomodoroEstimate = (typeof POMODORO_OPTIONS)[number];
 
 export interface AddTaskData {
   name: string;
-  estimatedPomos: number;
-  project: string;
-  priority: string;
-  categoryId: number | null;
-  scheduledFor?: string | null;
+  estimatedPomos: PomodoroEstimate;
 }
 
 interface AddTaskModalProps {
@@ -25,22 +22,11 @@ interface AddTaskModalProps {
   onSubmit: (data: AddTaskData) => boolean | void | Promise<boolean | void>;
   editTask?: Task | null;
   initialName?: string;
-  categories: Category[];
 }
-
-const PRIORITY_OPTIONS = [
-  { value: "", label: "无" },
-  { value: "low", label: "低" },
-  { value: "medium", label: "中" },
-  { value: "high", label: "高" },
-];
 
 interface FormState {
   name: string;
-  estimatedPomos: number;
-  project: string;
-  priority: string;
-  categoryId: number | null;
+  estimatedPomos: PomodoroEstimate | null;
 }
 
 type FormAction =
@@ -49,11 +35,14 @@ type FormAction =
 
 const INITIAL_STATE: FormState = {
   name: "",
-  estimatedPomos: 4,
-  project: "",
-  priority: "",
-  categoryId: null,
+  estimatedPomos: null,
 };
+
+function asPomodoroEstimate(value: number): PomodoroEstimate | null {
+  return POMODORO_OPTIONS.includes(value as PomodoroEstimate)
+    ? (value as PomodoroEstimate)
+    : null;
+}
 
 function initialStateForTask(
   editTask?: Task | null,
@@ -65,10 +54,7 @@ function initialStateForTask(
 
   return {
     name: editTask.name,
-    estimatedPomos: editTask.estimated_pomos,
-    project: editTask.project || "",
-    priority: editTask.priority || "",
-    categoryId: editTask.category_id ?? null,
+    estimatedPomos: asPomodoroEstimate(editTask.estimated_pomos),
   };
 }
 
@@ -89,7 +75,6 @@ export function AddTaskModal({
   onSubmit,
   editTask,
   initialName,
-  categories,
 }: AddTaskModalProps) {
   const isEditing = !!editTask;
   const [form, dispatch] = useReducer(
@@ -105,21 +90,13 @@ export function AddTaskModal({
     });
   }, [open, editTask, initialName]);
 
-  const matchedCategory = useMemo(
-    () => categories.find((c) => c.id === form.categoryId) ?? null,
-    [categories, form.categoryId],
-  );
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim()) return;
+    if (!form.name.trim() || form.estimatedPomos === null) return;
 
     const submitted = await onSubmit({
       name: form.name.trim(),
       estimatedPomos: form.estimatedPomos,
-      project: form.project.trim() || "",
-      priority: form.priority || "",
-      categoryId: form.categoryId,
     });
     if (submitted !== false) onClose();
   };
@@ -178,141 +155,45 @@ export function AddTaskModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label
-                htmlFor="task-pomos"
-                className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
-              >
-                预计番茄数
-              </label>
-              <input
-                id="task-pomos"
-                type="number"
-                name="task-pomos"
-                min={1}
-                max={100}
-                value={form.estimatedPomos}
-                onChange={(e) =>
-                  dispatch({
-                    type: "SET_FIELD",
-                    field: "estimatedPomos",
-                    value: Math.max(1, parseInt(e.target.value, 10) || 1),
-                  })
-                }
-                className="h-10 w-full rounded-md border border-sahara-border bg-sahara-surface px-3 font-mono text-sm tabular-nums text-sahara-text outline-none focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="task-priority"
-                className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
-              >
-                优先级
-              </label>
-              <select
-                id="task-priority"
-                name="task-priority"
-                value={form.priority}
-                onChange={(e) =>
-                  dispatch({
-                    type: "SET_FIELD",
-                    field: "priority",
-                    value: e.target.value,
-                  })
-                }
-                className="h-10 w-full cursor-pointer appearance-none rounded-md border border-sahara-border bg-sahara-surface px-3 text-sm text-sahara-text outline-none focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
-              >
-                {PRIORITY_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
           <div>
             <label
-              htmlFor="task-project"
+              id="task-pomos-label"
               className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
             >
-              项目（归属）
+              预计番茄数
             </label>
-            <input
-              id="task-project"
-              type="text"
-              name="task-project"
-              autoComplete="off"
-              value={form.project}
-              onChange={(e) =>
-                dispatch({
-                  type: "SET_FIELD",
-                  field: "project",
-                  value: e.target.value,
-                })
-              }
-              placeholder="例如：Time-butler、客户项目"
-              className="h-10 w-full rounded-md border border-sahara-border bg-sahara-surface px-3 text-sm text-sahara-text outline-none placeholder:text-sahara-text-muted focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
-            />
-          </div>
-
-          <details className="group rounded-md border border-sahara-border bg-sahara-card/50">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm text-sahara-text marker:hidden">
-              <span className="inline-flex items-center gap-2 font-medium">
-                <Tag className="size-4 text-sahara-text-muted" />
-                手动指定分类
-              </span>
-              {matchedCategory ? (
-                <span
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
-                  style={{
-                    backgroundColor: `${matchedCategory.color}18`,
-                    color: matchedCategory.color,
-                  }}
-                >
-                  <span
-                    className="size-2 rounded-full"
-                    style={{ backgroundColor: matchedCategory.color }}
-                  />
-                  {matchedCategory.name}
-                </span>
-              ) : (
-                <span className="shrink-0 text-xs font-bold text-sahara-text-muted">
-                  默认留空
-                </span>
-              )}
-            </summary>
-            <div className="border-t border-sahara-border/10 px-4 pb-4 pt-3">
-              <label
-                htmlFor="task-category"
-                className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
-              >
-                分类（可选）
-              </label>
-              <select
-                id="task-category"
-                name="task-category"
-                value={form.categoryId ?? ""}
-                onChange={(e) =>
-                  dispatch({
-                    type: "SET_FIELD",
-                    field: "categoryId",
-                    value: e.target.value ? Number(e.target.value) : null,
-                  })
-                }
-                className="h-10 w-full cursor-pointer appearance-none rounded-md border border-sahara-border bg-sahara-surface px-3 text-sm text-sahara-text outline-none focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
-              >
-                <option value="">未分类</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
+            <div
+              role="group"
+              aria-labelledby="task-pomos-label"
+              className="grid grid-cols-4 gap-2"
+            >
+              {POMODORO_OPTIONS.map((pomos) => {
+                const selected = form.estimatedPomos === pomos;
+                return (
+                  <button
+                    key={pomos}
+                    type="button"
+                    aria-label={`预计 ${pomos} 个番茄`}
+                    aria-pressed={selected}
+                    onClick={() =>
+                      dispatch({
+                        type: "SET_FIELD",
+                        field: "estimatedPomos",
+                        value: pomos,
+                      })
+                    }
+                    className={`flex h-12 items-center justify-center rounded-md border text-base font-semibold tabular-nums outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-sahara-focus ${
+                      selected
+                        ? "border-sahara-text bg-sahara-card text-sahara-text"
+                        : "border-sahara-border bg-sahara-surface text-sahara-text-secondary hover:border-sahara-text-muted hover:bg-sahara-card"
+                    }`}
+                  >
+                    {pomos}
+                  </button>
+                );
+              })}
             </div>
-          </details>
+          </div>
 
           <div className="flex gap-3 pt-2">
             <Button
@@ -328,9 +209,9 @@ export function AddTaskModal({
             <Button
               type="submit"
               variant="solid"
-              intent={form.name.trim() ? "sahara" : "default"}
+              intent={form.name.trim() && form.estimatedPomos !== null ? "sahara" : "default"}
               fullWidth
-              disabled={!form.name.trim()}
+              disabled={!form.name.trim() || form.estimatedPomos === null}
               className="gap-2"
             >
               {isEditing ? (

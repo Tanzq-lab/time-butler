@@ -6,6 +6,7 @@ export async function getTasks(): Promise<
     name: string;
     project?: string;
     priority?: "low" | "medium" | "high";
+    sort_order: number;
     estimated_pomos: number;
     completed_pomos: number;
     category_id: number | null;
@@ -24,6 +25,7 @@ export async function getTasks(): Promise<
       name: string;
       project?: string;
       priority?: "low" | "medium" | "high";
+      sort_order: number;
       estimated_pomos: number;
       completed_pomos: number;
       category_id: number | null;
@@ -34,7 +36,13 @@ export async function getTasks(): Promise<
       created_at: string;
       archived: number;
     }[]
-  >("SELECT * FROM tasks WHERE archived = 0 ORDER BY created_at DESC");
+  >("SELECT * FROM tasks WHERE archived = 0 ORDER BY sort_order ASC, created_at DESC");
+}
+
+function assertEstimatedPomos(estimatedPomos: number): void {
+  if (!Number.isInteger(estimatedPomos) || estimatedPomos < 1 || estimatedPomos > 4) {
+    throw new Error("预计番茄数必须是 1 到 4 的整数");
+  }
 }
 
 export async function addTask(
@@ -45,9 +53,26 @@ export async function addTask(
   categoryId?: number | null,
   scheduledFor?: string | null,
 ): Promise<number> {
+  assertEstimatedPomos(estimatedPomos);
   const database = await getDb();
   const result = await database.execute(
-    "INSERT INTO tasks (name, estimated_pomos, project, priority, category_id, scheduled_for) VALUES ($1, $2, $3, $4, $5, $6)",
+    `INSERT INTO tasks (
+      name,
+      estimated_pomos,
+      project,
+      priority,
+      category_id,
+      scheduled_for,
+      sort_order
+    ) VALUES (
+      $1,
+      $2,
+      $3,
+      $4,
+      $5,
+      $6,
+      COALESCE((SELECT MIN(sort_order) FROM tasks WHERE archived = 0), 0) - 1
+    )`,
     [
       name,
       estimatedPomos,
@@ -71,6 +96,36 @@ export async function toggleTaskArchived(
   ]);
 }
 
+export async function reorderTasks(orderedIds: number[]): Promise<void> {
+  if (orderedIds.length === 0) return;
+  if (
+    orderedIds.some((id) => !Number.isInteger(id) || id <= 0)
+    || new Set(orderedIds).size !== orderedIds.length
+  ) {
+    throw new Error("任务排序参数无效");
+  }
+
+  const caseClauses = orderedIds
+    .map((_, index) => `WHEN $${index * 2 + 1} THEN $${index * 2 + 2}`)
+    .join(" ");
+  const idPlaceholders = orderedIds
+    .map((_, index) => `$${index * 2 + 1}`)
+    .join(", ");
+  const parameters: number[] = [];
+  orderedIds.forEach((id, index) => {
+    parameters.push(id, index);
+  });
+
+  const database = await getDb();
+  await database.execute(
+    `UPDATE tasks
+     SET sort_order = CASE id ${caseClauses} ELSE sort_order END
+     WHERE id IN (${idPlaceholders})
+       AND archived = 0`,
+    parameters,
+  );
+}
+
 export async function updateTask(
   id: number,
   name?: string,
@@ -80,6 +135,7 @@ export async function updateTask(
   categoryId?: number | null,
   scheduledFor?: string | null,
 ): Promise<void> {
+  if (estimatedPomos !== undefined) assertEstimatedPomos(estimatedPomos);
   const database = await getDb();
   const fields: string[] = [];
   const values: (string | number | null)[] = [];

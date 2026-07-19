@@ -11,6 +11,7 @@ export {
   getTasks,
   addTask,
   updateTask,
+  reorderTasks,
   deleteTask,
   toggleTaskArchived,
   incrementTaskPomos,

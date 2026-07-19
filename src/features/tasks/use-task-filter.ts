@@ -21,10 +21,17 @@ export function useTaskFilter(tasks: Task[], searchQuery: string) {
       (t) =>
         !isTaskDone(t) && !isScheduledForFuture(t),
     );
-    const scheduled = filtered.filter(
-      (t) =>
-        !isTaskDone(t) && isScheduledForFuture(t),
-    );
+    // `sort_order` is reserved for the active list. Keep the reminder
+    // section's established newest-first timeline independent of a task's
+    // previous active-list position.
+    const scheduled = filtered
+      .filter(
+        (t) =>
+          !isTaskDone(t) && isScheduledForFuture(t),
+      )
+      .sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      );
     const done = filtered.filter(isTaskDone);
 
     return { filtered, active, scheduled, done };
