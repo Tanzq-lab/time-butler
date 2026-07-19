@@ -30,11 +30,7 @@ fn control_macos(action: NeteaseMusicAction) -> Result<(), String> {
         NeteaseMusicAction::Stop => STOP_SCRIPT,
     };
 
-    let result = run_osascript(script)?;
-    if result == "not_installed" {
-        return Err("NeteaseMusic.app was not found.".to_string());
-    }
-
+    run_osascript(script)?;
     Ok(())
 }
 
@@ -61,29 +57,8 @@ fn run_osascript(script: &str) -> Result<String, String> {
 #[cfg(target_os = "macos")]
 const PLAY_SCRIPT: &str = r#"
 set processNames to {"NeteaseMusic", "网易云音乐"}
-set appNames to {"NeteaseMusic", "网易云音乐"}
-set bundleId to "com.netease.163music"
-set didLaunch to false
 
-if my isAnyProcessRunning(processNames) is false then
-  repeat with appName in appNames
-    try
-      do shell script "open -a " & quoted form of (appName as text)
-      set didLaunch to true
-      exit repeat
-    end try
-  end repeat
-
-  if didLaunch is false then
-    try
-      do shell script "open -b " & quoted form of bundleId
-      set didLaunch to true
-    end try
-  end if
-
-  if didLaunch is false then return "not_installed"
-  delay 1
-end if
+if my isAnyProcessRunning(processNames) is false then return "not_running"
 
 my focusFirstRunningProcess(processNames)
 
@@ -142,6 +117,20 @@ on clickFirstMenuItem(processNames, itemNames)
   return false
 end clickFirstMenuItem
 "#;
+
+#[cfg(all(test, target_os = "macos"))]
+mod tests {
+    use super::PLAY_SCRIPT;
+
+    #[test]
+    fn play_only_controls_an_already_running_netease_music_process() {
+        assert!(PLAY_SCRIPT.contains(
+            "if my isAnyProcessRunning(processNames) is false then return \"not_running\""
+        ));
+        assert!(!PLAY_SCRIPT.contains("open -a"));
+        assert!(!PLAY_SCRIPT.contains("open -b"));
+    }
+}
 
 #[cfg(target_os = "macos")]
 const STOP_SCRIPT: &str = r#"
