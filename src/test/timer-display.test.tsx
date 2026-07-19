@@ -18,6 +18,13 @@ describe("TimerDisplay task pomodoro progress", () => {
       screen.getByLabelText("任务预算：0/4 个番茄"),
     ).toBeVisible();
     expect(document.querySelectorAll(".timer-task-progress-ring")).toHaveLength(2);
+    expect(document.querySelectorAll("linearGradient")).toHaveLength(2);
+    expect(
+      document.querySelectorAll(".timer-task-progress-gradient-start"),
+    ).toHaveLength(2);
+    expect(
+      document.querySelectorAll(".timer-task-progress-gradient-end"),
+    ).toHaveLength(2);
   });
 
   it("adds a glow to the existing progress ring only after the task exceeds its estimate", () => {

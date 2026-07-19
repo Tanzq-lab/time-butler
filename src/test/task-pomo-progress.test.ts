@@ -2,30 +2,37 @@ import { describe, expect, it } from "vitest";
 import { getTaskPomoProgressVisual } from "@/lib/task-pomo-progress";
 
 describe("getTaskPomoProgressVisual", () => {
-  it("starts at green for an untouched task", () => {
+  it("starts the first pomodoro at green and ends it at the next continuous budget colour", () => {
     expect(getTaskPomoProgressVisual(0, 4)).toMatchObject({
       label: "0/4",
       color: "#2f7d4e",
       darkColor: "#6cc88a",
+      gradientEndColor: "#508145",
+      gradientEndDarkColor: "#8fc77a",
       isOverrun: false,
       overrunPomos: 0,
     });
   });
 
-  it("reaches red at the estimate without raising an overrun warning", () => {
+  it("starts an over-budget pomodoro as an all-red ring without raising an overrun warning early", () => {
     expect(getTaskPomoProgressVisual(4, 4)).toMatchObject({
       label: "4/4",
       color: "#b42318",
       darkColor: "#fb7a70",
+      gradientEndColor: "#b42318",
+      gradientEndDarkColor: "#fb7a70",
       isOverrun: false,
       overrunPomos: 0,
     });
   });
 
-  it("uses the app's green, amber, and red semantic states", () => {
-    expect(getTaskPomoProgressVisual(1, 4)?.color).toBe("#2f7d4e");
-    expect(getTaskPomoProgressVisual(2, 4)?.color).toBe("#2f7d4e");
-    expect(getTaskPomoProgressVisual(3, 4)?.color).toBe("#946200");
+  it("joins adjacent pomodoros with the same boundary colour", () => {
+    const firstPomo = getTaskPomoProgressVisual(0, 2);
+    const secondPomo = getTaskPomoProgressVisual(1, 2);
+
+    expect(firstPomo?.gradientEndColor).toBe("#70843c");
+    expect(secondPomo?.color).toBe(firstPomo?.gradientEndColor);
+    expect(secondPomo?.gradientEndColor).toBe("#946200");
   });
 
   it("keeps the true count and raises an overrun warning after the estimate", () => {
@@ -33,6 +40,8 @@ describe("getTaskPomoProgressVisual", () => {
       label: "5/4",
       color: "#b42318",
       darkColor: "#fb7a70",
+      gradientEndColor: "#b42318",
+      gradientEndDarkColor: "#fb7a70",
       isOverrun: true,
       overrunPomos: 1,
     });

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, useMemo, type CSSProperties } from "react";
-import { useAnimationFrame } from "framer-motion";
+import { useEffect, useId, useRef, useState, useMemo, type CSSProperties } from "react";
+import { useAnimationFrame, useReducedMotion } from "framer-motion";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/cn";
 import { formatSeconds } from "@/lib/time";
@@ -64,6 +64,7 @@ function WavyRing({
   strokeWidth,
   className,
   dotClassName = "fill-sahara-primary",
+  stroke,
   showDot,
   isRunning,
 }: {
@@ -75,19 +76,28 @@ function WavyRing({
   strokeWidth: string;
   className: string;
   dotClassName?: string;
+  stroke?: string;
   showDot?: boolean;
   isRunning?: boolean;
 }) {
   const pathRef = useRef<SVGPathElement>(null);
   const dotRef = useRef<SVGCircleElement>(null);
+  const prefersReducedMotion = useReducedMotion();
 
   const amplitude = style === "zigzag" ? 8 : 0;
   const frequency = 12;
 
   useAnimationFrame((time) => {
-    if (!pathRef.current) return;
+    if (
+      !pathRef.current ||
+      !isRunning ||
+      style !== "zigzag" ||
+      prefersReducedMotion
+    ) {
+      return;
+    }
 
-    const phase = isRunning && style === "zigzag" ? -(time / 400) : 0;
+    const phase = -(time / 400);
     pathRef.current.setAttribute(
       "d",
       generateWavyCirclePath(cx, cy, r, amplitude, frequency, phase),
@@ -112,6 +122,9 @@ function WavyRing({
     () => generateWavyCirclePath(cx, cy, r, amplitude, frequency, 0),
     [cx, cy, r, amplitude, frequency],
   );
+  const dotAngle = (progress / 100) * 2 * Math.PI;
+  const dotWave = Math.sin(dotAngle * frequency) * amplitude;
+  const dotRadius = r + dotWave;
 
   return (
     <>
@@ -120,6 +133,7 @@ function WavyRing({
         d={staticD}
         fill="none"
         className={className}
+        stroke={stroke}
         strokeWidth={strokeWidth}
         pathLength="100"
         strokeDasharray="100"
@@ -130,14 +144,25 @@ function WavyRing({
       {showDot && isRunning && progress > 0 && progress < 100 && (
         <circle
           ref={dotRef}
-          cx={cx + r * Math.cos((progress / 100) * 2 * Math.PI)}
-          cy={cy + r * Math.sin((progress / 100) * 2 * Math.PI)}
+          cx={cx + dotRadius * Math.cos(dotAngle)}
+          cy={cy + dotRadius * Math.sin(dotAngle)}
           r="5"
           className={dotClassName}
           style={{ transition: "opacity 1000ms ease" }}
         />
       )}
     </>
+  );
+}
+
+function TaskPomoGradient({ id }: { id: string }) {
+  return (
+    <defs>
+      <linearGradient id={id} x1="8%" y1="92%" x2="92%" y2="8%">
+        <stop offset="0%" className="timer-task-progress-gradient-start" />
+        <stop offset="100%" className="timer-task-progress-gradient-end" />
+      </linearGradient>
+    </defs>
   );
 }
 
@@ -150,6 +175,7 @@ export function TimerDisplay({
   style = "solid",
   taskPomoProgress = null,
 }: TimerDisplayProps) {
+  const gradientId = useId().replaceAll(":", "");
   const isRunning = secondsRemaining > 0 && secondsRemaining < totalSeconds;
   const isComplete = secondsRemaining <= 0;
   const progress =
@@ -171,8 +197,10 @@ export function TimerDisplay({
     : "fill-sahara-primary";
   const taskPomoStyle = visibleTaskPomoProgress
     ? ({
-        "--timer-task-progress-color": visibleTaskPomoProgress.color,
-        "--timer-task-progress-color-dark": visibleTaskPomoProgress.darkColor,
+        "--timer-task-progress-start-color": visibleTaskPomoProgress.color,
+        "--timer-task-progress-start-color-dark": visibleTaskPomoProgress.darkColor,
+        "--timer-task-progress-end-color": visibleTaskPomoProgress.gradientEndColor,
+        "--timer-task-progress-end-color-dark": visibleTaskPomoProgress.gradientEndDarkColor,
       } as CSSProperties)
     : undefined;
       
@@ -215,7 +243,9 @@ export function TimerDisplay({
         width={SIZE_DESKTOP}
         height={SIZE_DESKTOP}
         className="-rotate-90 hidden md:block"
+        aria-hidden="true"
       >
+        {visibleTaskPomoProgress && <TaskPomoGradient id={`${gradientId}-desktop`} />}
         {/* Full faded track — static */}
         <WavyRing
           cx={CENTER_DESKTOP}
@@ -248,6 +278,9 @@ export function TimerDisplay({
           strokeWidth={style === "zigzag" ? "6" : "4"}
           className={progressRingClassName}
           dotClassName={progressDotClassName}
+          stroke={
+            visibleTaskPomoProgress ? `url(#${gradientId}-desktop)` : undefined
+          }
           showDot={true}
           isRunning={isRunning}
         />
@@ -258,7 +291,9 @@ export function TimerDisplay({
         width={SIZE_MOBILE}
         height={SIZE_MOBILE}
         className="-rotate-90 md:hidden"
+        aria-hidden="true"
       >
+        {visibleTaskPomoProgress && <TaskPomoGradient id={`${gradientId}-mobile`} />}
         {/* Full faded track — static */}
         <WavyRing
           cx={CENTER_MOBILE}
@@ -291,6 +326,9 @@ export function TimerDisplay({
           strokeWidth={style === "zigzag" ? "5" : "3"}
           className={progressRingClassName}
           dotClassName={progressDotClassName}
+          stroke={
+            visibleTaskPomoProgress ? `url(#${gradientId}-mobile)` : undefined
+          }
           showDot={true}
           isRunning={isRunning}
         />

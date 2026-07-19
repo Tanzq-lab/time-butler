@@ -182,39 +182,47 @@ textarea {
   }
 }
 
-/* The timer sweep measures this session; its colour measures the selected task's budget. */
-.timer-task-progress-ring {
-  stroke: var(--timer-task-progress-color);
+/* The timer sweep measures this session; its colour range measures the selected task's budget. */
+.timer-task-progress-gradient-start {
+  stop-color: var(--timer-task-progress-start-color);
+}
+
+.timer-task-progress-gradient-end {
+  stop-color: var(--timer-task-progress-end-color);
 }
 
 .timer-task-progress-dot {
-  fill: var(--timer-task-progress-color);
+  fill: var(--timer-task-progress-end-color);
 }
 
 .timer-task-progress-value,
 .timer-task-overrun-text {
-  color: var(--timer-task-progress-color);
+  color: var(--timer-task-progress-start-color);
 }
 
-.dark .timer-task-progress-ring {
-  stroke: var(--timer-task-progress-color-dark);
+.dark .timer-task-progress-gradient-start {
+  stop-color: var(--timer-task-progress-start-color-dark);
+}
+
+.dark .timer-task-progress-gradient-end {
+  stop-color: var(--timer-task-progress-end-color-dark);
 }
 
 .dark .timer-task-progress-dot {
-  fill: var(--timer-task-progress-color-dark);
+  fill: var(--timer-task-progress-end-color-dark);
 }
 
 .dark .timer-task-progress-value,
 .dark .timer-task-overrun-text {
-  color: var(--timer-task-progress-color-dark);
+  color: var(--timer-task-progress-start-color-dark);
 }
 
 .timer-task-overrun-ring {
-  filter: drop-shadow(0 0 4px var(--timer-task-progress-color));
+  filter: drop-shadow(0 0 4px var(--timer-task-progress-start-color));
 }
 
 .dark .timer-task-overrun-ring {
-  filter: drop-shadow(0 0 4px var(--timer-task-progress-color-dark));
+  filter: drop-shadow(0 0 4px var(--timer-task-progress-start-color-dark));
 }
 
 input[type="range"]::-webkit-slider-thumb {
