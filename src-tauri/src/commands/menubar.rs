@@ -14,6 +14,19 @@ impl MenubarState {
             tray: Mutex::new(None),
         }
     }
+
+    pub fn set_title(&self, title: &str) -> Result<(), String> {
+        let tray = self
+            .tray
+            .lock()
+            .map_err(|_| "菜单栏状态不可用".to_string())?;
+
+        if let Some(tray) = tray.as_ref() {
+            tray.set_title(Some(title)).map_err(|e| e.to_string())?;
+        }
+
+        Ok(())
+    }
 }
 
 #[tauri::command]
@@ -41,12 +54,7 @@ pub fn menubar_set_title(
     state: tauri::State<'_, MenubarState>,
     title: String,
 ) -> Result<(), String> {
-    if let Ok(tray) = state.tray.lock() {
-        if let Some(tray) = tray.as_ref() {
-            tray.set_title(Some(&title)).map_err(|e| e.to_string())?;
-        }
-    }
-    Ok(())
+    state.set_title(&title)
 }
 
 #[tauri::command]
