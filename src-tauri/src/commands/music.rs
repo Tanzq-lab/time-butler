@@ -1,6 +1,9 @@
 use serde::Deserialize;
 #[cfg(target_os = "macos")]
-use std::process::Command;
+use std::process::{Command, Stdio};
+
+#[cfg(target_os = "macos")]
+const NETEASE_PROCESS_NAMES: [&str; 2] = ["NeteaseMusic", "网易云音乐"];
 
 #[derive(Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -10,10 +13,12 @@ pub enum NeteaseMusicAction {
 }
 
 #[tauri::command]
-pub fn control_netease_music(action: NeteaseMusicAction) -> Result<(), String> {
+pub async fn control_netease_music(action: NeteaseMusicAction) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
-        control_macos(action)
+        tauri::async_runtime::spawn_blocking(move || control_macos(action))
+            .await
+            .map_err(|err| format!("failed to join NetEase Music control task: {err}"))?
     }
 
     #[cfg(not(target_os = "macos"))]
@@ -25,6 +30,10 @@ pub fn control_netease_music(action: NeteaseMusicAction) -> Result<(), String> {
 
 #[cfg(target_os = "macos")]
 fn control_macos(action: NeteaseMusicAction) -> Result<(), String> {
+    if !is_netease_music_running()? {
+        return Ok(());
+    }
+
     let script = match action {
         NeteaseMusicAction::Play => PLAY_SCRIPT,
         NeteaseMusicAction::Stop => STOP_SCRIPT,
@@ -32,6 +41,31 @@ fn control_macos(action: NeteaseMusicAction) -> Result<(), String> {
 
     run_osascript(script)?;
     Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn is_netease_music_running() -> Result<bool, String> {
+    for process_name in NETEASE_PROCESS_NAMES {
+        let status = Command::new("/usr/bin/pgrep")
+            .arg("-x")
+            .arg(process_name)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .map_err(|err| format!("failed to check NetEase Music process: {err}"))?;
+
+        if status.success() {
+            return Ok(true);
+        }
+
+        if status.code() != Some(1) {
+            return Err(format!(
+                "NetEase Music process check failed with status {status}"
+            ));
+        }
+    }
+
+    Ok(false)
 }
 
 #[cfg(target_os = "macos")]
