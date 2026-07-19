@@ -213,7 +213,8 @@ lsof -nP -iTCP:1420 -sTCP:LISTEN
 
 - 优先保持一个真实版本和一个数据库。
 - 改 UI 前读取 `docs/ui-optimization-playbook.md`，先验证代表屏，再扩展全站。
-- 每次完成源码、配置、测试、脚本或文档修改后都提交 Git；只提交本次范围，不自动 push。
+- 每次完成修改后都在对应仓库提交 Git：应用代码提交当前仓库，任务、session 和预估日志等私密数据提交相对路径 `../time-butler-data`；只提交本次范围，不自动 push。
+- 私密数据仓库通常只跟踪 `Time-butler.db` 和 `data/pomodoro-estimation-log.jsonl`；不提交 WAL/SHM、备份、运行日志或密钥。
 - 改任务录入逻辑时，同步更新 `docs/codex-task-intake.md` 和相关测试。
 - 改番茄预估规则时，同步更新 `docs/pomodoro-estimation-memo.md`。
 - 改数据库 schema 时，增加版本化 migration，并确认旧数据可继续读取。

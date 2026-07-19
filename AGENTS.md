@@ -64,7 +64,9 @@ Every completed change to this repository's source, configuration, tests, script
 - Review the staged diff and use a concise commit message that describes the completed outcome.
 - If the change cannot be validated or committed, report it as incomplete and explain the blocker.
 - Do not push, create a PR, rewrite history, or amend an unrelated commit unless the user explicitly requests it.
-- Pure task/session/category data changes in `../time-butler-data` follow the data persistence rules instead; do not force private user data into this code repository.
+- `../time-butler-data` is a separate private Git repository reached through the project-relative path. After a verified task/session/category data change, commit the tracked data files in that repository instead of forcing them into this code repository.
+- In the private data repository, stage only files changed by the current request—normally `Time-butler.db` and, when required, `data/pomodoro-estimation-log.jsonl`. Never commit `*.db-wal`, `*.db-shm`, `logs/`, `backups/`, secrets, or unrelated pre-existing data changes.
+- If one request changes both application code and private data, create separate scoped commits in `/Users/amos/time-butler` and `../time-butler-data` after validating each side.
 
 ## User-Visible Completion
 
