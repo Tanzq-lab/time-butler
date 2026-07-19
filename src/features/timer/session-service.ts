@@ -7,8 +7,35 @@ import {
   addSession,
   recordAppEvent,
 } from "@/lib/db";
+import type { PendingOverrunStart } from "@/features/timer/use-timer-store";
+
+type TaskOverrunReviewAction = "shown" | "confirmed" | "cancelled";
 
 export const SessionService = {
+  async recordTaskOverrunReview(
+    action: TaskOverrunReviewAction,
+    pending: PendingOverrunStart,
+    metadata?: Record<string, unknown>,
+  ): Promise<void> {
+    await recordAppEvent({
+      eventName: `task_overrun_review_${action}`,
+      route: "/",
+      entityType: "task",
+      entityId: pending.taskId,
+      metadata: {
+        estimatedPomos: pending.estimatedPomos,
+        completedPomos: pending.completedPomos,
+        nextPomo: pending.completedPomos + 1,
+        overrunPomos: Math.max(
+          0,
+          pending.completedPomos - pending.estimatedPomos,
+        ),
+        source: pending.source,
+        ...metadata,
+      },
+    });
+  },
+
   async start(
     activeTaskId: number | null,
     phase: string,

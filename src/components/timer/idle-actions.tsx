@@ -49,6 +49,16 @@ export function IdleActions({
   const isBreakReminderActive = phase === "work" && breakReminderActive;
   const isBreakReady = phase !== "work" && !breakReminderActive;
 
+  const handleStart = async () => {
+    const result = await start(undefined, {
+      source: "timer_button",
+      enterFullscreen: true,
+    });
+    if (result === "started") {
+      setFullscreenFocus(true);
+    }
+  };
+
   return (
     <>
       {isBreakReminderActive && (
@@ -69,10 +79,7 @@ export function IdleActions({
         intent="sahara"
         size="lg"
         shape="rounded-full"
-        onClick={() => {
-          void start();
-          setFullscreenFocus(true);
-        }}
+        onClick={() => void handleStart()}
         className="gap-1.5 md:gap-2 text-xs md:text-xs px-6 md:px-8 py-3 md:py-3.5"
       >
         {isBreakReady ? (

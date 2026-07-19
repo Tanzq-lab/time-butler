@@ -23,6 +23,7 @@ import {
   notifySkipped,
 } from "@/features/timer/timer-notifications";
 import { useSettingsStore } from "@/features/settings/use-settings-store";
+import { useTaskStore } from "@/features/tasks/use-task-store";
 import { playFocusMusic, stopFocusMusic } from "@/features/timer/focus-music";
 import {
   invokeTimerCancelDeadline,
@@ -48,9 +49,15 @@ interface TimerStore {
   durations: TimerDurations;
   deadlineAtMs: number | null;
   pendingFocusReview: PendingFocusReview | null;
+  pendingOverrunStart: PendingOverrunStart | null;
   breakReminderActive: boolean;
 
-  start: (duration?: number) => void;
+  start: (
+    duration?: number,
+    options?: TimerStartOptions,
+  ) => Promise<TimerStartResult>;
+  confirmOverrunStart: (goal: string) => Promise<boolean>;
+  cancelOverrunStart: () => void;
   pause: () => void;
   resume: () => void;
   syncWithClock: () => void;
@@ -76,6 +83,31 @@ interface PendingFocusReview {
   sessionId: number;
   durationSec: number;
   ready: boolean;
+}
+
+export type TimerStartResult = "started" | "overrun_review_required";
+
+export type TimerStartSource =
+  | "timer_button"
+  | "sidebar"
+  | "keyboard_shortcut"
+  | "global_shortcut"
+  | "automatic";
+
+interface TimerStartOptions {
+  source?: TimerStartSource;
+  enterFullscreen?: boolean;
+  skipOverrunReview?: boolean;
+}
+
+export interface PendingOverrunStart {
+  taskId: number;
+  taskName: string;
+  estimatedPomos: number;
+  completedPomos: number;
+  duration?: number;
+  source: TimerStartSource;
+  enterFullscreen: boolean;
 }
 
 type PersistedTimerState = Pick<
@@ -344,6 +376,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
     selectedCategory: null,
     deadlineAtMs: null,
     pendingFocusReview: null,
+    pendingOverrunStart: null,
     breakReminderActive: false,
     durations: {
       work: DEFAULT_WORK_SEC,
@@ -352,8 +385,44 @@ export const useTimerStore = create<TimerStore>((set, get) => {
     },
     ...persistedTimerState,
 
-    start: async (duration?: number) => {
+    start: async (duration?: number, options?: TimerStartOptions) => {
       const state = get();
+      const source = options?.source ?? "automatic";
+      if (!options?.skipOverrunReview && state.pendingOverrunStart) {
+        return "overrun_review_required";
+      }
+      const activeTask = state.activeTaskId == null
+        ? null
+        : useTaskStore.getState().tasks.find(
+            (task) => task.id === state.activeTaskId,
+          ) ?? null;
+
+      if (
+        !options?.skipOverrunReview &&
+        state.phase === "work" &&
+        state.status === "idle" &&
+        activeTask &&
+        !activeTask.completed_at &&
+        activeTask.estimated_pomos > 0 &&
+        activeTask.completed_pomos >= activeTask.estimated_pomos
+      ) {
+        const pendingOverrunStart: PendingOverrunStart = {
+          taskId: activeTask.id,
+          taskName: activeTask.name,
+          estimatedPomos: activeTask.estimated_pomos,
+          completedPomos: activeTask.completed_pomos,
+          duration,
+          source,
+          enterFullscreen: Boolean(options?.enterFullscreen),
+        };
+        set({ pendingOverrunStart });
+        void SessionService.recordTaskOverrunReview(
+          "shown",
+          pendingOverrunStart,
+        );
+        return "overrun_review_required";
+      }
+
       void prepareNotificationAudio({
         trigger: "timer_start",
         sessionId: state.currentSessionId,
@@ -398,6 +467,38 @@ export const useTimerStore = create<TimerStore>((set, get) => {
       if (resolvedPhase === "work") {
         void playFocusMusic();
       }
+      return "started";
+    },
+
+    confirmOverrunStart: async (goal) => {
+      const pending = get().pendingOverrunStart;
+      const trimmedGoal = goal.trim();
+      if (!pending || !trimmedGoal) return false;
+
+      const saved = await useTaskStore.getState().appendTaskNote(
+        pending.taskId,
+        `**超额番茄路线复核**\n\n第 ${pending.completedPomos + 1} 个番茄：${trimmedGoal}`,
+        "timer",
+      );
+      if (!saved) return false;
+
+      set({ pendingOverrunStart: null });
+      void SessionService.recordTaskOverrunReview("confirmed", pending, {
+        hasGoal: true,
+      });
+      const result = await get().start(pending.duration, {
+        source: pending.source,
+        enterFullscreen: pending.enterFullscreen,
+        skipOverrunReview: true,
+      });
+      return result === "started";
+    },
+
+    cancelOverrunStart: () => {
+      const pending = get().pendingOverrunStart;
+      if (!pending) return;
+      set({ pendingOverrunStart: null });
+      void SessionService.recordTaskOverrunReview("cancelled", pending);
     },
 
     pause: () => {

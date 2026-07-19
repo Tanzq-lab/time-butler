@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/components/providers/theme-provider";
 import { UpdateProvider } from "@/components/providers/update-provider";
 import { useNotificationStore } from "@/features/notifications/use-notification-store";
 import { LazyMotion, domAnimation } from "framer-motion";
+import { TaskOverrunReviewModal } from "@/components/base/task-overrun-review-modal";
 
 interface ProvidersProps {
   children: ReactNode;
@@ -93,6 +94,7 @@ export function Providers({ children }: ProvidersProps) {
       <LazyMotion features={domAnimation} strict>
         <UpdateProvider>
           {children}
+          <TaskOverrunReviewModal />
         </UpdateProvider>
       </LazyMotion>
     </ThemeProvider>

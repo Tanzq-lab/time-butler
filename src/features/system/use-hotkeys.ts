@@ -18,7 +18,9 @@ export function useHotkeys() {
 
       if (cmd && e.key === "Enter") {
         e.preventDefault();
-        if (status === "idle") start();
+        if (status === "idle") {
+          void start(undefined, { source: "keyboard_shortcut" });
+        }
         else if (status === "running") pause();
         else if (status === "paused") resume();
         return;
@@ -48,7 +50,9 @@ export function useHotkeys() {
     invokeHotkey(hotkey).catch((e) => console.warn("[Hotkeys] Failed to register global hotkey:", e));
 
     const unlisten = listen("hotkey:toggle-timer", () => {
-      if (status === "idle") start();
+      if (status === "idle") {
+        void start(undefined, { source: "global_shortcut" });
+      }
       else if (status === "running") pause();
       else if (status === "paused") resume();
     });

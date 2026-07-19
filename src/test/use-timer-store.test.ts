@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useTimerStore } from "@/features/timer/use-timer-store";
+import { useTaskStore } from "@/features/tasks/use-task-store";
 import {
   DEFAULT_WORK_SEC,
   DEFAULT_SHORT_BREAK_SEC,
@@ -50,6 +51,9 @@ vi.mock("@/lib/db", () => ({
   updateSessionReflection: vi.fn().mockResolvedValue(undefined),
   abandonSession: vi.fn().mockResolvedValue(undefined),
   incrementTaskPomos: vi.fn().mockResolvedValue(undefined),
+  appendTaskNote: vi.fn().mockResolvedValue(
+    "**2026-07-19 09:00**\n\n**超额番茄路线复核**",
+  ),
   getSessionsByDateRange: vi.fn().mockResolvedValue([]),
   getSessions: vi.fn().mockResolvedValue([]),
   getDailySummary: vi.fn().mockResolvedValue(null),
@@ -71,6 +75,7 @@ beforeEach(() => {
   mockWorker.postMessage.mockClear();
   mockWorker.terminate.mockClear();
   mockWorker.onmessage = null;
+  useTaskStore.setState({ tasks: [], loading: false, error: null });
   useTimerStore.setState({
     phase: "work",
     status: "idle",
@@ -83,6 +88,7 @@ beforeEach(() => {
     selectedCategory: null,
     deadlineAtMs: null,
     pendingFocusReview: null,
+    pendingOverrunStart: null,
     breakReminderActive: false,
     durations: {
       work: DEFAULT_WORK_SEC,
@@ -240,6 +246,141 @@ describe("useTimerStore", () => {
   });
 
   describe("start", () => {
+    it("stops before creating a session when the task estimate is exhausted", async () => {
+      useTaskStore.setState({
+        tasks: [
+          {
+            id: 42,
+            name: "排查缓存问题",
+            estimated_pomos: 4,
+            completed_pomos: 4,
+            created_at: "2026-07-19T08:00:00.000Z",
+            archived: 0,
+          },
+        ],
+      });
+      useTimerStore.setState({ activeTaskId: 42 });
+
+      const result = await useTimerStore.getState().start(undefined, {
+        source: "timer_button",
+        enterFullscreen: true,
+      });
+
+      const { startSession, recordAppEvent } = await import("@/lib/db");
+      expect(result).toBe("overrun_review_required");
+      expect(startSession).not.toHaveBeenCalled();
+      expect(useTimerStore.getState().status).toBe("idle");
+      expect(useTimerStore.getState().pendingOverrunStart).toMatchObject({
+        taskId: 42,
+        estimatedPomos: 4,
+        completedPomos: 4,
+        source: "timer_button",
+        enterFullscreen: true,
+      });
+      expect(recordAppEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventName: "task_overrun_review_shown",
+          entityType: "task",
+          entityId: 42,
+        }),
+      );
+
+      const repeatedResult = await useTimerStore.getState().start(undefined, {
+        source: "global_shortcut",
+      });
+      expect(repeatedResult).toBe("overrun_review_required");
+      expect(startSession).not.toHaveBeenCalled();
+    });
+
+    it("starts the overrun session with the written next goal", async () => {
+      useTaskStore.setState({
+        tasks: [
+          {
+            id: 42,
+            name: "排查缓存问题",
+            estimated_pomos: 4,
+            completed_pomos: 5,
+            category_id: 7,
+            created_at: "2026-07-19T08:00:00.000Z",
+            archived: 0,
+          },
+        ],
+      });
+      useTimerStore.setState({
+        activeTaskId: 42,
+        selectedCategory: {
+          id: 7,
+          name: "代码修改",
+          color: "#946200",
+          created_at: "2026-07-19T08:00:00.000Z",
+        },
+      });
+      await useTimerStore.getState().start(undefined, {
+        source: "sidebar",
+      });
+
+      const started = await useTimerStore
+        .getState()
+        .confirmOverrunStart("  先验证清空缓存后能否复现  ");
+
+      const { appendTaskNote, startSession, recordAppEvent } = await import("@/lib/db");
+      expect(started).toBe(true);
+      expect(appendTaskNote).toHaveBeenCalledWith(
+        42,
+        "**超额番茄路线复核**\n\n第 6 个番茄：先验证清空缓存后能否复现",
+      );
+      expect(startSession).toHaveBeenCalledWith(
+        42,
+        "work",
+        7,
+        "代码修改",
+      );
+      expect(useTimerStore.getState().status).toBe("running");
+      expect(useTimerStore.getState().pendingOverrunStart).toBeNull();
+      expect(recordAppEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventName: "task_overrun_review_confirmed",
+          metadata: expect.objectContaining({
+            hasGoal: true,
+            completedPomos: 5,
+            estimatedPomos: 4,
+          }),
+        }),
+      );
+    });
+
+    it("cancels the overrun start without creating a session", async () => {
+      useTaskStore.setState({
+        tasks: [
+          {
+            id: 42,
+            name: "排查缓存问题",
+            estimated_pomos: 2,
+            completed_pomos: 2,
+            created_at: "2026-07-19T08:00:00.000Z",
+            archived: 0,
+          },
+        ],
+      });
+      useTimerStore.setState({ activeTaskId: 42 });
+      await useTimerStore.getState().start(undefined, {
+        source: "keyboard_shortcut",
+      });
+
+      useTimerStore.getState().cancelOverrunStart();
+
+      const { startSession, recordAppEvent } = await import("@/lib/db");
+      expect(startSession).not.toHaveBeenCalled();
+      expect(useTimerStore.getState().status).toBe("idle");
+      expect(useTimerStore.getState().pendingOverrunStart).toBeNull();
+      expect(recordAppEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventName: "task_overrun_review_cancelled",
+          entityId: 42,
+        }),
+      );
+    });
+
     it("creates a DB session, worker, and sets running status", async () => {
       await useTimerStore.getState().start();
 

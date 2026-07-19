@@ -126,7 +126,7 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
             if (location.pathname !== "/") {
               navigate("/");
             }
-            start();
+            void start(undefined, { source: "sidebar" });
           }}
           title={
             isCollapsed
