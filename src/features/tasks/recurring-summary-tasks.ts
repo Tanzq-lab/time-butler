@@ -287,7 +287,9 @@ async function logCreatedOccurrence(
   });
 }
 
-export async function ensureRecurringSummaryTasks(
+const inFlightRecurringTaskGenerations = new Map<string, Promise<number>>();
+
+async function createMissingRecurringSummaryTasks(
   referenceDate = new Date(),
 ): Promise<number> {
   const occurrences = buildSummaryTaskOccurrences(referenceDate);
@@ -333,4 +335,27 @@ export async function ensureRecurringSummaryTasks(
   }
 
   return createdCount;
+}
+
+/**
+ * Shares same-day generation work across overlapping task refreshes. A window
+ * can emit both focus and visibility events as it returns to the foreground;
+ * without this guard, each refresh can pass the existence checks before either
+ * one records its occurrence.
+ */
+export function ensureRecurringSummaryTasks(
+  referenceDate = new Date(),
+): Promise<number> {
+  const occurrenceDate = toDateKey(referenceDate);
+  const inFlight = inFlightRecurringTaskGenerations.get(occurrenceDate);
+  if (inFlight) return inFlight;
+
+  let generation: Promise<number>;
+  generation = createMissingRecurringSummaryTasks(referenceDate).finally(() => {
+    if (inFlightRecurringTaskGenerations.get(occurrenceDate) === generation) {
+      inFlightRecurringTaskGenerations.delete(occurrenceDate);
+    }
+  });
+  inFlightRecurringTaskGenerations.set(occurrenceDate, generation);
+  return generation;
 }

@@ -1,9 +1,48 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const dbMocks = vi.hoisted(() => ({
+  addTask: vi.fn(),
+  execute: vi.fn(),
+  getDb: vi.fn(),
+  select: vi.fn(),
+}));
+
+const pomodoroLogMocks = vi.hoisted(() => ({
+  appendPomodoroEstimationLog: vi.fn(),
+}));
+
+vi.mock("@/lib/db", () => ({
+  addTask: dbMocks.addTask,
+  getDb: dbMocks.getDb,
+}));
+
+vi.mock("@/features/tasks/pomodoro-estimation-log", () => ({
+  appendPomodoroEstimationLog: pomodoroLogMocks.appendPomodoroEstimationLog,
+}));
+
 import {
   buildSummaryTaskOccurrences,
+  ensureRecurringSummaryTasks,
   findFirstDayOffPeriodStartInMonth,
   isDayOff,
 } from "@/features/tasks/recurring-summary-tasks";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  dbMocks.getDb.mockResolvedValue({
+    execute: dbMocks.execute,
+    select: dbMocks.select,
+  });
+  dbMocks.select.mockImplementation(async (query: string) => {
+    if (query.includes("FROM categories")) return [{ id: 69 }];
+    return [];
+  });
+  dbMocks.execute.mockResolvedValue(undefined);
+  pomodoroLogMocks.appendPomodoroEstimationLog.mockResolvedValue(undefined);
+
+  let nextTaskId = 1;
+  dbMocks.addTask.mockImplementation(async () => nextTaskId++);
+});
 
 describe("recurring summary tasks", () => {
   it("creates one ANKI review for the reference day", () => {
@@ -33,6 +72,18 @@ describe("recurring summary tasks", () => {
         categoryName: "记忆复习",
       },
     ]);
+  });
+
+  it("shares overlapping same-day generation to avoid duplicate tasks", async () => {
+    await Promise.all([
+      ensureRecurringSummaryTasks(new Date(2026, 6, 21)),
+      ensureRecurringSummaryTasks(new Date(2026, 6, 21)),
+    ]);
+
+    // July 21 has one daily ANKI task and the following Monday's weekly summary.
+    expect(dbMocks.addTask).toHaveBeenCalledTimes(2);
+    expect(dbMocks.execute).toHaveBeenCalledTimes(2);
+    expect(pomodoroLogMocks.appendPomodoroEstimationLog).toHaveBeenCalledTimes(2);
   });
 
   it("creates weekly summaries for Mondays in the next week", () => {
