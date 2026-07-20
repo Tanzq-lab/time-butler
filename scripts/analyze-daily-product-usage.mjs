@@ -248,6 +248,42 @@ function buildTransitions(events) {
   ).slice(0, 10);
 }
 
+function buildTaskFlow(events, getCount) {
+  const addedByEntity = new Map();
+  for (const event of events.filter((item) => item.event_name === "task_added")) {
+    if (!event.entity_id) continue;
+    const occurredAt = eventOccurredAt(event);
+    const existing = addedByEntity.get(event.entity_id);
+    if (!existing || occurredAt < existing) addedByEntity.set(event.entity_id, occurredAt);
+  }
+
+  const createdThenDeleted = new Map();
+  for (const event of events.filter((item) => item.event_name === "task_deleted")) {
+    if (!event.entity_id) continue;
+    const addedAt = addedByEntity.get(event.entity_id);
+    const deletedAt = eventOccurredAt(event);
+    if (!Number.isFinite(addedAt) || deletedAt < addedAt) continue;
+    const lifetimeMs = deletedAt - addedAt;
+    const existing = createdThenDeleted.get(event.entity_id);
+    if (!Number.isFinite(existing) || lifetimeMs < existing) {
+      createdThenDeleted.set(event.entity_id, lifetimeMs);
+    }
+  }
+
+  const quickDeleteThresholdMs = 10 * 60 * 1000;
+  return {
+    added: getCount("task_added"),
+    updated: getCount("task_updated"),
+    completed: getCount("task_completed"),
+    deleted: getCount("task_deleted"),
+    archived: getCount("task_archived"),
+    createdThenDeleted: createdThenDeleted.size,
+    deletedWithin10Minutes: [...createdThenDeleted.values()].filter(
+      (lifetimeMs) => lifetimeMs <= quickDeleteThresholdMs,
+    ).length,
+  };
+}
+
 function buildHypotheses({ events, routeStats, timer, tasks, audio, coverage }) {
   const hypotheses = [];
   const push = (hypothesis) => hypotheses.push(hypothesis);
@@ -302,15 +338,15 @@ function buildHypotheses({ events, routeStats, timer, tasks, audio, coverage }) 
     });
   }
 
-  if (tasks.deleted >= 2 && tasks.added > 0 && tasks.deleted / tasks.added >= 0.25) {
+  if (tasks.deletedWithin10Minutes > 0 && tasks.added > 0) {
     push({
       priority: "low",
       code: "task_create_delete_rework",
       userPath: "创建任务 → 调整/使用 → 删除任务",
-      evidence: `创建 ${tasks.added} 个、删除 ${tasks.deleted} 个任务`,
+      evidence: `创建 ${tasks.added} 个任务；其中 ${tasks.createdThenDeleted} 个当天删除，${tasks.deletedWithin10Minutes} 个在 10 分钟内删除`,
       need: "一次创建出可执行、分类正确且时间安排合理的任务。",
-      keyAssumption: "短期删除来自录入返工，而非正常清理历史任务。",
-      smallestChange: "先关联实体 id 和创建后存活时长，确认当天新建后快速删除的比例。",
+      keyAssumption: "新建后 10 分钟内删除来自录入返工，而非一次有意的临时任务。",
+      smallestChange: "结合新增时的字段完整度和删除前动作，确认快速删除集中在哪一种录入路径。",
       validation: "新建 10 分钟内删除率下降，任务完成率不下降。",
       riskBoundary: "不恢复或重写已删除任务。",
     });
@@ -400,7 +436,7 @@ function buildMarkdown(report) {
     "## 关键动作",
     "",
     `- 计时：开始 ${report.flows.timer.started}，完成 ${report.flows.timer.finished}，放弃 ${report.flows.timer.abandoned}，跳过 ${report.flows.timer.skipped}`,
-    `- 任务：创建 ${report.flows.tasks.added}，更新 ${report.flows.tasks.updated}，完成 ${report.flows.tasks.completed}，删除 ${report.flows.tasks.deleted}，归档 ${report.flows.tasks.archived}`,
+    `- 任务：创建 ${report.flows.tasks.added}，更新 ${report.flows.tasks.updated}，完成 ${report.flows.tasks.completed}，删除 ${report.flows.tasks.deleted}，归档 ${report.flows.tasks.archived}；当天新增后删除 ${report.flows.tasks.createdThenDeleted}，其中 10 分钟内删除 ${report.flows.tasks.deletedWithin10Minutes}`,
     `- 音频通知：请求 ${report.flows.audio.deliveryRequested}，播放启动/已播放 ${report.flows.audio.playbackObserved}，失败 ${report.flows.audio.failures}，缺口 ${report.flows.audio.deliveryGaps}`,
   );
 
@@ -491,13 +527,7 @@ function analyze(options) {
     abandoned: getCount("timer_session_abandoned"),
     skipped: getCount("timer_session_skipped"),
   };
-  const tasks = {
-    added: getCount("task_added"),
-    updated: getCount("task_updated"),
-    completed: getCount("task_completed"),
-    deleted: getCount("task_deleted"),
-    archived: getCount("task_archived"),
-  };
+  const tasks = buildTaskFlow(events, getCount);
   const audioEvents = events.filter((event) => event.event_name.startsWith("notification_"));
   const audioFailureEvents = audioEvents.filter((event) =>
     ["failed", "not_running"].includes(String(event.metadata.outcome)),
@@ -560,7 +590,7 @@ function analyze(options) {
   };
 
   const report = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     date: options.date,
     generatedAt: new Date().toISOString(),
     privacy: {

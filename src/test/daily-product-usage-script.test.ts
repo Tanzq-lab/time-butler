@@ -48,14 +48,16 @@ describe("daily product usage analyzer", () => {
         created_at TEXT,
         completed_at TEXT
       );
-      INSERT INTO app_events (event_name, route, metadata, created_at) VALUES
-        ('app_usage_session_started', '/', '${metadata({ appSessionId: "session-1", appSessionSequence: 1, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:00.000Z" })}', '2026-07-14 01:00:00'),
-        ('route_viewed', '/', '${metadata({ appSessionId: "session-1", appSessionSequence: 2, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:01.000Z", fromRoute: null })}', '2026-07-14 01:00:01'),
-        ('route_exited', '/', '${metadata({ appSessionId: "session-1", appSessionSequence: 3, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:11.000Z", visibleDurationMs: 10000 })}', '2026-07-14 01:00:11'),
-        ('route_viewed', '/tasks', '${metadata({ appSessionId: "session-1", appSessionSequence: 4, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:12.000Z", fromRoute: "/" })}', '2026-07-14 01:00:12'),
-        ('task_added', '/tasks', '${metadata({ appSessionId: "session-1", appSessionSequence: 5, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:13.000Z" })}', '2026-07-14 01:00:13'),
-        ('notification_audio_prepare_result', '/', '${metadata({ appSessionId: "session-1", appSessionSequence: 6, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:14.000Z", trigger: "timer_start", phase: "short_break", outcome: "failed", errorName: "ReferenceError", errorMessage: "Missing audio buffer" })}', '2026-07-14 01:00:14'),
-        ('app_usage_session_ended', '/tasks', '${metadata({ appSessionId: "session-1", appSessionSequence: 7, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:15.000Z" })}', '2026-07-14 01:00:15');
+      INSERT INTO app_events (event_name, route, entity_type, entity_id, metadata, created_at) VALUES
+        ('app_usage_session_started', '/', NULL, NULL, '${metadata({ appSessionId: "session-1", appSessionSequence: 1, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:00.000Z" })}', '2026-07-14 01:00:00'),
+        ('route_viewed', '/', NULL, NULL, '${metadata({ appSessionId: "session-1", appSessionSequence: 2, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:01.000Z", fromRoute: null })}', '2026-07-14 01:00:01'),
+        ('route_exited', '/', NULL, NULL, '${metadata({ appSessionId: "session-1", appSessionSequence: 3, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:11.000Z", visibleDurationMs: 10000 })}', '2026-07-14 01:00:11'),
+        ('route_viewed', '/tasks', NULL, NULL, '${metadata({ appSessionId: "session-1", appSessionSequence: 4, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:12.000Z", fromRoute: "/" })}', '2026-07-14 01:00:12'),
+        ('task_added', '/tasks', 'task', '101', '${metadata({ appSessionId: "session-1", appSessionSequence: 5, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:13.000Z" })}', '2026-07-14 01:00:13'),
+        ('task_deleted', '/tasks', 'task', '98', '${metadata({ appSessionId: "session-1", appSessionSequence: 6, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:14.000Z" })}', '2026-07-14 01:00:14'),
+        ('task_deleted', '/tasks', 'task', '99', '${metadata({ appSessionId: "session-1", appSessionSequence: 7, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:15.000Z" })}', '2026-07-14 01:00:15'),
+        ('notification_audio_prepare_result', '/', NULL, NULL, '${metadata({ appSessionId: "session-1", appSessionSequence: 8, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:16.000Z", trigger: "timer_start", phase: "short_break", outcome: "failed", errorName: "ReferenceError", errorMessage: "Missing audio buffer" })}', '2026-07-14 01:00:16'),
+        ('app_usage_session_ended', '/tasks', NULL, NULL, '${metadata({ appSessionId: "session-1", appSessionSequence: 9, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:17.000Z" })}', '2026-07-14 01:00:17');
       INSERT INTO sessions VALUES (1, '2026-07-14 09:00:00', 1500, 1);
       INSERT INTO tasks VALUES (1, 'PRIVATE TASK NAME', '2026-07-14 01:00:00', NULL);
     `;
@@ -79,8 +81,8 @@ describe("daily product usage analyzer", () => {
 
     const report = JSON.parse(result.stdout);
     expect(report.coverage).toMatchObject({
-      eventCount: 7,
-      sessionizedEventCount: 7,
+      eventCount: 9,
+      sessionizedEventCount: 9,
       appSessionCount: 1,
       appSessionStartedCount: 1,
       appSessionEndedCount: 1,
@@ -104,6 +106,15 @@ describe("daily product usage analyzer", () => {
         },
       ],
     });
+    expect(report.flows.tasks).toMatchObject({
+      added: 1,
+      deleted: 2,
+      createdThenDeleted: 0,
+      deletedWithin10Minutes: 0,
+    });
+    expect(report.hypotheses).not.toContainEqual(
+      expect.objectContaining({ code: "task_create_delete_rework" }),
+    );
     expect(JSON.stringify(report)).not.toContain("PRIVATE TASK NAME");
     expect(report.markdown).toBeUndefined();
 
