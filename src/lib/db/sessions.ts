@@ -3,7 +3,7 @@ import { getDb, getDbName } from "./schema";
 import type { Session, WeekSession, WeekSummary } from "./types";
 
 export interface CompletedPomoReassignment {
-  sourceTaskId: number;
+  sourceTaskId: number | null;
   sourceCategoryId: number | null;
   targetTaskId: number;
   targetCategoryId: number | null;
@@ -112,11 +112,12 @@ export async function updateSessionAttribution(
 }
 
 /**
- * Moves one already-counted focus pomodoro to another visible task.
+ * Assigns one already-counted focus pomodoro to a visible task.
  *
  * The session remains the source of truth for the time line. Task counters and
- * session category move in the same transaction so task progress, calendar
- * color, and category analytics do not drift apart.
+ * session category move together so task progress, calendar color, and category
+ * analytics do not drift apart. A standalone pomodoro has no source task to
+ * decrement.
  */
 export async function reassignCompletedPomo(
   sessionId: number,
@@ -142,7 +143,7 @@ export async function reassignCompletedPomo(
   const database = await getDb();
   const rows = await database.select<
     {
-      source_task_id: number;
+      source_task_id: number | null;
       source_category_id: number | null;
       target_category_id: number | null;
     }[]
@@ -158,14 +159,13 @@ export async function reassignCompletedPomo(
         AND s.phase = 'work'
         AND s.completed = 1
         AND s.pomo_counted = 1
-        AND s.task_id IS NOT NULL
       `,
     [sessionId, targetTaskId],
   );
 
   const record = rows[0];
   if (!record) {
-    throw new Error("只能更正已完成且已计入任务的专注番茄。");
+    throw new Error("只能更正已完成且已计入统计的专注番茄。");
   }
   if (record.source_task_id === targetTaskId) {
     throw new Error("该番茄已经属于这个任务。");
@@ -180,7 +180,7 @@ export async function reassignCompletedPomo(
         AND phase = 'work'
         AND completed = 1
         AND pomo_counted = 1
-        AND task_id = $4
+        AND task_id IS $4
       `,
     [sessionId, targetTaskId, record.target_category_id, record.source_task_id],
   );
@@ -188,23 +188,35 @@ export async function reassignCompletedPomo(
     throw new Error("该番茄已被更新，请刷新日历后重试。");
   }
 
-  await database.execute(
-    "UPDATE tasks SET completed_pomos = MAX(0, completed_pomos - 1) WHERE id = $1",
-    [record.source_task_id],
-  );
+  if (record.source_task_id !== null) {
+    await database.execute(
+      "UPDATE tasks SET completed_pomos = MAX(0, completed_pomos - 1) WHERE id = $1",
+      [record.source_task_id],
+    );
+  }
   await database.execute(
     "UPDATE tasks SET completed_pomos = completed_pomos + 1 WHERE id = $1",
     [targetTaskId],
   );
-  await database.execute(
-    `
-      INSERT INTO task_activity_log (task_id, action, from_value, to_value)
-      VALUES
-        ($1, 'completed_pomo_reassigned_out', $2, $3),
-        ($4, 'completed_pomo_reassigned_in', $2, $1)
-      `,
-    [record.source_task_id, String(sessionId), String(targetTaskId), targetTaskId],
-  );
+  if (record.source_task_id !== null) {
+    await database.execute(
+      `
+        INSERT INTO task_activity_log (task_id, action, from_value, to_value)
+        VALUES
+          ($1, 'completed_pomo_reassigned_out', $2, $3),
+          ($4, 'completed_pomo_reassigned_in', $2, $1)
+        `,
+      [record.source_task_id, String(sessionId), String(targetTaskId), targetTaskId],
+    );
+  } else {
+    await database.execute(
+      `
+        INSERT INTO task_activity_log (task_id, action, from_value)
+        VALUES ($1, 'completed_pomo_assigned_from_standalone', $2)
+        `,
+      [targetTaskId, String(sessionId)],
+    );
+  }
 
   return {
     sourceTaskId: record.source_task_id,

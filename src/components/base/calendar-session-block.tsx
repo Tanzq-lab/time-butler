@@ -52,7 +52,7 @@ export function CalendarSessionBlock({
   const isBreak = !isWork;
 
   const title = isWork
-    ? session.task_name || session.intention || ""
+    ? session.task_name || session.intention || "独立专注"
     : session.intention || "";
   const timeRange = getTimeRange(session);
   const phaseLabel =
@@ -64,7 +64,6 @@ export function CalendarSessionBlock({
     isWork &&
     session.completed === 1 &&
     session.pomo_counted === 1 &&
-    session.task_id !== null &&
     onEditPomo;
   const interactionClass = canEditPomo
     ? "cursor-pointer text-left outline-none transition-[filter,box-shadow] hover:brightness-[0.96] focus-visible:ring-2 focus-visible:ring-sahara-focus focus-visible:ring-offset-2 focus-visible:ring-offset-sahara-bg"

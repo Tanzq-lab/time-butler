@@ -56,6 +56,17 @@ const completedPomo: WeekSession = {
   notes: null,
 };
 
+const standaloneCompletedPomo: WeekSession = {
+  ...completedPomo,
+  id: 95,
+  task_id: null,
+  task_name: null,
+  category_id: null,
+  category_name: null,
+  category_color: null,
+  intention: "独立整理思路",
+};
+
 const shortBreak: WeekSession = {
   id: 94,
   task_id: null,
@@ -126,6 +137,26 @@ describe("Calendar completed-pomodoro editor", () => {
       />,
     );
     expect(screen.queryByRole("button", { name: /更正番茄归属/ })).not.toBeInTheDocument();
+  });
+
+  it("makes a completed standalone pomodoro editable from the calendar", () => {
+    const onEditPomo = vi.fn();
+    render(
+      <CalendarSessionBlock
+        session={standaloneCompletedPomo}
+        topPx={0}
+        heightPx={40}
+        onEditPomo={onEditPomo}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /更正番茄归属：独立整理思路/,
+      }),
+    );
+
+    expect(onEditPomo).toHaveBeenCalledWith(standaloneCompletedPomo);
   });
 
   it("makes the task name the first visible work-card label", () => {

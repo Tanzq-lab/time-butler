@@ -80,6 +80,36 @@ describe("reassignCompletedPomo", () => {
     );
   });
 
+  it("assigns a counted standalone pomodoro without decrementing another task", async () => {
+    database.select.mockResolvedValueOnce([
+      {
+        source_task_id: null,
+        source_category_id: null,
+        target_category_id: 69,
+      },
+    ]);
+
+    await expect(reassignCompletedPomo(93, 13)).resolves.toEqual({
+      sourceTaskId: null,
+      sourceCategoryId: null,
+      targetTaskId: 13,
+      targetCategoryId: 69,
+    });
+
+    expect(database.execute).toHaveBeenCalledWith(
+      expect.stringContaining("UPDATE sessions"),
+      [93, 13, 69, null],
+    );
+    expect(database.execute).not.toHaveBeenCalledWith(
+      expect.stringContaining("completed_pomos = MAX(0, completed_pomos - 1)"),
+      expect.anything(),
+    );
+    expect(database.execute).toHaveBeenCalledWith(
+      expect.stringContaining("completed_pomo_assigned_from_standalone"),
+      [13, String(93)],
+    );
+  });
+
   it("turns a native command rejection into a visible Error message", async () => {
     isTauri.mockReturnValue(true);
     invoke.mockRejectedValueOnce("数据库事务失败，请重试。");
@@ -93,7 +123,7 @@ describe("reassignCompletedPomo", () => {
     database.select.mockResolvedValue([]);
 
     await expect(reassignCompletedPomo(93, 13)).rejects.toThrow(
-      "只能更正已完成且已计入任务的专注番茄。",
+      "只能更正已完成且已计入统计的专注番茄。",
     );
 
     expect(database.execute).not.toHaveBeenCalledWith("ROLLBACK");

@@ -193,7 +193,7 @@ export function CalendarSessionEditor({
           </p>
           <div className="mt-2 flex items-center gap-2 text-sm">
             <span className="min-w-0 truncate font-medium text-sahara-text">
-              {session.task_name || "未归属任务"}
+              {session.task_name || session.intention || "独立专注"}
             </span>
             <ArrowRight className="size-3.5 shrink-0 text-sahara-text-muted" aria-hidden="true" />
             <span className="text-sahara-text-secondary">选择新任务</span>
@@ -212,12 +212,14 @@ export function CalendarSessionEditor({
             <input
               ref={searchInputRef}
               id="calendar-session-task-search"
+              name="calendar-session-task-search"
               aria-label="搜索所属任务"
               type="search"
+              autoComplete="off"
               value={searchQuery}
               disabled={saving || targetTasks.length === 0}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder={targetTasks.length === 0 ? "没有可归属的未归档任务" : "搜索任务或项目，例如 ANKI"}
+              placeholder={targetTasks.length === 0 ? "没有可归属的未归档任务" : "搜索任务或项目，例如 ANKI…"}
               className="min-h-10 w-full rounded-md border border-sahara-border bg-sahara-surface py-2 pl-9 pr-3 text-sm text-sahara-text outline-none transition-colors placeholder:text-sahara-text-muted focus:border-sahara-text-muted focus:ring-2 focus:ring-sahara-focus disabled:cursor-not-allowed disabled:opacity-55"
             />
           </div>
