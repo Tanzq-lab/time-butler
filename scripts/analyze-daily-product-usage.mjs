@@ -170,12 +170,32 @@ function buildRouteStats(events) {
     (event) => event.route ?? "(unknown)",
   );
   const exitsByRoute = new Map();
+  const rapidExitDestinationsByRoute = new Map();
 
-  for (const event of events.filter((item) => item.event_name === "route_exited")) {
+  for (const [eventIndex, event] of events.entries()) {
+    if (event.event_name !== "route_exited") continue;
     const route = event.route ?? "(unknown)";
     const current = exitsByRoute.get(route) ?? [];
-    current.push(Math.max(0, Number(event.metadata.visibleDurationMs) || 0));
+    const visibleDurationMs = Math.max(
+      0,
+      Number(event.metadata.visibleDurationMs) || 0,
+    );
+    current.push(visibleDurationMs);
     exitsByRoute.set(route, current);
+
+    if (visibleDurationMs >= 3_000) continue;
+    const appSessionId = event.metadata.appSessionId;
+    const nextView = typeof appSessionId === "string" && appSessionId
+      ? events.slice(eventIndex + 1).find(
+        (candidate) => candidate.event_name === "route_viewed"
+          && candidate.metadata.appSessionId === appSessionId
+          && candidate.metadata.fromRoute === route,
+      )
+      : null;
+    const destination = nextView?.route ?? "(未观察到下一页面)";
+    const destinations = rapidExitDestinationsByRoute.get(route) ?? [];
+    destinations.push(destination);
+    rapidExitDestinationsByRoute.set(route, destinations);
   }
 
   const routes = new Set([...routeViews.map((item) => item.key), ...exitsByRoute.keys()]);
@@ -190,6 +210,10 @@ function buildRouteStats(events) {
         totalVisibleMs,
         averageVisibleMs: durations.length ? Math.round(totalVisibleMs / durations.length) : 0,
         rapidExits: durations.filter((duration) => duration < 3_000).length,
+        rapidExitDestinations: countBy(
+          rapidExitDestinationsByRoute.get(route) ?? [],
+          (destination) => destination,
+        ).map(({ key, count }) => ({ route: key, count })),
       };
     })
     .sort((a, b) => b.views - a.views || b.totalVisibleMs - a.totalVisibleMs);
@@ -325,14 +349,17 @@ function buildHypotheses({ events, routeStats, timer, tasks, audio, coverage }) 
       && route.rapidExits / route.measuredExits >= 0.6,
   );
   if (rapidRoute) {
+    const destinations = rapidRoute.rapidExitDestinations
+      .map((item) => `${item.route} ${item.count} 次`)
+      .join("、");
     push({
       priority: "low",
       code: "repeated_rapid_route_exit",
       userPath: `进入 ${rapidRoute.route} → 3 秒内离开`,
-      evidence: `${rapidRoute.rapidExits}/${rapidRoute.measuredExits} 次已测访问在 3 秒内离开`,
+      evidence: `${rapidRoute.rapidExits}/${rapidRoute.measuredExits} 次已测访问在 3 秒内离开${destinations ? `；短停留后去向：${destinations}` : ""}`,
       need: "快速找到目标信息或动作入口。",
       keyAssumption: "短停留是找不到入口，而不是一次成功的快速查看。",
-      smallestChange: "结合离开后的下一页面和实际动作验证；证据一致时只调整一个入口或默认状态。",
+      smallestChange: "连续观察 3 个自然日的短停留去向和实际动作；证据一致时只调整一个入口或默认状态。",
       validation: "短停留后立即折返的比例下降，目标动作数不下降。",
       riskBoundary: "单日短停留不直接触发界面改版。",
     });
@@ -590,7 +617,7 @@ function analyze(options) {
   };
 
   const report = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     date: options.date,
     generatedAt: new Date().toISOString(),
     privacy: {
