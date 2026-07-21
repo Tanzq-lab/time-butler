@@ -1,4 +1,5 @@
-import { getDb } from "./schema";
+import { invoke, isTauri } from "@/lib/tauri";
+import { getDb, getDbName } from "./schema";
 import type { Session, WeekSession, WeekSummary } from "./types";
 
 export interface CompletedPomoReassignment {
@@ -121,21 +122,32 @@ export async function reassignCompletedPomo(
   sessionId: number,
   targetTaskId: number,
 ): Promise<CompletedPomoReassignment> {
+  if (isTauri()) {
+    try {
+      return await invoke<CompletedPomoReassignment>("reassign_completed_pomo", {
+        db: await getDbName(),
+        sessionId,
+        targetTaskId,
+      });
+    } catch (error) {
+      if (typeof error === "string" && error.trim()) {
+        throw new Error(error);
+      }
+      throw error;
+    }
+  }
+
+  // Browser tests use the SQL mock below. The real Tauri app always takes the
+  // native transaction path above so pooled calls cannot split the transaction.
   const database = await getDb();
-  let transactionOpen = false;
-
-  try {
-    await database.execute("BEGIN IMMEDIATE");
-    transactionOpen = true;
-
-    const rows = await database.select<
-      {
-        source_task_id: number;
-        source_category_id: number | null;
-        target_category_id: number | null;
-      }[]
-    >(
-      `
+  const rows = await database.select<
+    {
+      source_task_id: number;
+      source_category_id: number | null;
+      target_category_id: number | null;
+    }[]
+  >(
+    `
       SELECT
         s.task_id AS source_task_id,
         s.category_id AS source_category_id,
@@ -148,19 +160,19 @@ export async function reassignCompletedPomo(
         AND s.pomo_counted = 1
         AND s.task_id IS NOT NULL
       `,
-      [sessionId, targetTaskId],
-    );
+    [sessionId, targetTaskId],
+  );
 
-    const record = rows[0];
-    if (!record) {
-      throw new Error("只能更正已完成且已计入任务的专注番茄。");
-    }
-    if (record.source_task_id === targetTaskId) {
-      throw new Error("该番茄已经属于这个任务。");
-    }
+  const record = rows[0];
+  if (!record) {
+    throw new Error("只能更正已完成且已计入任务的专注番茄。");
+  }
+  if (record.source_task_id === targetTaskId) {
+    throw new Error("该番茄已经属于这个任务。");
+  }
 
-    const update = await database.execute(
-      `
+  const update = await database.execute(
+    `
       UPDATE sessions
       SET task_id = $2,
           category_id = $3
@@ -170,49 +182,36 @@ export async function reassignCompletedPomo(
         AND pomo_counted = 1
         AND task_id = $4
       `,
-      [sessionId, targetTaskId, record.target_category_id, record.source_task_id],
-    );
-    if (update.rowsAffected !== 1) {
-      throw new Error("该番茄已被更新，请刷新日历后重试。");
-    }
+    [sessionId, targetTaskId, record.target_category_id, record.source_task_id],
+  );
+  if (update.rowsAffected !== 1) {
+    throw new Error("该番茄已被更新，请刷新日历后重试。");
+  }
 
-    await database.execute(
-      "UPDATE tasks SET completed_pomos = MAX(0, completed_pomos - 1) WHERE id = $1",
-      [record.source_task_id],
-    );
-    await database.execute(
-      "UPDATE tasks SET completed_pomos = completed_pomos + 1 WHERE id = $1",
-      [targetTaskId],
-    );
-    await database.execute(
-      `
+  await database.execute(
+    "UPDATE tasks SET completed_pomos = MAX(0, completed_pomos - 1) WHERE id = $1",
+    [record.source_task_id],
+  );
+  await database.execute(
+    "UPDATE tasks SET completed_pomos = completed_pomos + 1 WHERE id = $1",
+    [targetTaskId],
+  );
+  await database.execute(
+    `
       INSERT INTO task_activity_log (task_id, action, from_value, to_value)
       VALUES
         ($1, 'completed_pomo_reassigned_out', $2, $3),
         ($4, 'completed_pomo_reassigned_in', $2, $1)
       `,
-      [record.source_task_id, String(sessionId), String(targetTaskId), targetTaskId],
-    );
+    [record.source_task_id, String(sessionId), String(targetTaskId), targetTaskId],
+  );
 
-    await database.execute("COMMIT");
-    transactionOpen = false;
-
-    return {
-      sourceTaskId: record.source_task_id,
-      sourceCategoryId: record.source_category_id,
-      targetTaskId,
-      targetCategoryId: record.target_category_id,
-    };
-  } catch (error) {
-    if (transactionOpen) {
-      try {
-        await database.execute("ROLLBACK");
-      } catch (rollbackError) {
-        console.error("[Sessions] Failed to roll back pomodoro reassignment:", rollbackError);
-      }
-    }
-    throw error;
-  }
+  return {
+    sourceTaskId: record.source_task_id,
+    sourceCategoryId: record.source_category_id,
+    targetTaskId,
+    targetCategoryId: record.target_category_id,
+  };
 }
 
 export async function updateSessionReflection(

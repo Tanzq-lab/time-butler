@@ -5679,6 +5679,7 @@ dependencies = [
  "rodio",
  "serde",
  "serde_json",
+ "sqlx",
  "tauri",
  "tauri-build",
  "tauri-plugin-autostart",

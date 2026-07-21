@@ -46,6 +46,7 @@ pub fn run() {
             commands::pomodoro_estimation::read_pomodoro_estimation_log,
             commands::private_data::private_database_url,
             commands::private_data::private_data_root_path,
+            commands::sessions::reassign_completed_pomo,
             commands::timer::timer_schedule_deadline,
             commands::timer::timer_cancel_deadline,
         ])

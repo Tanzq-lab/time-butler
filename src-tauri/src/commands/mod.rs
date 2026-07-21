@@ -4,4 +4,5 @@ pub mod menubar;
 pub mod music;
 pub mod pomodoro_estimation;
 pub mod private_data;
+pub mod sessions;
 pub mod timer;
