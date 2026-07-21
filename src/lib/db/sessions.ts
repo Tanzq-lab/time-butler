@@ -202,11 +202,11 @@ export async function reassignCompletedPomo(
       "UPDATE tasks SET completed_pomos = MAX(0, completed_pomos - 1) WHERE id = $1",
       [record.source_task_id],
     );
+    await database.execute(
+      "UPDATE tasks SET completed_pomos = completed_pomos + 1 WHERE id = $1",
+      [targetTaskId],
+    );
   }
-  await database.execute(
-    "UPDATE tasks SET completed_pomos = completed_pomos + 1 WHERE id = $1",
-    [targetTaskId],
-  );
   if (record.source_task_id !== null) {
     await database.execute(
       `

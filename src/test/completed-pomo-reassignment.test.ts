@@ -110,6 +110,10 @@ describe("reassignCompletedPomo", () => {
       expect.stringContaining("completed_pomos = MAX(0, completed_pomos - 1)"),
       expect.anything(),
     );
+    expect(database.execute).not.toHaveBeenCalledWith(
+      expect.stringContaining("completed_pomos = completed_pomos + 1"),
+      expect.anything(),
+    );
     expect(database.execute).toHaveBeenCalledWith(
       expect.stringContaining("completed_pomo_assigned_from_standalone"),
       [13, String(93)],

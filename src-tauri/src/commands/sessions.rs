@@ -102,13 +102,12 @@ async fn reassign_completed_pomo_in_pool(
         .execute(&mut *transaction)
         .await
         .map_err(|error| database_error("failed to decrement source task pomodoros", error))?;
+        sqlx::query("UPDATE tasks SET completed_pomos = completed_pomos + 1 WHERE id = ?")
+            .bind(target_task_id)
+            .execute(&mut *transaction)
+            .await
+            .map_err(|error| database_error("failed to increment target task pomodoros", error))?;
     }
-
-    sqlx::query("UPDATE tasks SET completed_pomos = completed_pomos + 1 WHERE id = ?")
-        .bind(target_task_id)
-        .execute(&mut *transaction)
-        .await
-        .map_err(|error| database_error("failed to increment target task pomodoros", error))?;
 
     if let Some(source_task_id) = source_task_id {
         sqlx::query(
@@ -208,6 +207,25 @@ mod tests {
               pomo_counted INTEGER NOT NULL,
               category_id INTEGER
             )
+            "#,
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        sqlx::query(
+            r#"
+            CREATE TRIGGER trg_sessions_credit_task_pomo
+            AFTER UPDATE OF pomo_counted ON sessions
+            WHEN OLD.pomo_counted = 0
+              AND NEW.pomo_counted = 1
+              AND NEW.phase = 'work'
+              AND NEW.completed = 1
+              AND NEW.task_id IS NOT NULL
+            BEGIN
+              UPDATE tasks
+              SET completed_pomos = completed_pomos + 1
+              WHERE id = NEW.task_id;
+            END
             "#,
         )
         .execute(&pool)
