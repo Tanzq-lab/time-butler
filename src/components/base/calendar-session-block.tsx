@@ -63,7 +63,7 @@ export function CalendarSessionBlock({
   const canEditPomo =
     isWork &&
     session.completed === 1 &&
-    session.pomo_counted === 1 &&
+    (session.pomo_counted === 1 || session.task_id === null) &&
     onEditPomo;
   const interactionClass = canEditPomo
     ? "cursor-pointer text-left outline-none transition-[filter,box-shadow] hover:brightness-[0.96] focus-visible:ring-2 focus-visible:ring-sahara-focus focus-visible:ring-offset-2 focus-visible:ring-offset-sahara-bg"

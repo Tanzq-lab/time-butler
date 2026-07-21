@@ -34,13 +34,14 @@ async fn reassign_completed_pomo_in_pool(
         SELECT
           s.task_id AS source_task_id,
           s.category_id AS source_category_id,
+          s.pomo_counted AS source_pomo_counted,
           target.category_id AS target_category_id
         FROM sessions s
         JOIN tasks target ON target.id = ? AND target.archived = 0
         WHERE s.id = ?
           AND s.phase = 'work'
           AND s.completed = 1
-          AND s.pomo_counted = 1
+          AND (s.task_id IS NULL OR s.pomo_counted = 1)
         "#,
     )
     .bind(target_task_id)
@@ -48,7 +49,7 @@ async fn reassign_completed_pomo_in_pool(
     .fetch_optional(&mut *transaction)
     .await
     .map_err(|error| database_error("failed to load pomodoro reassignment", error))?
-    .ok_or_else(|| "只能更正已完成且已计入统计的专注番茄。".to_string())?;
+    .ok_or_else(|| "只能更正已完成的独立专注，或已计入统计的任务番茄。".to_string())?;
 
     let source_task_id = record
         .try_get::<Option<i64>, _>("source_task_id")
@@ -56,6 +57,9 @@ async fn reassign_completed_pomo_in_pool(
     let source_category_id = record
         .try_get::<Option<i64>, _>("source_category_id")
         .map_err(|error| database_error("failed to decode source category", error))?;
+    let source_pomo_counted = record
+        .try_get::<i64, _>("source_pomo_counted")
+        .map_err(|error| database_error("failed to decode source pomodoro state", error))?;
     let target_category_id = record
         .try_get::<Option<i64>, _>("target_category_id")
         .map_err(|error| database_error("failed to decode target category", error))?;
@@ -68,18 +72,20 @@ async fn reassign_completed_pomo_in_pool(
         r#"
         UPDATE sessions
         SET task_id = ?,
-            category_id = ?
+            category_id = ?,
+            pomo_counted = 1
         WHERE id = ?
           AND phase = 'work'
           AND completed = 1
-          AND pomo_counted = 1
           AND task_id IS ?
+          AND pomo_counted = ?
         "#,
     )
     .bind(target_task_id)
     .bind(target_category_id)
     .bind(session_id)
     .bind(source_task_id)
+    .bind(source_pomo_counted)
     .execute(&mut *transaction)
     .await
     .map_err(|error| database_error("failed to update pomodoro attribution", error))?;
@@ -235,7 +241,7 @@ mod tests {
             INSERT INTO sessions (id, task_id, phase, completed, pomo_counted, category_id)
             VALUES
               (93, 12, 'work', 1, 1, 48),
-              (94, NULL, 'work', 1, 1, NULL)
+              (94, NULL, 'work', 1, 0, NULL)
             "#,
         )
         .execute(&pool)
@@ -313,7 +319,7 @@ mod tests {
     }
 
     #[test]
-    fn assigns_a_standalone_pomodoro_without_decrementing_another_task() {
+    fn assigns_an_uncounted_standalone_pomodoro_without_decrementing_another_task() {
         tauri::async_runtime::block_on(async {
             let pool = setup_pool(true).await;
 
@@ -331,12 +337,14 @@ mod tests {
                 }
             );
 
-            let session = sqlx::query("SELECT task_id, category_id FROM sessions WHERE id = 94")
-                .fetch_one(&pool)
-                .await
-                .unwrap();
+            let session =
+                sqlx::query("SELECT task_id, category_id, pomo_counted FROM sessions WHERE id = 94")
+                    .fetch_one(&pool)
+                    .await
+                    .unwrap();
             assert_eq!(session.get::<i64, _>("task_id"), 13);
             assert_eq!(session.get::<i64, _>("category_id"), 69);
+            assert_eq!(session.get::<i64, _>("pomo_counted"), 1);
 
             let counts = sqlx::query("SELECT id, completed_pomos FROM tasks ORDER BY id")
                 .fetch_all(&pool)

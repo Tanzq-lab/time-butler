@@ -61,6 +61,7 @@ const standaloneCompletedPomo: WeekSession = {
   id: 95,
   task_id: null,
   task_name: null,
+  pomo_counted: 0,
   category_id: null,
   category_name: null,
   category_color: null,

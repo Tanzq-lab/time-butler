@@ -112,12 +112,12 @@ export async function updateSessionAttribution(
 }
 
 /**
- * Assigns one already-counted focus pomodoro to a visible task.
+ * Assigns one completed focus session to a visible task.
  *
  * The session remains the source of truth for the time line. Task counters and
  * session category move together so task progress, calendar color, and category
- * analytics do not drift apart. A standalone pomodoro has no source task to
- * decrement.
+ * analytics do not drift apart. A standalone focus is credited when assigned
+ * and has no source task to decrement.
  */
 export async function reassignCompletedPomo(
   sessionId: number,
@@ -145,6 +145,7 @@ export async function reassignCompletedPomo(
     {
       source_task_id: number | null;
       source_category_id: number | null;
+      source_pomo_counted: number;
       target_category_id: number | null;
     }[]
   >(
@@ -152,20 +153,21 @@ export async function reassignCompletedPomo(
       SELECT
         s.task_id AS source_task_id,
         s.category_id AS source_category_id,
+        s.pomo_counted AS source_pomo_counted,
         target.category_id AS target_category_id
       FROM sessions s
       JOIN tasks target ON target.id = $2 AND target.archived = 0
       WHERE s.id = $1
         AND s.phase = 'work'
         AND s.completed = 1
-        AND s.pomo_counted = 1
+        AND (s.task_id IS NULL OR s.pomo_counted = 1)
       `,
     [sessionId, targetTaskId],
   );
 
   const record = rows[0];
   if (!record) {
-    throw new Error("只能更正已完成且已计入统计的专注番茄。");
+    throw new Error("只能更正已完成的独立专注，或已计入统计的任务番茄。");
   }
   if (record.source_task_id === targetTaskId) {
     throw new Error("该番茄已经属于这个任务。");
@@ -175,14 +177,21 @@ export async function reassignCompletedPomo(
     `
       UPDATE sessions
       SET task_id = $2,
-          category_id = $3
+          category_id = $3,
+          pomo_counted = 1
       WHERE id = $1
         AND phase = 'work'
         AND completed = 1
-        AND pomo_counted = 1
         AND task_id IS $4
+        AND pomo_counted = $5
       `,
-    [sessionId, targetTaskId, record.target_category_id, record.source_task_id],
+    [
+      sessionId,
+      targetTaskId,
+      record.target_category_id,
+      record.source_task_id,
+      record.source_pomo_counted,
+    ],
   );
   if (update.rowsAffected !== 1) {
     throw new Error("该番茄已被更新，请刷新日历后重试。");

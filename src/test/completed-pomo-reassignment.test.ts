@@ -22,6 +22,7 @@ describe("reassignCompletedPomo", () => {
       {
         source_task_id: 12,
         source_category_id: 48,
+        source_pomo_counted: 1,
         target_category_id: 69,
       },
     ]);
@@ -68,7 +69,7 @@ describe("reassignCompletedPomo", () => {
     expect(database.execute).not.toHaveBeenCalledWith("ROLLBACK");
     expect(database.execute).toHaveBeenCalledWith(
       expect.stringContaining("UPDATE sessions"),
-      [93, 13, 69, 12],
+      [93, 13, 69, 12, 1],
     );
     expect(database.execute).toHaveBeenCalledWith(
       expect.stringContaining("completed_pomos = MAX(0, completed_pomos - 1)"),
@@ -80,11 +81,12 @@ describe("reassignCompletedPomo", () => {
     );
   });
 
-  it("assigns a counted standalone pomodoro without decrementing another task", async () => {
+  it("assigns an uncounted standalone pomodoro without decrementing another task", async () => {
     database.select.mockResolvedValueOnce([
       {
         source_task_id: null,
         source_category_id: null,
+        source_pomo_counted: 0,
         target_category_id: 69,
       },
     ]);
@@ -98,7 +100,11 @@ describe("reassignCompletedPomo", () => {
 
     expect(database.execute).toHaveBeenCalledWith(
       expect.stringContaining("UPDATE sessions"),
-      [93, 13, 69, null],
+      [93, 13, 69, null, 0],
+    );
+    expect(database.execute).toHaveBeenCalledWith(
+      expect.stringContaining("pomo_counted = 1"),
+      [93, 13, 69, null, 0],
     );
     expect(database.execute).not.toHaveBeenCalledWith(
       expect.stringContaining("completed_pomos = MAX(0, completed_pomos - 1)"),
@@ -123,7 +129,7 @@ describe("reassignCompletedPomo", () => {
     database.select.mockResolvedValue([]);
 
     await expect(reassignCompletedPomo(93, 13)).rejects.toThrow(
-      "只能更正已完成且已计入统计的专注番茄。",
+      "只能更正已完成的独立专注，或已计入统计的任务番茄。",
     );
 
     expect(database.execute).not.toHaveBeenCalledWith("ROLLBACK");
