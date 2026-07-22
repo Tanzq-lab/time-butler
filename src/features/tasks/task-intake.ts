@@ -191,7 +191,12 @@ export function parseTaskDraft(input: string): ParsedTaskDraft {
     return withBreakdown(draft);
   }
 
-  if (includesAny(name, ["面试题", "面经", "逐字稿", "回答"]) || includesAny(text, ["prompt", "提示词"])) {
+  const isInterviewQuestionRefinement = /^优化(?:问题|题目)\s*[:：]/.test(name);
+  if (
+    includesAny(name, ["面试题", "面经", "逐字稿", "回答"])
+    || isInterviewQuestionRefinement
+    || includesAny(text, ["prompt", "提示词"])
+  ) {
     const draft = baseDraft(
       name,
       2,
