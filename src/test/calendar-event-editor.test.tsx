@@ -49,6 +49,39 @@ describe("CalendarEventEditor", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("allows manually entered times that are not on a 15-minute boundary", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <CalendarEventEditor
+        open
+        event={null}
+        initialRange={{
+          startsAt: "2026-07-22 12:00:00",
+          endsAt: "2026-07-22 13:15:00",
+        }}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("内容"), { target: { value: "AI 时间搭子会议" } });
+    const endTimeInput = screen.getByLabelText("结束") as HTMLInputElement;
+    fireEvent.change(endTimeInput, { target: { value: "13:10" } });
+
+    expect(endTimeInput).toHaveAttribute("step", "60");
+    expect(endTimeInput.checkValidity()).toBe(true);
+    expect(screen.getByText("1 小时 10 分钟")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "保存时间" }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({
+      title: "AI 时间搭子会议",
+      startsAt: "2026-07-22 12:00:00",
+      endsAt: "2026-07-22 13:10:00",
+      notes: "",
+    }));
+  });
+
   it("edits and requests deletion of an existing record", () => {
     const onRequestDelete = vi.fn();
     render(

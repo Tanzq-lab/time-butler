@@ -31,21 +31,22 @@ test.describe("Calendar other-time records", () => {
     await expect(editor).toBeVisible();
     await expect(editor.getByLabel("开始")).toHaveValue("10:00");
     await expect(editor.getByLabel("结束")).toHaveValue("11:00");
+    await editor.getByLabel("结束").fill("11:10");
     await editor.getByLabel("内容").fill("产品周会");
     await editor.getByLabel(/备注/).fill("确认下一轮实验");
     await editor.getByRole("button", { name: "保存时间" }).click();
 
-    const block = page.getByRole("button", { name: /编辑时间：产品周会，10:00 – 11:00/ });
+    const block = page.getByRole("button", { name: /编辑时间：产品周会，10:00 – 11:10/ });
     await expect(block).toBeVisible();
-    await expect(page.getByText("1 项 · 1 小时")).toBeVisible();
+    await expect(page.getByText("1 项 · 1小时10分钟")).toBeVisible();
 
     await block.click();
     const editDialog = page.getByRole("dialog", { name: "编辑时间记录" });
     await editDialog.getByLabel("内容").fill("团队周会");
     await editDialog.getByRole("button", { name: "保存时间" }).click();
-    await expect(page.getByRole("button", { name: /编辑时间：团队周会，10:00 – 11:00/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /编辑时间：团队周会，10:00 – 11:10/ })).toBeVisible();
 
-    await page.getByRole("button", { name: /编辑时间：团队周会，10:00 – 11:00/ }).click();
+    await page.getByRole("button", { name: /编辑时间：团队周会，10:00 – 11:10/ }).click();
     await page.getByRole("button", { name: "删除记录" }).click();
     const confirm = page.getByRole("dialog", { name: "删除这段时间？" });
     await expect(confirm).toBeVisible();

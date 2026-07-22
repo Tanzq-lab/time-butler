@@ -206,7 +206,7 @@ export function CalendarEventEditor({
               autoComplete="off"
               min="06:00"
               max="22:45"
-              step={900}
+              step={60}
               value={startTime}
               onChange={(inputEvent) => setStartTime(inputEvent.target.value)}
               disabled={saving}
@@ -225,7 +225,7 @@ export function CalendarEventEditor({
               autoComplete="off"
               min="06:15"
               max="23:00"
-              step={900}
+              step={60}
               value={endTime}
               onChange={(inputEvent) => setEndTime(inputEvent.target.value)}
               disabled={saving}
