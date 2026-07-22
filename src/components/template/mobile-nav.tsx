@@ -12,6 +12,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { ModalOverlay } from "@/components/ui/modal-overlay";
+import { useTimerStore } from "@/features/timer/use-timer-store";
+import { useTaskStore } from "@/features/tasks/use-task-store";
+import { formatSeconds } from "@/lib/time";
 
 const PRIMARY_NAV_ITEMS = [
   { path: "/", label: "计时", icon: Timer },
@@ -30,6 +33,13 @@ export function MobileNav() {
   const [moreOpen, setMoreOpen] = useState(false);
   const location = useLocation();
   const isMoreActive = MORE_NAV_ITEMS.some((item) => item.path === location.pathname);
+  const timerStatus = useTimerStore((state) => state.status);
+  const secondsRemaining = useTimerStore((state) => state.secondsRemaining);
+  const activeTaskId = useTimerStore((state) => state.activeTaskId);
+  const tasks = useTaskStore((state) => state.tasks);
+  const timerIsActive = timerStatus !== "idle";
+  const activeTaskName = tasks.find((task) => task.id === activeTaskId)?.name ?? "独立专注";
+  const mobileTimerLabel = timerIsActive ? formatSeconds(secondsRemaining) : "计时";
 
   return (
     <>
@@ -40,12 +50,17 @@ export function MobileNav() {
         <div className="mx-auto grid max-w-lg grid-cols-5">
           {PRIMARY_NAV_ITEMS.map((item) => {
             const Icon = item.icon;
+            const isTimerItem = item.path === "/";
+            const accessibleLabel = isTimerItem && timerIsActive
+              ? `计时，${activeTaskName}，剩余 ${mobileTimerLabel}`
+              : item.label;
             return (
               <NavLink
                 key={item.path}
                 to={item.path}
                 end={item.path === "/"}
-                aria-label={item.label}
+                aria-label={accessibleLabel}
+                title={isTimerItem && timerIsActive ? activeTaskName : undefined}
                 className={({ isActive }) => cn(
                   "flex min-w-0 flex-col items-center gap-0.5 rounded-md px-1 py-2 text-[10px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-sahara-focus",
                   isActive
@@ -54,7 +69,9 @@ export function MobileNav() {
                 )}
               >
                 <Icon aria-hidden="true" className="size-5" strokeWidth={1.8} />
-                <span>{item.label}</span>
+                <span className={cn(isTimerItem && timerIsActive && "font-mono tabular-nums")}>
+                  {isTimerItem ? mobileTimerLabel : item.label}
+                </span>
               </NavLink>
             );
           })}

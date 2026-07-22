@@ -9,7 +9,6 @@ import { AnalyticsPage } from "@/pages/analytics-page";
 import { SettingsPage } from "@/pages/settings-page";
 import { OnboardingPage } from "@/pages/onboarding-page";
 import { useOnboardingStore } from "@/features/onboarding/use-onboarding-store";
-import { TimerMiniPlayer } from "@/components/layout/timer-mini-player";
 import { AppUsageTracker } from "@/components/providers/app-usage-tracker";
 
 function OnboardingGuard() {
@@ -30,12 +29,7 @@ function OnboardingGuard() {
   }
   if (!complete) return <Navigate to="/onboarding" replace />;
 
-  return (
-    <>
-      <Outlet />
-      <TimerMiniPlayer />
-    </>
-  );
+  return <Outlet />;
 }
 
 export function Router() {

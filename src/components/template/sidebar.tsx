@@ -1,4 +1,4 @@
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Timer,
@@ -10,12 +10,11 @@ import {
   HelpCircle,
   PanelLeftClose,
   PanelLeftOpen,
-  Play,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { useTimerStore } from "@/features/timer/use-timer-store";
 import { m } from "framer-motion";
 import brandMarkUrl from "@/assets/time-butler-brand-icon.png";
+import { SidebarTimerStatus } from "@/components/layout/sidebar-timer-status";
 
 const NAV_ITEMS = [
   { path: "/", label: "计时", icon: Timer },
@@ -31,15 +30,6 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const status = useTimerStore((s) => s.status);
-  const phase = useTimerStore((s) => s.phase);
-  const start = useTimerStore((s) => s.start);
-  const isRunning = status === "running";
-  const idleStartLabel = phase === "work" ? "开始专注" : "开始休息";
-  const runningLabel = phase === "work" ? "专注进行中" : "休息进行中";
-
   return (
     <m.aside
       initial={{ x: -300, opacity: 0 }}
@@ -62,9 +52,9 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
         className="absolute -right-3 top-10 z-50 size-6 rounded-md border border-sahara-border bg-sahara-surface text-sahara-text-muted hover:text-sahara-text"
       >
         {isCollapsed ? (
-          <PanelLeftOpen className="size-3.5" />
+          <PanelLeftOpen aria-hidden="true" className="size-3.5" />
         ) : (
-          <PanelLeftClose className="size-3.5" />
+          <PanelLeftClose aria-hidden="true" className="size-3.5" />
         )}
       </Button>
 
@@ -117,40 +107,7 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
       </nav>
 
       <div className="mb-4 px-2">
-        <Button
-          variant="outline"
-          intent="default"
-          fullWidth
-          disabled={isRunning}
-          onClick={() => {
-            if (location.pathname !== "/") {
-              navigate("/");
-            }
-            void start(undefined, { source: "sidebar" });
-          }}
-          title={
-            isCollapsed
-              ? isRunning
-                ? runningLabel
-                : idleStartLabel
-              : undefined
-          }
-          className={cn(
-            "h-9 border-sahara-border bg-sahara-surface text-xs font-medium text-sahara-text hover:bg-sahara-card",
-            isCollapsed ? "px-0" : "gap-2 px-3",
-            isRunning && "cursor-not-allowed opacity-50",
-          )}
-        >
-          <Play
-            className={cn(
-              "size-4 fill-current",
-              !isCollapsed && "ml-0.5",
-            )}
-          />
-          {!isCollapsed && (
-            <span>{isRunning ? runningLabel : idleStartLabel}</span>
-          )}
-        </Button>
+        <SidebarTimerStatus isCollapsed={isCollapsed} />
       </div>
 
       <nav aria-label="辅助导航" className="space-y-0.5 border-t border-sahara-border px-2 pt-3">

@@ -119,10 +119,37 @@ test.describe("Responsive and accessibility", () => {
     expect((await safeArea.boundingBox())?.height).toBeGreaterThanOrEqual(32);
   });
 
+  test("active focus moves from the floating player into the desktop sidebar", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.getByRole("link", { name: "任务" }).click();
+    await page.getByRole("button", { name: "添加专注任务" }).click();
+    await page.getByPlaceholder("你现在要做什么？").fill("跨页面专注状态测试");
+    await page.getByRole("button", { name: "预计 4 个番茄" }).click();
+    await page.getByRole("button", { name: "创建任务" }).click();
+    await page
+      .getByRole("button", { name: /^跨页面专注状态测试 0\/4 个番茄$/ })
+      .click();
+
+    await page.getByRole("button", { name: "开始专注", exact: true }).click();
+    await expect(page).toHaveURL(/\/#\/$/);
+    await page.getByRole("link", { name: "任务" }).click();
+
+    const sidebarStatus = page.getByRole("region", { name: "当前专注状态" });
+    await expect(sidebarStatus.getByText("跨页面专注状态测试")).toBeVisible();
+    await expect(sidebarStatus.getByRole("timer")).toHaveText(/\d{2}:\d{2}/);
+    await expect(sidebarStatus.getByRole("button", { name: "暂停专注" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "缩小计时横条" })).toHaveCount(0);
+
+    await sidebarStatus.getByRole("button", { name: "暂停专注" }).click();
+    await expect(sidebarStatus.getByRole("button", { name: "继续专注" })).toBeVisible();
+    await expect(page).toHaveURL(/\/#\/tasks/);
+  });
+
   test("selected task stays readable in light and dark themes", async ({ page }) => {
     await page.getByRole("link", { name: "任务" }).click();
     await page.getByRole("button", { name: "添加专注任务" }).click();
     await page.getByPlaceholder("你现在要做什么？").fill("选择态对比度任务");
+    await page.getByRole("button", { name: "预计 4 个番茄" }).click();
     await page.getByRole("button", { name: "创建任务" }).click();
     await page.getByRole("button", { name: /^选择态对比度任务 0\/4 个番茄$/ }).click();
     await page.getByRole("link", { name: "计时" }).click();
@@ -164,6 +191,7 @@ test.describe("Responsive and accessibility", () => {
     await page.getByRole("navigation", { name: "移动端导航" }).getByRole("link", { name: "任务" }).click();
     await page.getByRole("button", { name: "添加专注任务" }).click();
     await page.getByPlaceholder("你现在要做什么？").fill("手机任务菜单测试");
+    await page.getByRole("button", { name: "预计 1 个番茄" }).click();
     await page.getByRole("button", { name: "创建任务" }).click();
 
     const moreButton = page.getByRole("button", { name: "更多操作：手机任务菜单测试" });

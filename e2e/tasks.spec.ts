@@ -23,6 +23,7 @@ test.describe("Tasks", () => {
     await expect(page.getByPlaceholder("你现在要做什么？")).toBeVisible();
 
     await page.getByPlaceholder("你现在要做什么？").fill("我的第一个测试任务");
+    await page.getByRole("button", { name: "预计 1 个番茄" }).click();
     await page.getByRole("button", { name: "创建任务" }).click();
 
     await expect(page.getByText("我的第一个测试任务")).toBeVisible();
@@ -45,10 +46,12 @@ test.describe("Tasks", () => {
   test("search input filters tasks", async ({ page }) => {
     await page.getByRole("button", { name: "添加专注任务" }).click();
     await page.getByPlaceholder("你现在要做什么？").fill("设计评审");
+    await page.getByRole("button", { name: "预计 1 个番茄" }).click();
     await page.getByRole("button", { name: "创建任务" }).click();
 
     await page.getByRole("button", { name: "添加专注任务" }).click();
     await page.getByPlaceholder("你现在要做什么？").fill("代码重构");
+    await page.getByRole("button", { name: "预计 1 个番茄" }).click();
     await page.getByRole("button", { name: "创建任务" }).click();
 
     await expect(page.getByText("设计评审")).toBeVisible();
@@ -62,6 +65,7 @@ test.describe("Tasks", () => {
   test("clicking a task sets it as active", async ({ page }) => {
     await page.getByRole("button", { name: "添加专注任务" }).click();
     await page.getByPlaceholder("你现在要做什么？").fill("测试进行中任务");
+    await page.getByRole("button", { name: "预计 4 个番茄" }).click();
     await page.getByRole("button", { name: "创建任务" }).click();
 
     await page.getByRole("button", { name: /^测试进行中任务 0\/4 个番茄$/ }).click();
@@ -115,6 +119,7 @@ test.describe("Tasks", () => {
     await expect(page.getByRole("checkbox", { name: `完成待办：${title}` })).toBeVisible();
 
     await page.getByRole("button", { name: `转为专注任务：${title}` }).click();
+    await page.getByRole("button", { name: "预计 1 个番茄" }).click();
     await page.getByRole("button", { name: /创建任务/ }).click();
 
     await expect(page.getByRole("checkbox", { name: `完成待办：${title}` })).not.toBeVisible();

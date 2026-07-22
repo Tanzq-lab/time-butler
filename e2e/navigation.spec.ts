@@ -50,15 +50,14 @@ test.describe("Navigation", () => {
     await expect(page).toHaveURL(/\/#\/$/);
   });
 
-  test("sidebar START SESSION button is disabled when session is running", async ({ page }) => {
-    // Start a session via the main START FOCUS button
-    await page.locator("#main-content").getByRole("button", { name: "开始专注" }).click();
+  test("running session replaces the sidebar start action with a timer", async ({ page }) => {
+    await page.getByRole("link", { name: "任务" }).click();
+    await page.locator("aside").getByRole("button", { name: "开始专注" }).click();
+    await expect(page).toHaveURL(/\/#\/$/);
 
-    // Wait for the PAUSE button to appear (confirms session is running)
-    await expect(page.getByRole("button", { name: "暂停" })).toBeVisible();
-
-    // Now check the sidebar button — it should be disabled
-    const sidebarBtn = page.locator("aside").getByRole("button", { name: "专注进行中" });
-    await expect(sidebarBtn).toBeDisabled();
+    await page.getByRole("link", { name: "任务" }).click();
+    const status = page.getByRole("region", { name: "当前专注状态" });
+    await expect(status.getByRole("timer")).toHaveText(/\d{2}:\d{2}/);
+    await expect(status.getByRole("button", { name: "暂停专注" })).toBeVisible();
   });
 });
