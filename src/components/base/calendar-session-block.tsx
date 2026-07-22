@@ -77,6 +77,7 @@ export function CalendarSessionBlock({
       return (
         <button
           type="button"
+          data-calendar-entry="session"
           className={cn(
             "absolute left-1 right-1 z-10 overflow-hidden border md:left-1.5 md:right-1.5",
             isMicro
@@ -108,6 +109,7 @@ export function CalendarSessionBlock({
     return (
       <div
         role="group"
+        data-calendar-entry="session"
         className={cn(
           "absolute left-1 right-1 z-10 overflow-hidden border md:left-1.5 md:right-1.5",
           isMicro
@@ -144,8 +146,9 @@ export function CalendarSessionBlock({
 
   if (canEditPomo) {
     return (
-      <button
-        type="button"
+    <button
+      type="button"
+      data-calendar-entry="session"
         aria-label={accessibleLabel}
         className={cn(
           "absolute left-1 right-1 z-10 flex flex-col overflow-hidden rounded-md border px-2.5 py-1.5 md:left-1.5 md:right-1.5 md:rounded-[10px] md:px-3 md:py-2.5",
@@ -194,6 +197,7 @@ export function CalendarSessionBlock({
   return (
     <div
       role="group"
+      data-calendar-entry="session"
       aria-label={accessibleLabel}
       className={cn(
         "absolute left-1 right-1 z-10 flex flex-col overflow-hidden rounded-md border px-2.5 py-1.5 md:left-1.5 md:right-1.5 md:rounded-[10px] md:px-3 md:py-2.5",

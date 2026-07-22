@@ -68,6 +68,16 @@ export interface WeekSession {
   notes: string | null;
 }
 
+export interface CalendarEvent {
+  id: number;
+  title: string;
+  starts_at: string;
+  ends_at: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface WeekSummary {
   total_seconds: number;
   total_sessions: number;

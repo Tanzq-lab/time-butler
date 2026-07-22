@@ -1,16 +1,31 @@
-import { Flame, Clock, Target, TrendingUp } from "lucide-react";
+import { CalendarRange, Flame, Clock, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/cn";
-import type { WeekSummary } from "@/lib/db";
+import type { CalendarEvent, WeekSummary } from "@/lib/db";
+import { parseLocalDateTime } from "@/lib/time";
 
 interface CalendarWeekStatsProps {
   summary: WeekSummary;
+  calendarEvents?: CalendarEvent[];
 }
 
 function formatPomos(count: number): string {
   return `${count} 个番茄`;
 }
 
-export function CalendarWeekStats({ summary }: CalendarWeekStatsProps) {
+function formatDuration(totalSeconds: number): string {
+  const minutes = Math.round(totalSeconds / 60);
+  if (minutes < 60) return `${minutes} 分钟`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return remainder ? `${hours}小时${remainder}分钟` : `${hours} 小时`;
+}
+
+export function CalendarWeekStats({ summary, calendarEvents = [] }: CalendarWeekStatsProps) {
+  const calendarEventSeconds = calendarEvents.reduce((total, event) => {
+    const start = parseLocalDateTime(event.starts_at).getTime();
+    const end = parseLocalDateTime(event.ends_at).getTime();
+    return total + Math.max(0, Math.round((end - start) / 1000));
+  }, 0);
   const stats = [
     {
       icon: Clock,
@@ -20,9 +35,11 @@ export function CalendarWeekStats({ summary }: CalendarWeekStatsProps) {
       bg: "bg-sahara-card",
     },
     {
-      icon: Target,
-      label: "专注 / 休息",
-      value: `${summary.completed_pomos} 个 · ${summary.break_sessions} 次`,
+      icon: CalendarRange,
+      label: "其他时间",
+      value: calendarEvents.length > 0
+        ? `${calendarEvents.length} 项 · ${formatDuration(calendarEventSeconds)}`
+        : "0 项",
       color: "text-sahara-text-secondary",
       bg: "bg-sahara-card",
     },
@@ -59,7 +76,7 @@ export function CalendarWeekStats({ summary }: CalendarWeekStatsProps) {
                 stat.bg,
               )}
             >
-              <Icon className={cn("size-4", stat.color)} />
+              <Icon aria-hidden="true" className={cn("size-4", stat.color)} />
             </div>
             <p className="text-[10px] text-sahara-text-muted">
               {stat.label}

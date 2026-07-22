@@ -222,9 +222,22 @@ export async function initDb(): Promise<void> {
       `CREATE INDEX IF NOT EXISTS idx_tasks_visible_order
         ON tasks (archived, sort_order, created_at DESC)`,
     ],
+    15: [
+      `CREATE TABLE IF NOT EXISTS calendar_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        starts_at DATETIME NOT NULL,
+        ends_at DATETIME NOT NULL,
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        CHECK (ends_at > starts_at)
+      )`,
+      "CREATE INDEX IF NOT EXISTS idx_calendar_events_starts_at ON calendar_events(starts_at)",
+    ],
   };
 
-  const targetVersion = 14;
+  const targetVersion = 15;
 
   for (let v = currentVersion + 1; v <= targetVersion; v++) {
     const statements = migrations[v];

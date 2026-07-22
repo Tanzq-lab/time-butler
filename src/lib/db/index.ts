@@ -1,6 +1,7 @@
 export { initDb } from "./schema";
 export { getDb } from "./schema";
-export type { Session, Category, Todo, CategoryBreakdown, DayData, WeekSession, WeekSummary, MoodStat, SessionNoteEntry, CompletedTaskEntry, TimePage, TimePageType } from "./types";
+export type { Session, Category, Todo, CategoryBreakdown, DayData, WeekSession, WeekSummary, MoodStat, SessionNoteEntry, CompletedTaskEntry, TimePage, TimePageType, CalendarEvent } from "./types";
+export type { CalendarEventInput } from "./calendar-events";
 export type { AppEvent, AppEventSummary } from "./app-events";
 export {
   recordAppEvent,
@@ -42,6 +43,12 @@ export {
   getWeekSummary,
 } from "./sessions";
 export { getSetting, setSetting } from "./settings";
+export {
+  getCalendarEvents,
+  addCalendarEvent,
+  updateCalendarEvent,
+  deleteCalendarEvent,
+} from "./calendar-events";
 export {
   getCategories,
   getCategory,

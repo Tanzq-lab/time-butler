@@ -137,6 +137,48 @@ body {
   color: #c9f2d4;
 }
 
+/* Other time uses a cool graphite rail so it reads as occupied time without
+   borrowing the category colour or completion meaning of focus sessions. */
+.calendar-event {
+  border-color: #a9b8bf;
+  background: #edf2f4;
+  box-shadow: inset 3px 0 0 #647985;
+  color: #34434b;
+}
+
+.calendar-event__muted {
+  color: #52656e;
+}
+
+.calendar-event-selection {
+  border-color: #718791;
+  border-style: dashed;
+  background: color-mix(in srgb, #718791 18%, var(--color-sahara-surface));
+  box-shadow: inset 3px 0 0 #647985, inset -1px 0 0 #8fa0a8;
+  color: var(--color-sahara-text);
+}
+
+.calendar-event-selection__hint {
+  color: var(--color-sahara-text-secondary);
+}
+
+.dark .calendar-event {
+  border-color: #51666f;
+  background: #26343a;
+  box-shadow: inset 3px 0 0 #91aab5;
+  color: #edf4f6;
+}
+
+.dark .calendar-event__muted {
+  color: #bccbd1;
+}
+
+.dark .calendar-event-selection {
+  border-color: #8298a2;
+  background: color-mix(in srgb, #8298a2 22%, var(--color-sahara-card));
+  box-shadow: inset 3px 0 0 #9cb0b9, inset -1px 0 0 #60747d;
+}
+
 ::-webkit-scrollbar {
   width: 4px;
 }

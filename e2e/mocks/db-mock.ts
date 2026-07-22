@@ -47,7 +47,20 @@ function applyWhereFilters(rows: Row[], sql: string, up: string, params: unknown
   if (up.includes("ARCHIVED = 0")) result = result.filter((r) => r.archived === 0);
   if (up.includes("COMPLETED = 1")) result = result.filter((r) => r.completed === 1);
   if (up.includes("COMPLETED = 0")) result = result.filter((r) => r.completed === 0);
-  if (up.includes("DATE(STARTED_AT)")) result = [];
+  const dateRange = sql.match(
+    /DATE\((STARTED_AT|STARTS_AT)\)\s*>=\s*\$(\d+).*DATE\(\1\)\s*<=\s*\$(\d+)/is,
+  );
+  if (dateRange) {
+    const column = dateRange[1].toLowerCase();
+    const start = String(params[parseInt(dateRange[2]) - 1] ?? "");
+    const end = String(params[parseInt(dateRange[3]) - 1] ?? "");
+    result = result.filter((row) => {
+      const value = String(row[column] ?? "").slice(0, 10);
+      return value >= start && value <= end;
+    });
+  } else if (up.includes("DATE(STARTED_AT)")) {
+    result = [];
+  }
 
   const id = parseWhereId(sql, params);
   if (id) result = result.filter((r) => r.id === id);
