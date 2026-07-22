@@ -46,7 +46,7 @@ import {
 
 interface ListState {
   searchQuery: string;
-  viewMode: "list" | "grid";
+  viewMode: TaskViewMode;
   showAddModal: boolean;
   showRecurringModal: boolean;
   taskToEdit: Task | null;
@@ -57,6 +57,10 @@ interface ListState {
   showDone: boolean;
   doneVisibleCount: number;
 }
+
+type TaskViewMode = "list" | "grid";
+
+const TASK_VIEW_MODE_STORAGE_KEY = "time-butler:task-view-mode:v1";
 
 type TaskDropPosition = "before" | "after";
 
@@ -85,7 +89,7 @@ interface PointerDrag {
 
 type ListAction =
   | { type: "SET_SEARCH"; query: string }
-  | { type: "SET_VIEW_MODE"; mode: "list" | "grid" }
+  | { type: "SET_VIEW_MODE"; mode: TaskViewMode }
   | { type: "OPEN_ADD_MODAL"; taskToEdit?: Task | null }
   | { type: "OPEN_RECURRING_MODAL" }
   | { type: "CLOSE_RECURRING_MODAL" }
@@ -113,6 +117,32 @@ const INITIAL_LIST_STATE: ListState = {
   showDone: false,
   doneVisibleCount: 20,
 };
+
+function loadTaskViewMode(): TaskViewMode {
+  if (typeof window === "undefined") return "list";
+
+  try {
+    const savedMode = window.localStorage.getItem(TASK_VIEW_MODE_STORAGE_KEY);
+    return savedMode === "grid" || savedMode === "list" ? savedMode : "list";
+  } catch (error) {
+    console.warn("[TasksList] Failed to restore task view mode:", error);
+    return "list";
+  }
+}
+
+function initializeListState(state: ListState): ListState {
+  return { ...state, viewMode: loadTaskViewMode() };
+}
+
+function persistTaskViewMode(viewMode: TaskViewMode): void {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(TASK_VIEW_MODE_STORAGE_KEY, viewMode);
+  } catch (error) {
+    console.warn("[TasksList] Failed to persist task view mode:", error);
+  }
+}
 
 function listReducer(state: ListState, action: ListAction): ListState {
   switch (action.type) {
@@ -182,7 +212,11 @@ export function TasksList() {
   const activeTaskId = useTimerStore((s) => s.activeTaskId);
   const setActiveTask = useTimerStore((s) => s.setActiveTask);
 
-  const [listState, dispatch] = useReducer(listReducer, INITIAL_LIST_STATE);
+  const [listState, dispatch] = useReducer(
+    listReducer,
+    INITIAL_LIST_STATE,
+    initializeListState,
+  );
   const [draggingTaskId, setDraggingTaskId] = useState<number | null>(null);
   const [dropTarget, setDropTarget] = useState<TaskDropTarget | null>(null);
   const [recurringRules, setRecurringRules] = useState<UserRecurringTaskRule[]>([]);
@@ -201,6 +235,10 @@ export function TasksList() {
     showDone,
     doneVisibleCount,
   } = listState;
+
+  useEffect(() => {
+    persistTaskViewMode(viewMode);
+  }, [viewMode]);
 
   useEffect(() => {
     let disposed = false;

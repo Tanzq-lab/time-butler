@@ -17,6 +17,21 @@ test.describe("Tasks", () => {
     await expect(focusActions.getByRole("button", { name: "网格视图" })).toBeVisible();
   });
 
+  test("keeps the selected task view after navigating away and back", async ({ page }) => {
+    const gridViewButton = page.getByRole("button", { name: "网格视图" });
+
+    await gridViewButton.click();
+    await expect(gridViewButton).toHaveAttribute("aria-pressed", "true");
+
+    await page.getByRole("link", { name: "计时" }).click();
+    await page.getByRole("link", { name: "任务" }).click();
+
+    await expect(page.getByRole("button", { name: "网格视图" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
   test("configures a recurring task from the task list", async ({ page }) => {
     await page.getByRole("button", { name: "添加循环任务" }).click();
 
