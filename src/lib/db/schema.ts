@@ -235,9 +235,27 @@ export async function initDb(): Promise<void> {
       )`,
       "CREATE INDEX IF NOT EXISTS idx_calendar_events_starts_at ON calendar_events(starts_at)",
     ],
+    16: [
+      `CREATE TABLE IF NOT EXISTS recurring_task_rules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        estimated_pomos INTEGER NOT NULL DEFAULT 1 CHECK (estimated_pomos BETWEEN 1 AND 4),
+        project TEXT,
+        category_id INTEGER,
+        frequency TEXT NOT NULL CHECK (frequency IN ('daily', 'weekly', 'monthly')),
+        start_date TEXT NOT NULL,
+        scheduled_time TEXT NOT NULL,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (category_id) REFERENCES categories(id)
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_recurring_task_rules_enabled
+        ON recurring_task_rules (enabled, created_at)`,
+    ],
   };
 
-  const targetVersion = 15;
+  const targetVersion = 16;
 
   for (let v = currentVersion + 1; v <= targetVersion; v++) {
     const statements = migrations[v];

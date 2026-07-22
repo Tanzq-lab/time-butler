@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  Repeat2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
@@ -23,6 +24,10 @@ import {
   AddTaskModal,
   type AddTaskData,
 } from "@/components/base/add-task-modal";
+import {
+  AddRecurringTaskModal,
+  type AddRecurringTaskData,
+} from "@/components/base/add-recurring-task-modal";
 import { TaskCompletionReviewModal } from "@/components/base/task-completion-review-modal";
 import { TaskNoteModal } from "@/components/base/task-note-modal";
 import { TaskListCard } from "@/components/base/task-list-card";
@@ -31,11 +36,14 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PageHeader, SectionHeader } from "@/components/ui/page-header";
 import type { Task } from "@/features/tasks/task-types";
 import type { Todo } from "@/lib/db";
+import { recordAppEvent } from "@/lib/db";
+import { addRecurringTaskRule } from "@/features/tasks/recurring-task-rules";
 
 interface ListState {
   searchQuery: string;
   viewMode: "list" | "grid";
   showAddModal: boolean;
+  showRecurringModal: boolean;
   taskToEdit: Task | null;
   taskToComplete: Task | null;
   taskToRecord: Task | null;
@@ -74,6 +82,8 @@ type ListAction =
   | { type: "SET_SEARCH"; query: string }
   | { type: "SET_VIEW_MODE"; mode: "list" | "grid" }
   | { type: "OPEN_ADD_MODAL"; taskToEdit?: Task | null }
+  | { type: "OPEN_RECURRING_MODAL" }
+  | { type: "CLOSE_RECURRING_MODAL" }
   | { type: "OPEN_CONVERT_MODAL"; todo: Todo }
   | { type: "CLOSE_ADD_MODAL" }
   | { type: "OPEN_COMPLETE_MODAL"; task: Task }
@@ -89,6 +99,7 @@ const INITIAL_LIST_STATE: ListState = {
   searchQuery: "",
   viewMode: "list",
   showAddModal: false,
+  showRecurringModal: false,
   taskToEdit: null,
   taskToComplete: null,
   taskToRecord: null,
@@ -111,6 +122,10 @@ function listReducer(state: ListState, action: ListAction): ListState {
         taskToEdit: action.taskToEdit ?? null,
         todoToConvert: null,
       };
+    case "OPEN_RECURRING_MODAL":
+      return { ...state, showRecurringModal: true };
+    case "CLOSE_RECURRING_MODAL":
+      return { ...state, showRecurringModal: false };
     case "OPEN_CONVERT_MODAL":
       return {
         ...state,
@@ -171,6 +186,7 @@ export function TasksList() {
     searchQuery,
     viewMode,
     showAddModal,
+    showRecurringModal,
     taskToEdit,
     taskToComplete,
     taskToRecord,
@@ -231,6 +247,26 @@ export function TasksList() {
   const handleAddTask = async (data: AddTaskData) => {
     const task = await addTask(data.name, data.estimatedPomos);
     return Boolean(task);
+  };
+
+  const handleAddRecurringTask = async (data: AddRecurringTaskData) => {
+    const ruleId = await addRecurringTaskRule(data);
+    await loadTasks();
+    void recordAppEvent({
+      eventName: "recurring_task_rule_created",
+      route: "/tasks",
+      entityType: "recurring_task_rule",
+      entityId: ruleId,
+      metadata: {
+        frequency: data.frequency,
+        estimatedPomos: data.estimatedPomos,
+        hasProject: Boolean(data.project),
+        hasCategory: data.categoryId != null,
+        startDate: data.startDate,
+        scheduledTime: data.scheduledTime,
+      },
+    });
+    return true;
   };
 
   const handleEditTask = async (data: AddTaskData) => {
@@ -471,6 +507,12 @@ export function TasksList() {
         initialName={todoToConvert?.title}
         editTask={taskToEdit}
       />
+      <AddRecurringTaskModal
+        open={showRecurringModal}
+        onClose={() => dispatch({ type: "CLOSE_RECURRING_MODAL" })}
+        onSubmit={handleAddRecurringTask}
+        projectOptions={tasks.map((task) => task.project ?? "")}
+      />
       <TaskCompletionReviewModal
         open={!!taskToComplete}
         task={taskToComplete}
@@ -519,9 +561,9 @@ export function TasksList() {
                 aria-label="列表视图"
                 aria-pressed={viewMode === "list"}
                 onClick={() => dispatch({ type: "SET_VIEW_MODE", mode: "list" })}
-                className="border-sahara-border"
+                className="min-h-10 min-w-10 border-sahara-border"
               >
-                <ListTodo className="size-4" />
+                <ListTodo aria-hidden="true" className="size-4" />
               </Button>
               <Button
                 variant={viewMode === "grid" ? "solid" : "outline"}
@@ -530,9 +572,20 @@ export function TasksList() {
                 aria-label="网格视图"
                 aria-pressed={viewMode === "grid"}
                 onClick={() => dispatch({ type: "SET_VIEW_MODE", mode: "grid" })}
-                className="border-sahara-border"
+                className="min-h-10 min-w-10 border-sahara-border"
               >
-                <LayoutGrid className="size-4" />
+                <LayoutGrid aria-hidden="true" className="size-4" />
+              </Button>
+              <Button
+                variant="outline"
+                intent="default"
+                size="sm"
+                aria-label="添加循环任务"
+                onClick={() => dispatch({ type: "OPEN_RECURRING_MODAL" })}
+                className="ml-1 min-h-10 gap-1.5 px-2.5 text-xs font-medium md:ml-2 md:px-3"
+              >
+                <Repeat2 aria-hidden="true" className="size-3.5 md:size-4" />
+                <span className="hidden md:inline">添加循环任务</span>
               </Button>
               <Button
                 variant="solid"
@@ -540,9 +593,9 @@ export function TasksList() {
                 size="sm"
                 aria-label="添加专注任务"
                 onClick={() => dispatch({ type: "OPEN_ADD_MODAL" })}
-                className="ml-1 gap-1.5 px-3 text-xs font-medium md:ml-2"
+                className="min-h-10 gap-1.5 px-2.5 text-xs font-medium md:px-3"
               >
-                <Plus className="size-3.5 md:size-4" />
+                <Plus aria-hidden="true" className="size-3.5 md:size-4" />
                 <span className="hidden sm:inline">添加专注任务</span>
               </Button>
             </div>

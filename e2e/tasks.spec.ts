@@ -12,8 +12,23 @@ test.describe("Tasks", () => {
     const focusActions = focusSection.getByRole("group", { name: "专注任务操作" });
 
     await expect(focusActions.getByRole("button", { name: "添加专注任务" })).toBeVisible();
+    await expect(focusActions.getByRole("button", { name: "添加循环任务" })).toBeVisible();
     await expect(focusActions.getByRole("button", { name: "列表视图" })).toBeVisible();
     await expect(focusActions.getByRole("button", { name: "网格视图" })).toBeVisible();
+  });
+
+  test("configures a recurring task from the task list", async ({ page }) => {
+    await page.getByRole("button", { name: "添加循环任务" }).click();
+
+    const dialog = page.getByRole("dialog", { name: "添加循环任务" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByLabel("任务名称").fill("每日整理收件箱");
+    await dialog.getByRole("button", { name: "循环任务预计 1 个番茄" }).click();
+    await dialog.getByLabel(/项目/).fill("个人效率");
+    await dialog.getByRole("button", { name: "创建循环任务" }).click();
+
+    await expect(dialog).not.toBeVisible();
+    await expect(page.getByText("每日整理收件箱")).toBeVisible();
   });
 
   test("opens add task modal and creates a task", async ({ page }) => {

@@ -65,10 +65,12 @@ function applyWhereFilters(rows: Row[], sql: string, up: string, params: unknown
   const id = parseWhereId(sql, params);
   if (id) result = result.filter((r) => r.id === id);
 
-  const genericEq = sql.match(/WHERE\s+(\w+)\s*=\s*\$(\d+)/i);
-  if (genericEq) {
-    const col = genericEq[1];
-    const pIdx = parseInt(genericEq[2]) - 1;
+  const equalityFilters = Array.from(
+    sql.matchAll(/(?:WHERE|AND)\s+(?:\w+\.)?(\w+)\s*=\s*\$(\d+)/gi),
+  );
+  for (const equality of equalityFilters) {
+    const col = equality[1];
+    const pIdx = parseInt(equality[2]) - 1;
     if (pIdx < params.length && col !== "id") {
       result = result.filter((r) => r[col] === params[pIdx]);
     }

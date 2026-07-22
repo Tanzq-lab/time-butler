@@ -1,6 +1,10 @@
 import { TASK_CATEGORY_NAMES } from "@/lib/db/default-categories";
 import { addTask, getDb } from "@/lib/db";
 import { appendPomodoroEstimationLog } from "@/features/tasks/pomodoro-estimation-log";
+import {
+  getEnabledRecurringTaskRules,
+  type UserRecurringTaskRule,
+} from "@/features/tasks/recurring-task-rules";
 
 const LOOKAHEAD_DAYS = 7;
 const SUMMARY_TASK_HOUR = 9;
@@ -10,14 +14,14 @@ const DAILY_ANKI_TASK_HOUR = 9;
 const DAILY_ANKI_PROJECT = "ANKI";
 const DAILY_ANKI_CATEGORY = TASK_CATEGORY_NAMES.memoryReview;
 
-type RecurringTaskRuleKey =
+type BuiltInRecurringTaskRuleKey =
   | "summary.weekly"
   | "summary.monthly"
   | "summary.yearly"
   | "anki.daily";
 
 interface RecurringTaskRule {
-  key: RecurringTaskRuleKey;
+  key: BuiltInRecurringTaskRuleKey;
   name: string;
   estimatedPomos: number;
   shouldCreateOn: (date: Date) => boolean;
@@ -29,13 +33,14 @@ interface RecurringTaskRule {
 }
 
 export interface RecurringTaskOccurrence {
-  ruleKey: RecurringTaskRuleKey;
+  ruleKey: string;
   occurrenceDate: string;
   scheduledFor: string;
   name: string;
   estimatedPomos: number;
   project: string;
   categoryName: string;
+  categoryId?: number | null;
   reason: string;
 }
 
@@ -102,6 +107,36 @@ function toDateKey(date: Date): string {
 
 function toScheduledFor(date: Date, hour: number): string {
   return `${toDateKey(date)}T${String(hour).padStart(2, "0")}:00:00`;
+}
+
+function toScheduledForTime(date: Date, time: string): string {
+  return `${toDateKey(date)}T${time}:00`;
+}
+
+function parseDateKey(dateKey: string): Date {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function daysBetween(from: Date, to: Date): number {
+  const fromUtc = Date.UTC(from.getFullYear(), from.getMonth(), from.getDate());
+  const toUtc = Date.UTC(to.getFullYear(), to.getMonth(), to.getDate());
+  return Math.round((toUtc - fromUtc) / 86_400_000);
+}
+
+function daysInMonth(date: Date): number {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+}
+
+function userRuleOccursOn(rule: UserRecurringTaskRule, date: Date): boolean {
+  const start = parseDateKey(rule.start_date);
+  if (toDateKey(date) < rule.start_date) return false;
+
+  if (rule.frequency === "daily") return true;
+  if (rule.frequency === "weekly") return date.getDay() === start.getDay();
+
+  const occurrenceDay = Math.min(start.getDate(), daysInMonth(date));
+  return date.getDate() === occurrenceDay;
 }
 
 function isWeekend(date: Date): boolean {
@@ -227,6 +262,48 @@ export function buildSummaryTaskOccurrences(
   return occurrences;
 }
 
+export function buildUserRecurringTaskOccurrences(
+  rules: UserRecurringTaskRule[],
+  referenceDate = new Date(),
+  lookaheadDays = LOOKAHEAD_DAYS,
+): RecurringTaskOccurrence[] {
+  const occurrences: RecurringTaskOccurrence[] = [];
+  const start = cloneDate(referenceDate);
+
+  for (const rule of rules) {
+    const ruleStart = parseDateKey(rule.start_date);
+    const startOffset = daysBetween(start, ruleStart);
+    const ruleLookahead =
+      rule.frequency === "daily"
+        ? Math.max(0, Math.min(lookaheadDays, startOffset))
+        : lookaheadDays;
+
+    for (let offset = 0; offset <= ruleLookahead; offset += 1) {
+      const date = addDays(start, offset);
+      if (!userRuleOccursOn(rule, date)) continue;
+      occurrences.push({
+        ruleKey: `custom.${rule.id}`,
+        occurrenceDate: toDateKey(date),
+        scheduledFor: toScheduledForTime(date, rule.scheduled_time),
+        name: rule.name,
+        estimatedPomos: rule.estimated_pomos,
+        project: rule.project?.trim() || "",
+        categoryName: rule.category_name?.trim() || "",
+        categoryId: rule.category_id,
+        reason: `用户配置的${
+          rule.frequency === "daily"
+            ? "每日"
+            : rule.frequency === "weekly"
+              ? "每周"
+              : "每月"
+        }循环任务，沿用规则中设置的 ${rule.estimated_pomos} 个番茄预估。`,
+      });
+    }
+  }
+
+  return occurrences;
+}
+
 async function getCategoryIdByName(categoryName: string): Promise<number | null> {
   const database = await getDb();
   const rows = await database.select<{ id: number }[]>(
@@ -237,7 +314,7 @@ async function getCategoryIdByName(categoryName: string): Promise<number | null>
 }
 
 async function getExistingOccurrence(
-  ruleKey: RecurringTaskRuleKey,
+  ruleKey: string,
   occurrenceDate: string,
 ): Promise<number | null> {
   const database = await getDb();
@@ -292,14 +369,22 @@ const inFlightRecurringTaskGenerations = new Map<string, Promise<number>>();
 async function createMissingRecurringSummaryTasks(
   referenceDate = new Date(),
 ): Promise<number> {
-  const occurrences = buildSummaryTaskOccurrences(referenceDate);
+  const userRules = await getEnabledRecurringTaskRules();
+  const occurrences = [
+    ...buildSummaryTaskOccurrences(referenceDate),
+    ...buildUserRecurringTaskOccurrences(userRules, referenceDate),
+  ];
   if (occurrences.length === 0) return 0;
 
   const categoryIds = new Map<string, number | null>();
   let createdCount = 0;
 
   for (const occurrence of occurrences) {
-    if (!categoryIds.has(occurrence.categoryName)) {
+    if (
+      occurrence.categoryId === undefined
+      && occurrence.categoryName
+      && !categoryIds.has(occurrence.categoryName)
+    ) {
       categoryIds.set(
         occurrence.categoryName,
         await getCategoryIdByName(occurrence.categoryName),
@@ -326,7 +411,9 @@ async function createMissingRecurringSummaryTasks(
       occurrence.estimatedPomos,
       occurrence.project,
       "medium",
-      categoryIds.get(occurrence.categoryName) ?? null,
+      occurrence.categoryId
+        ?? categoryIds.get(occurrence.categoryName)
+        ?? null,
       occurrence.scheduledFor,
     );
     await recordOccurrence(occurrence, taskId);

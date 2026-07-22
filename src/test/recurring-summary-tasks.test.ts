@@ -22,10 +22,32 @@ vi.mock("@/features/tasks/pomodoro-estimation-log", () => ({
 
 import {
   buildSummaryTaskOccurrences,
+  buildUserRecurringTaskOccurrences,
   ensureRecurringSummaryTasks,
   findFirstDayOffPeriodStartInMonth,
   isDayOff,
 } from "@/features/tasks/recurring-summary-tasks";
+import type { UserRecurringTaskRule } from "@/features/tasks/recurring-task-rules";
+
+function userRule(
+  overrides: Partial<UserRecurringTaskRule> = {},
+): UserRecurringTaskRule {
+  return {
+    id: 12,
+    name: "整理循环任务",
+    estimated_pomos: 2,
+    project: "时间管家",
+    category_id: 50,
+    category_name: "复盘计划",
+    frequency: "daily",
+    start_date: "2026-07-22",
+    scheduled_time: "09:30",
+    enabled: 1,
+    created_at: "2026-07-22T08:00:00",
+    updated_at: "2026-07-22T08:00:00",
+    ...overrides,
+  };
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -45,6 +67,47 @@ beforeEach(() => {
 });
 
 describe("recurring summary tasks", () => {
+  it("creates only today's occurrence for an active daily user rule", () => {
+    const occurrences = buildUserRecurringTaskOccurrences(
+      [userRule()],
+      new Date(2026, 6, 22),
+      7,
+    );
+
+    expect(occurrences).toEqual([
+      expect.objectContaining({
+        ruleKey: "custom.12",
+        occurrenceDate: "2026-07-22",
+        scheduledFor: "2026-07-22T09:30:00",
+        categoryId: 50,
+      }),
+    ]);
+  });
+
+  it("uses the start date as the weekly cadence anchor", () => {
+    const occurrences = buildUserRecurringTaskOccurrences(
+      [userRule({ frequency: "weekly", start_date: "2026-07-24" })],
+      new Date(2026, 6, 22),
+      7,
+    );
+
+    expect(occurrences.map((item) => item.occurrenceDate)).toEqual([
+      "2026-07-24",
+    ]);
+  });
+
+  it("moves a monthly day 31 rule to the end of shorter months", () => {
+    const occurrences = buildUserRecurringTaskOccurrences(
+      [userRule({ frequency: "monthly", start_date: "2026-01-31" })],
+      new Date(2026, 1, 22),
+      7,
+    );
+
+    expect(occurrences.map((item) => item.occurrenceDate)).toEqual([
+      "2026-02-28",
+    ]);
+  });
+
   it("creates one ANKI review for the reference day", () => {
     const occurrences = buildSummaryTaskOccurrences(
       new Date(2026, 6, 3),

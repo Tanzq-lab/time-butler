@@ -85,6 +85,31 @@ test.describe("Responsive and accessibility", () => {
     expect(clippedControls).toBe(0);
   });
 
+  test("recurring task dialog stays operable at the minimum window size", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 700 });
+    await page.getByRole("link", { name: "任务" }).click();
+    await page.getByRole("button", { name: "添加循环任务" }).click();
+
+    const dialog = page.getByRole("dialog", { name: "添加循环任务" });
+    await expect(dialog).toBeVisible();
+    const bounds = await dialog.boundingBox();
+    expect(bounds?.x ?? -1).toBeGreaterThanOrEqual(0);
+    expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(320);
+
+    const overflow = await dialog.evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+    expect(overflow.scrollWidth).toBe(overflow.clientWidth);
+
+    const createButton = dialog.getByRole("button", { name: "创建循环任务" });
+    await createButton.scrollIntoViewIfNeeded();
+    await expect(createButton).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(dialog).not.toBeVisible();
+    await expect(page.getByRole("button", { name: "添加循环任务" })).toBeFocused();
+  });
+
   test("mobile navigation keeps five items and exposes secondary pages through More", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 700 });
     await page.reload();
