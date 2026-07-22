@@ -78,6 +78,44 @@ export async function addRecurringTaskRule(
   return result.lastInsertId as number;
 }
 
+export async function updateRecurringTaskRule(
+  id: number,
+  input: RecurringTaskRuleInput,
+): Promise<void> {
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error("循环任务规则不存在");
+  }
+  assertRuleInput(input);
+
+  const database = await getDb();
+  const result = await database.execute(
+    `UPDATE recurring_task_rules
+     SET name = $1,
+         estimated_pomos = $2,
+         project = $3,
+         category_id = $4,
+         frequency = $5,
+         start_date = $6,
+         scheduled_time = $7,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = $8`,
+    [
+      input.name.trim(),
+      input.estimatedPomos,
+      input.project?.trim() || null,
+      input.categoryId,
+      input.frequency,
+      input.startDate,
+      input.scheduledTime,
+      id,
+    ],
+  );
+
+  if (result.rowsAffected === 0) {
+    throw new Error("循环任务规则不存在");
+  }
+}
+
 export async function getEnabledRecurringTaskRules(): Promise<
   UserRecurringTaskRule[]
 > {

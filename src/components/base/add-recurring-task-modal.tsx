@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useReducer, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type React from "react";
-import { CalendarDays, Plus, Repeat2, X } from "lucide-react";
+import { CalendarDays, Pencil, Plus, Repeat2, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModalOverlay } from "@/components/ui/modal-overlay";
 import { useCategoriesStore } from "@/features/categories/use-categories-store";
@@ -26,6 +26,10 @@ interface AddRecurringTaskModalProps {
   onToggleRule?: (
     ruleId: number,
     enabled: boolean,
+  ) => boolean | void | Promise<boolean | void>;
+  onUpdateRule?: (
+    ruleId: number,
+    data: AddRecurringTaskData,
   ) => boolean | void | Promise<boolean | void>;
 }
 
@@ -81,6 +85,18 @@ function initialFormState(): FormState {
   };
 }
 
+function formStateFromRule(rule: UserRecurringTaskRule): FormState {
+  return {
+    name: rule.name,
+    estimatedPomos: rule.estimated_pomos as PomodoroEstimate,
+    project: rule.project ?? "",
+    categoryId: rule.category_id,
+    frequency: rule.frequency,
+    startDate: rule.start_date,
+    scheduledTime: rule.scheduled_time,
+  };
+}
+
 function parseDateInput(value: string): Date | null {
   const [year, month, day] = value.split("-").map(Number);
   if (!year || !month || !day) return null;
@@ -124,13 +140,17 @@ export function AddRecurringTaskModal({
   projectOptions = [],
   rules = [],
   onToggleRule,
+  onUpdateRule,
 }: AddRecurringTaskModalProps) {
   const categories = useCategoriesStore((state) => state.categories);
   const loadCategories = useCategoriesStore((state) => state.loadCategories);
   const [form, dispatch] = useReducer(formReducer, undefined, initialFormState);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [togglingRuleId, setTogglingRuleId] = useState<number | null>(null);
+  const [editingRuleId, setEditingRuleId] = useState<number | null>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
   const uniqueProjects = useMemo(
     () => [...new Set(projectOptions.map((project) => project.trim()).filter(Boolean))],
     [projectOptions],
@@ -141,9 +161,15 @@ export function AddRecurringTaskModal({
     dispatch({ type: "RESET", payload: initialFormState() });
     setSubmitting(false);
     setSubmitError(null);
+    setSubmitSuccess(null);
     setTogglingRuleId(null);
+    setEditingRuleId(null);
     void loadCategories();
   }, [loadCategories, open]);
+
+  useEffect(() => {
+    if (open && editingRuleId !== null) nameInputRef.current?.focus();
+  }, [editingRuleId, open]);
 
   const canSubmit =
     Boolean(form.name.trim())
@@ -157,6 +183,21 @@ export function AddRecurringTaskModal({
     form.scheduledTime,
   );
   const startDay = parseDateInput(form.startDate)?.getDate() ?? 0;
+  const isEditing = editingRuleId !== null;
+
+  const beginEditing = (rule: UserRecurringTaskRule) => {
+    dispatch({ type: "RESET", payload: formStateFromRule(rule) });
+    setEditingRuleId(rule.id);
+    setSubmitError(null);
+    setSubmitSuccess(null);
+  };
+
+  const cancelEditing = () => {
+    dispatch({ type: "RESET", payload: initialFormState() });
+    setEditingRuleId(null);
+    setSubmitError(null);
+    setSubmitSuccess(null);
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -164,8 +205,9 @@ export function AddRecurringTaskModal({
 
     setSubmitting(true);
     setSubmitError(null);
+    setSubmitSuccess(null);
     try {
-      const submitted = await onSubmit({
+      const data: AddRecurringTaskData = {
         name: form.name.trim(),
         estimatedPomos: form.estimatedPomos,
         project: form.project.trim() || null,
@@ -173,15 +215,32 @@ export function AddRecurringTaskModal({
         frequency: form.frequency,
         startDate: form.startDate,
         scheduledTime: form.scheduledTime,
-      });
+      };
+      const submitted = isEditing && onUpdateRule
+        ? await onUpdateRule(editingRuleId, data)
+        : await onSubmit(data);
       if (submitted !== false) {
+        if (isEditing) {
+          dispatch({ type: "RESET", payload: initialFormState() });
+          setEditingRuleId(null);
+          setSubmitSuccess("循环规则已更新。修改只影响之后新生成的任务。");
+          return;
+        }
         onClose();
         return;
       }
-      setSubmitError("未能创建循环任务，请重试。");
+      setSubmitError(
+        isEditing
+          ? "未能保存循环规则，请重试。"
+          : "未能创建循环任务，请重试。",
+      );
     } catch (error) {
-      console.error("[RecurringTaskModal] Failed to create rule:", error);
-      setSubmitError("未能创建循环任务，请重试。");
+      console.error("[RecurringTaskModal] Failed to save rule:", error);
+      setSubmitError(
+        isEditing
+          ? "未能保存循环规则，请重试。"
+          : "未能创建循环任务，请重试。",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -209,7 +268,7 @@ export function AddRecurringTaskModal({
       open={open}
       onClose={onClose}
       maxWidth="max-w-xl"
-      ariaLabel="添加循环任务"
+      ariaLabel={isEditing ? "编辑循环任务" : "添加循环任务"}
     >
       <div className="max-h-[calc(100dvh-2rem)] overflow-y-auto p-5 md:p-6">
         <div className="mb-6 flex items-start gap-3">
@@ -218,10 +277,12 @@ export function AddRecurringTaskModal({
           </div>
           <div className="min-w-0">
             <h3 className="text-balance text-lg font-semibold text-sahara-text">
-              添加循环任务
+              {isEditing ? "编辑循环任务" : "添加循环任务"}
             </h3>
             <p className="mt-0.5 text-xs text-sahara-text-muted">
-              设定一次，任务会按节奏自动出现
+              {isEditing
+                ? "修改只影响之后新生成的任务"
+                : "设定一次，任务会按节奏自动出现"}
             </p>
           </div>
           <button
@@ -245,7 +306,7 @@ export function AddRecurringTaskModal({
             </summary>
             <div className="border-t border-sahara-border px-3 py-2">
               <p className="mb-2 text-[11px] leading-4 text-sahara-text-muted">
-                停用后不再生成新任务，已经出现的任务会保留。
+                可编辑或停用规则；修改仅影响之后新生成的任务，已经出现的任务会保留。
               </p>
               <div className="space-y-1.5">
                 {rules.map((rule) => {
@@ -265,6 +326,11 @@ export function AddRecurringTaskModal({
                               已停用
                             </span>
                           )}
+                          {editingRuleId === rule.id && (
+                            <span className="shrink-0 rounded-full bg-sahara-card px-1.5 py-0.5 text-[10px] text-sahara-text-muted">
+                              编辑中
+                            </span>
+                          )}
                         </div>
                         <p className="mt-0.5 truncate text-[11px] text-sahara-text-muted">
                           {formatRecurringRuleSummary(
@@ -274,22 +340,39 @@ export function AddRecurringTaskModal({
                           )}
                         </p>
                       </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        intent="default"
-                        size="xs"
-                        aria-label={`${enabled ? "停用" : "启用"}循环规则：${rule.name}`}
-                        disabled={togglingRuleId !== null}
-                        onClick={() => void handleToggleRule(rule)}
-                        className="min-h-10 shrink-0"
-                      >
-                        {togglingRuleId === rule.id
-                          ? "更新中…"
-                          : enabled
-                            ? "停用"
-                            : "启用"}
-                      </Button>
+                      <div className="flex shrink-0 gap-1.5">
+                        {onUpdateRule && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            intent="default"
+                            size="xs"
+                            aria-label={`编辑循环规则：${rule.name}`}
+                            disabled={submitting || togglingRuleId !== null}
+                            onClick={() => beginEditing(rule)}
+                            className="min-h-10 gap-1"
+                          >
+                            <Pencil aria-hidden="true" className="size-3" />
+                            编辑
+                          </Button>
+                        )}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          intent="default"
+                          size="xs"
+                          aria-label={`${enabled ? "停用" : "启用"}循环规则：${rule.name}`}
+                          disabled={submitting || togglingRuleId !== null}
+                          onClick={() => void handleToggleRule(rule)}
+                          className="min-h-10 shrink-0"
+                        >
+                          {togglingRuleId === rule.id
+                            ? "更新中…"
+                            : enabled
+                              ? "停用"
+                              : "启用"}
+                        </Button>
+                      </div>
                     </div>
                   );
                 })}
@@ -310,6 +393,7 @@ export function AddRecurringTaskModal({
               id="recurring-task-name"
               name="recurring-task-name"
               type="text"
+              ref={nameInputRef}
               autoComplete="off"
               value={form.name}
               onChange={(event) =>
@@ -532,6 +616,12 @@ export function AddRecurringTaskModal({
             </p>
           )}
 
+          {submitSuccess && (
+            <p role="status" aria-live="polite" className="text-xs font-medium text-sahara-text-secondary">
+              {submitSuccess}
+            </p>
+          )}
+
           <div className="flex gap-3 pt-1">
             <Button
               type="button"
@@ -539,10 +629,10 @@ export function AddRecurringTaskModal({
               intent="default"
               size="md"
               fullWidth
-              onClick={onClose}
+              onClick={isEditing ? cancelEditing : onClose}
               disabled={submitting}
             >
-              取消
+              {isEditing ? "取消编辑" : "取消"}
             </Button>
             <Button
               type="submit"
@@ -552,8 +642,18 @@ export function AddRecurringTaskModal({
               disabled={!canSubmit}
               className="gap-2"
             >
-              <Plus aria-hidden="true" className="size-4" />
-              {submitting ? "正在创建…" : "创建循环任务"}
+              {isEditing ? (
+                <Save aria-hidden="true" className="size-4" />
+              ) : (
+                <Plus aria-hidden="true" className="size-4" />
+              )}
+              {submitting
+                ? isEditing
+                  ? "正在保存…"
+                  : "正在创建…"
+                : isEditing
+                  ? "保存修改"
+                  : "创建循环任务"}
             </Button>
           </div>
         </form>

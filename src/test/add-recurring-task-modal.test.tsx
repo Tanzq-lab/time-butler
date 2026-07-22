@@ -139,7 +139,9 @@ describe("AddRecurringTaskModal", () => {
 
     fireEvent.click(screen.getByText("已配置规则"));
     expect(
-      screen.getByText("停用后不再生成新任务，已经出现的任务会保留。"),
+      screen.getByText(
+        "可编辑或停用规则；修改仅影响之后新生成的任务，已经出现的任务会保留。",
+      ),
     ).toBeVisible();
     fireEvent.click(
       screen.getByRole("button", { name: "停用循环规则：每日整理收件箱" }),
@@ -147,6 +149,84 @@ describe("AddRecurringTaskModal", () => {
 
     await waitFor(() =>
       expect(onToggleRule).toHaveBeenCalledWith(31, false),
+    );
+  });
+
+  it("reuses the form to edit an existing rule and keeps generated tasks unchanged", async () => {
+    const onUpdateRule = vi.fn().mockResolvedValue(true);
+    const onClose = vi.fn();
+    render(
+      <AddRecurringTaskModal
+        open
+        onClose={onClose}
+        onSubmit={vi.fn()}
+        onUpdateRule={onUpdateRule}
+        rules={[
+          {
+            id: 31,
+            name: "每日整理收件箱",
+            estimated_pomos: 1,
+            project: "个人效率",
+            category_id: 50,
+            category_name: "复盘计划",
+            frequency: "daily",
+            start_date: "2026-07-22",
+            scheduled_time: "09:00",
+            enabled: 1,
+            created_at: "2026-07-22T09:00:00",
+            updated_at: "2026-07-22T09:00:00",
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("已配置规则"));
+    fireEvent.click(
+      screen.getByRole("button", { name: "编辑循环规则：每日整理收件箱" }),
+    );
+
+    expect(
+      screen.getByRole("dialog", { name: "编辑循环任务" }),
+    ).toBeVisible();
+    expect(screen.getByLabelText("任务名称")).toHaveValue("每日整理收件箱");
+    expect(screen.getByLabelText(/项目/)).toHaveValue("个人效率");
+    expect(screen.getByLabelText(/分类/)).toHaveValue("50");
+    expect(screen.getByRole("button", { name: "每天" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByLabelText("开始日期")).toHaveValue("2026-07-22");
+    expect(screen.getByLabelText("提醒时间")).toHaveValue("09:00");
+
+    fireEvent.change(screen.getByLabelText("任务名称"), {
+      target: { value: "每周整理收件箱" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "循环任务预计 2 个番茄" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "每周" }));
+    fireEvent.change(screen.getByLabelText("提醒时间"), {
+      target: { value: "10:30" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
+
+    await waitFor(() =>
+      expect(onUpdateRule).toHaveBeenCalledWith(31, {
+        name: "每周整理收件箱",
+        estimatedPomos: 2,
+        project: "个人效率",
+        categoryId: 50,
+        frequency: "weekly",
+        startDate: "2026-07-22",
+        scheduledTime: "10:30",
+      }),
+    );
+    expect(onClose).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("dialog", { name: "添加循环任务" }),
+    ).toBeVisible();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "循环规则已更新。修改只影响之后新生成的任务。",
     );
   });
 });

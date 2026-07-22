@@ -41,6 +41,7 @@ import {
   addRecurringTaskRule,
   getRecurringTaskRules,
   setRecurringTaskRuleEnabled,
+  updateRecurringTaskRule,
   type UserRecurringTaskRule,
 } from "@/features/tasks/recurring-task-rules";
 
@@ -341,6 +342,31 @@ export function TasksList() {
     return true;
   };
 
+  const handleUpdateRecurringRule = async (
+    ruleId: number,
+    data: AddRecurringTaskData,
+  ) => {
+    await updateRecurringTaskRule(ruleId, data);
+    const rules = await getRecurringTaskRules();
+    setRecurringRules(rules);
+    await loadTasks();
+    void recordAppEvent({
+      eventName: "recurring_task_rule_updated",
+      route: "/tasks",
+      entityType: "recurring_task_rule",
+      entityId: ruleId,
+      metadata: {
+        frequency: data.frequency,
+        estimatedPomos: data.estimatedPomos,
+        hasProject: Boolean(data.project),
+        hasCategory: data.categoryId != null,
+        startDate: data.startDate,
+        scheduledTime: data.scheduledTime,
+      },
+    });
+    return true;
+  };
+
   const handleEditTask = async (data: AddTaskData) => {
     if (!taskToEdit) return;
     await updateTask(
@@ -586,6 +612,7 @@ export function TasksList() {
         projectOptions={tasks.map((task) => task.project ?? "")}
         rules={recurringRules}
         onToggleRule={handleToggleRecurringRule}
+        onUpdateRule={handleUpdateRecurringRule}
       />
       <TaskCompletionReviewModal
         open={!!taskToComplete}
