@@ -45,6 +45,9 @@ function applyWhereFilters(rows: Row[], sql: string, up: string, params: unknown
 
   let result = rows;
   if (up.includes("ARCHIVED = 0")) result = result.filter((r) => r.archived === 0);
+  if (up.includes("RECURRING_TASK_RULES.ENABLED = 1")) {
+    result = result.filter((r) => r.enabled === 1);
+  }
   if (up.includes("COMPLETED = 1")) result = result.filter((r) => r.completed === 1);
   if (up.includes("COMPLETED = 0")) result = result.filter((r) => r.completed === 0);
   const dateRange = sql.match(
@@ -81,11 +84,13 @@ function applyWhereFilters(rows: Row[], sql: string, up: string, params: unknown
 
 function parseCreateDefaults(sql: string): Map<string, unknown> {
   const defaults = new Map<string, unknown>();
-  // Match column definitions inside the CREATE TABLE body
-  const bodyMatch = sql.match(/\(([^)]+)\)/s);
-  if (!bodyMatch) return defaults;
+  // Use the outermost parentheses so nested CHECK clauses do not truncate
+  // later column defaults such as `enabled DEFAULT 1`.
+  const bodyStart = sql.indexOf("(");
+  const bodyEnd = sql.lastIndexOf(")");
+  if (bodyStart < 0 || bodyEnd <= bodyStart) return defaults;
 
-  const lines = bodyMatch[1].split(",").map((l) => l.trim());
+  const lines = sql.slice(bodyStart + 1, bodyEnd).split(",").map((l) => l.trim());
   for (const line of lines) {
     // Skip constraints (FOREIGN KEY, PRIMARY KEY, etc.)
     if (/^(FOREIGN|PRIMARY|UNIQUE|CHECK|CONSTRAINT)/i.test(line)) continue;

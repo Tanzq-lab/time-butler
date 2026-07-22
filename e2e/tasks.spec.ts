@@ -29,6 +29,16 @@ test.describe("Tasks", () => {
 
     await expect(dialog).not.toBeVisible();
     await expect(page.getByText("每日整理收件箱")).toBeVisible();
+
+    await page.getByRole("button", { name: "添加循环任务" }).click();
+    const reopenedDialog = page.getByRole("dialog", { name: "添加循环任务" });
+    await reopenedDialog.getByText("已配置规则").click();
+    await reopenedDialog
+      .getByRole("button", { name: "停用循环规则：每日整理收件箱" })
+      .click();
+    await expect(
+      reopenedDialog.getByRole("button", { name: "启用循环规则：每日整理收件箱" }),
+    ).toBeVisible();
   });
 
   test("opens add task modal and creates a task", async ({ page }) => {

@@ -81,6 +81,12 @@ export async function addRecurringTaskRule(
 export async function getEnabledRecurringTaskRules(): Promise<
   UserRecurringTaskRule[]
 > {
+  return getRecurringTaskRules(true);
+}
+
+export async function getRecurringTaskRules(
+  enabledOnly = false,
+): Promise<UserRecurringTaskRule[]> {
   const database = await getDb();
   return database.select<UserRecurringTaskRule[]>(
     `SELECT
@@ -88,7 +94,23 @@ export async function getEnabledRecurringTaskRules(): Promise<
       categories.name AS category_name
     FROM recurring_task_rules
     LEFT JOIN categories ON categories.id = recurring_task_rules.category_id
-    WHERE recurring_task_rules.enabled = 1
+    ${enabledOnly ? "WHERE recurring_task_rules.enabled = 1" : ""}
     ORDER BY recurring_task_rules.created_at ASC`,
+  );
+}
+
+export async function setRecurringTaskRuleEnabled(
+  id: number,
+  enabled: boolean,
+): Promise<void> {
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error("循环任务规则不存在");
+  }
+  const database = await getDb();
+  await database.execute(
+    `UPDATE recurring_task_rules
+     SET enabled = $1, updated_at = CURRENT_TIMESTAMP
+     WHERE id = $2`,
+    [enabled ? 1 : 0, id],
   );
 }

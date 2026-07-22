@@ -37,7 +37,12 @@ import { PageHeader, SectionHeader } from "@/components/ui/page-header";
 import type { Task } from "@/features/tasks/task-types";
 import type { Todo } from "@/lib/db";
 import { recordAppEvent } from "@/lib/db";
-import { addRecurringTaskRule } from "@/features/tasks/recurring-task-rules";
+import {
+  addRecurringTaskRule,
+  getRecurringTaskRules,
+  setRecurringTaskRuleEnabled,
+  type UserRecurringTaskRule,
+} from "@/features/tasks/recurring-task-rules";
 
 interface ListState {
   searchQuery: string;
@@ -180,6 +185,7 @@ export function TasksList() {
   const [listState, dispatch] = useReducer(listReducer, INITIAL_LIST_STATE);
   const [draggingTaskId, setDraggingTaskId] = useState<number | null>(null);
   const [dropTarget, setDropTarget] = useState<TaskDropTarget | null>(null);
+  const [recurringRules, setRecurringRules] = useState<UserRecurringTaskRule[]>([]);
   const pointerDragRef = useRef<PointerDrag | null>(null);
   const dropTargetRef = useRef<TaskDropTarget | null>(null);
   const {
@@ -265,6 +271,34 @@ export function TasksList() {
         startDate: data.startDate,
         scheduledTime: data.scheduledTime,
       },
+    });
+    return true;
+  };
+
+  const handleOpenRecurringModal = () => {
+    dispatch({ type: "OPEN_RECURRING_MODAL" });
+    void getRecurringTaskRules()
+      .then(setRecurringRules)
+      .catch((error) => {
+        console.error("[TasksList] Failed to load recurring rules:", error);
+      });
+  };
+
+  const handleToggleRecurringRule = async (ruleId: number, enabled: boolean) => {
+    await setRecurringTaskRuleEnabled(ruleId, enabled);
+    setRecurringRules((rules) =>
+      rules.map((rule) =>
+        rule.id === ruleId ? { ...rule, enabled: enabled ? 1 : 0 } : rule,
+      ),
+    );
+    if (enabled) await loadTasks();
+    void recordAppEvent({
+      eventName: enabled
+        ? "recurring_task_rule_enabled"
+        : "recurring_task_rule_disabled",
+      route: "/tasks",
+      entityType: "recurring_task_rule",
+      entityId: ruleId,
     });
     return true;
   };
@@ -512,6 +546,8 @@ export function TasksList() {
         onClose={() => dispatch({ type: "CLOSE_RECURRING_MODAL" })}
         onSubmit={handleAddRecurringTask}
         projectOptions={tasks.map((task) => task.project ?? "")}
+        rules={recurringRules}
+        onToggleRule={handleToggleRecurringRule}
       />
       <TaskCompletionReviewModal
         open={!!taskToComplete}
@@ -581,7 +617,7 @@ export function TasksList() {
                 intent="default"
                 size="sm"
                 aria-label="添加循环任务"
-                onClick={() => dispatch({ type: "OPEN_RECURRING_MODAL" })}
+                onClick={handleOpenRecurringModal}
                 className="ml-1 min-h-10 gap-1.5 px-2.5 text-xs font-medium md:ml-2 md:px-3"
               >
                 <Repeat2 aria-hidden="true" className="size-3.5 md:size-4" />

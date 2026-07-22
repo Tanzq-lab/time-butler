@@ -7,6 +7,7 @@ import { useCategoriesStore } from "@/features/categories/use-categories-store";
 import type {
   RecurringTaskFrequency,
   RecurringTaskRuleInput,
+  UserRecurringTaskRule,
 } from "@/features/tasks/recurring-task-rules";
 
 const POMODORO_OPTIONS = [1, 2, 3, 4] as const;
@@ -21,6 +22,11 @@ interface AddRecurringTaskModalProps {
     data: AddRecurringTaskData,
   ) => boolean | void | Promise<boolean | void>;
   projectOptions?: string[];
+  rules?: UserRecurringTaskRule[];
+  onToggleRule?: (
+    ruleId: number,
+    enabled: boolean,
+  ) => boolean | void | Promise<boolean | void>;
 }
 
 interface FormState {
@@ -116,12 +122,15 @@ export function AddRecurringTaskModal({
   onClose,
   onSubmit,
   projectOptions = [],
+  rules = [],
+  onToggleRule,
 }: AddRecurringTaskModalProps) {
   const categories = useCategoriesStore((state) => state.categories);
   const loadCategories = useCategoriesStore((state) => state.loadCategories);
   const [form, dispatch] = useReducer(formReducer, undefined, initialFormState);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [togglingRuleId, setTogglingRuleId] = useState<number | null>(null);
   const uniqueProjects = useMemo(
     () => [...new Set(projectOptions.map((project) => project.trim()).filter(Boolean))],
     [projectOptions],
@@ -132,6 +141,7 @@ export function AddRecurringTaskModal({
     dispatch({ type: "RESET", payload: initialFormState() });
     setSubmitting(false);
     setSubmitError(null);
+    setTogglingRuleId(null);
     void loadCategories();
   }, [loadCategories, open]);
 
@@ -177,6 +187,23 @@ export function AddRecurringTaskModal({
     }
   };
 
+  const handleToggleRule = async (rule: UserRecurringTaskRule) => {
+    if (!onToggleRule || togglingRuleId !== null) return;
+    setTogglingRuleId(rule.id);
+    setSubmitError(null);
+    try {
+      const toggled = await onToggleRule(rule.id, rule.enabled !== 1);
+      if (toggled === false) {
+        setSubmitError("未能更新循环规则，请重试。");
+      }
+    } catch (error) {
+      console.error("[RecurringTaskModal] Failed to update rule:", error);
+      setSubmitError("未能更新循环规则，请重试。");
+    } finally {
+      setTogglingRuleId(null);
+    }
+  };
+
   return (
     <ModalOverlay
       open={open}
@@ -206,6 +233,70 @@ export function AddRecurringTaskModal({
             <X aria-hidden="true" className="size-5" />
           </button>
         </div>
+
+        {rules.length > 0 && (
+          <details className="mb-5 rounded-md border border-sahara-border bg-sahara-card/60">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 text-xs font-medium text-sahara-text outline-none transition-colors duration-150 hover:bg-sahara-card focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sahara-focus">
+              <Repeat2 aria-hidden="true" className="size-4 text-sahara-text-muted" />
+              已配置规则
+              <span className="ml-auto tabular-nums text-sahara-text-muted">
+                {rules.length}
+              </span>
+            </summary>
+            <div className="border-t border-sahara-border px-3 py-2">
+              <p className="mb-2 text-[11px] leading-4 text-sahara-text-muted">
+                停用后不再生成新任务，已经出现的任务会保留。
+              </p>
+              <div className="space-y-1.5">
+                {rules.map((rule) => {
+                  const enabled = rule.enabled === 1;
+                  return (
+                    <div
+                      key={rule.id}
+                      className="flex min-w-0 items-center gap-3 rounded-md bg-sahara-surface px-2.5 py-2"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <p className="truncate text-xs font-medium text-sahara-text" title={rule.name}>
+                            {rule.name}
+                          </p>
+                          {!enabled && (
+                            <span className="shrink-0 rounded-full bg-sahara-card px-1.5 py-0.5 text-[10px] text-sahara-text-muted">
+                              已停用
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-0.5 truncate text-[11px] text-sahara-text-muted">
+                          {formatRecurringRuleSummary(
+                            rule.frequency,
+                            rule.start_date,
+                            rule.scheduled_time,
+                          )}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        intent="default"
+                        size="xs"
+                        aria-label={`${enabled ? "停用" : "启用"}循环规则：${rule.name}`}
+                        disabled={togglingRuleId !== null}
+                        onClick={() => void handleToggleRule(rule)}
+                        className="min-h-10 shrink-0"
+                      >
+                        {togglingRuleId === rule.id
+                          ? "更新中…"
+                          : enabled
+                            ? "停用"
+                            : "启用"}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </details>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>

@@ -13,6 +13,7 @@ vi.mock("@/lib/db", () => ({
 import {
   addRecurringTaskRule,
   getEnabledRecurringTaskRules,
+  setRecurringTaskRuleEnabled,
 } from "@/features/tasks/recurring-task-rules";
 
 beforeEach(() => {
@@ -73,6 +74,15 @@ describe("recurring task rules database", () => {
 
     expect(dbMocks.select).toHaveBeenCalledWith(
       expect.stringContaining("WHERE recurring_task_rules.enabled = 1"),
+    );
+  });
+
+  it("soft-disables a rule so the change remains reversible", async () => {
+    await setRecurringTaskRuleEnabled(31, false);
+
+    expect(dbMocks.execute).toHaveBeenCalledWith(
+      expect.stringContaining("UPDATE recurring_task_rules"),
+      [0, 31],
     );
   });
 });

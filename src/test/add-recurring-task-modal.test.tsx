@@ -109,4 +109,44 @@ describe("AddRecurringTaskModal", () => {
     );
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it("lets the user stop an existing rule without deleting generated tasks", async () => {
+    const onToggleRule = vi.fn().mockResolvedValue(true);
+    render(
+      <AddRecurringTaskModal
+        open
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        onToggleRule={onToggleRule}
+        rules={[
+          {
+            id: 31,
+            name: "每日整理收件箱",
+            estimated_pomos: 1,
+            project: "个人效率",
+            category_id: null,
+            category_name: null,
+            frequency: "daily",
+            start_date: "2026-07-22",
+            scheduled_time: "09:00",
+            enabled: 1,
+            created_at: "2026-07-22T09:00:00",
+            updated_at: "2026-07-22T09:00:00",
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("已配置规则"));
+    expect(
+      screen.getByText("停用后不再生成新任务，已经出现的任务会保留。"),
+    ).toBeVisible();
+    fireEvent.click(
+      screen.getByRole("button", { name: "停用循环规则：每日整理收件箱" }),
+    );
+
+    await waitFor(() =>
+      expect(onToggleRule).toHaveBeenCalledWith(31, false),
+    );
+  });
 });
