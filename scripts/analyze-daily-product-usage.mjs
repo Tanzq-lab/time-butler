@@ -308,7 +308,53 @@ function buildTaskFlow(events, getCount) {
   };
 }
 
-function buildHypotheses({ events, routeStats, timer, tasks, audio, coverage }) {
+function buildTimePageFlow(events, getCount) {
+  const pageUpdates = events.filter(
+    (event) => event.event_name === "time_page_content_updated",
+  );
+  const pages = new Map();
+
+  for (const event of pageUpdates) {
+    const pageType = typeof event.metadata.pageType === "string"
+      ? event.metadata.pageType
+      : "unknown";
+    const dateKey = typeof event.metadata.dateKey === "string"
+      ? event.metadata.dateKey
+      : "unknown";
+    const key = `${pageType}:${dateKey}`;
+    const delta = Number(event.metadata.deltaLength);
+    const current = pages.get(key) ?? {
+      pageType,
+      dateKey,
+      updates: 0,
+      zeroDeltaUpdates: 0,
+      tinyDeltaUpdates: 0,
+      netDelta: 0,
+    };
+    current.updates += 1;
+    if (Number.isFinite(delta)) {
+      if (delta === 0) current.zeroDeltaUpdates += 1;
+      if (Math.abs(delta) <= 2) current.tinyDeltaUpdates += 1;
+      current.netDelta += delta;
+    }
+    pages.set(key, current);
+  }
+
+  const pageSummaries = [...pages.values()].sort(
+    (a, b) => b.updates - a.updates || a.dateKey.localeCompare(b.dateKey),
+  );
+  return {
+    selected: getCount("time_page_selected"),
+    updated: pageUpdates.length,
+    pagesTouched: pageSummaries.length,
+    zeroDeltaUpdates: sum(pageSummaries.map((page) => page.zeroDeltaUpdates)),
+    tinyDeltaUpdates: sum(pageSummaries.map((page) => page.tinyDeltaUpdates)),
+    netDelta: sum(pageSummaries.map((page) => page.netDelta)),
+    pages: pageSummaries,
+  };
+}
+
+function buildHypotheses({ events, routeStats, timer, tasks, timePages, audio, coverage }) {
   const hypotheses = [];
   const push = (hypothesis) => hypotheses.push(hypothesis);
 
@@ -376,6 +422,23 @@ function buildHypotheses({ events, routeStats, timer, tasks, audio, coverage }) 
       smallestChange: "结合新增时的字段完整度和删除前动作，确认快速删除集中在哪一种录入路径。",
       validation: "新建 10 分钟内删除率下降，任务完成率不下降。",
       riskBoundary: "不恢复或重写已删除任务。",
+    });
+  }
+
+  const tinyEditRate = timePages.updated
+    ? timePages.tinyDeltaUpdates / timePages.updated
+    : 0;
+  if (timePages.updated >= 10 && tinyEditRate >= 0.8) {
+    push({
+      priority: "observe",
+      code: "time_page_micro_edit_cluster",
+      userPath: "进入时间页 → 编辑内容 → 连续保存微小变化",
+      evidence: `${timePages.updated} 次内容更新中，${timePages.tinyDeltaUpdates} 次长度变化不超过 2 个字符（${percent(timePages.tinyDeltaUpdates, timePages.updated)}%）`,
+      need: "顺畅记录和修改计划，不因保存机制或编辑反馈反复确认。",
+      keyAssumption: "连续微小更新可能来自编辑或保存摩擦，而不是正常逐字输入。",
+      smallestChange: "先结合页面停留、选择次数和跨日重复情况观察，不改编辑器行为。",
+      validation: "连续 3 个自然日出现同类聚集，并由手写反馈或异常退出等第二类证据印证。",
+      riskBoundary: "不读取页面正文，不把正常输入直接判定为产品问题。",
     });
   }
 
@@ -464,6 +527,7 @@ function buildMarkdown(report) {
     "",
     `- 计时：开始 ${report.flows.timer.started}，完成 ${report.flows.timer.finished}，放弃 ${report.flows.timer.abandoned}，跳过 ${report.flows.timer.skipped}`,
     `- 任务：创建 ${report.flows.tasks.added}，更新 ${report.flows.tasks.updated}，完成 ${report.flows.tasks.completed}，删除 ${report.flows.tasks.deleted}，归档 ${report.flows.tasks.archived}；当天新增后删除 ${report.flows.tasks.createdThenDeleted}，其中 10 分钟内删除 ${report.flows.tasks.deletedWithin10Minutes}`,
+    `- 时间页：选择 ${report.flows.timePages.selected}，内容更新 ${report.flows.timePages.updated}，涉及 ${report.flows.timePages.pagesTouched} 个页面；零长度变化 ${report.flows.timePages.zeroDeltaUpdates}，长度变化不超过 2 字符 ${report.flows.timePages.tinyDeltaUpdates}`,
     `- 音频通知：请求 ${report.flows.audio.deliveryRequested}，播放启动/已播放 ${report.flows.audio.playbackObserved}，失败 ${report.flows.audio.failures}，缺口 ${report.flows.audio.deliveryGaps}`,
   );
 
@@ -555,6 +619,7 @@ function analyze(options) {
     skipped: getCount("timer_session_skipped"),
   };
   const tasks = buildTaskFlow(events, getCount);
+  const timePages = buildTimePageFlow(events, getCount);
   const audioEvents = events.filter((event) => event.event_name.startsWith("notification_"));
   const audioFailureEvents = audioEvents.filter((event) =>
     ["failed", "not_running"].includes(String(event.metadata.outcome)),
@@ -617,7 +682,7 @@ function analyze(options) {
   };
 
   const report = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     date: options.date,
     generatedAt: new Date().toISOString(),
     privacy: {
@@ -640,7 +705,7 @@ function analyze(options) {
       count: item.count,
     })),
     routes: routeStats,
-    flows: { timer, tasks, audio },
+    flows: { timer, tasks, timePages, audio },
     databaseSignals,
   };
   report.hypotheses = buildHypotheses({
@@ -648,6 +713,7 @@ function analyze(options) {
     routeStats,
     timer,
     tasks,
+    timePages,
     audio,
     coverage,
   });

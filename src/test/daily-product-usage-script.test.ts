@@ -56,8 +56,11 @@ describe("daily product usage analyzer", () => {
         ('task_added', '/tasks', 'task', '101', '${metadata({ appSessionId: "session-1", appSessionSequence: 5, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:13.000Z" })}', '2026-07-14 01:00:13'),
         ('task_deleted', '/tasks', 'task', '98', '${metadata({ appSessionId: "session-1", appSessionSequence: 6, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:14.000Z" })}', '2026-07-14 01:00:14'),
         ('task_deleted', '/tasks', 'task', '99', '${metadata({ appSessionId: "session-1", appSessionSequence: 7, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:15.000Z" })}', '2026-07-14 01:00:15'),
-        ('notification_audio_prepare_result', '/', NULL, NULL, '${metadata({ appSessionId: "session-1", appSessionSequence: 8, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:16.000Z", trigger: "timer_start", phase: "short_break", outcome: "failed", errorName: "ReferenceError", errorMessage: "Missing audio buffer" })}', '2026-07-14 01:00:16'),
-        ('app_usage_session_ended', '/tasks', NULL, NULL, '${metadata({ appSessionId: "session-1", appSessionSequence: 9, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:17.000Z" })}', '2026-07-14 01:00:17');
+        ('time_page_selected', '/notes', 'time_page', '37', '${metadata({ appSessionId: "session-1", appSessionSequence: 8, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:16.000Z", pageType: "day", dateKey: "2026-07-14" })}', '2026-07-14 01:00:16'),
+        ('time_page_content_updated', '/notes', 'time_page', '37', '${metadata({ appSessionId: "session-1", appSessionSequence: 9, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:17.000Z", pageType: "day", dateKey: "2026-07-14", deltaLength: 0 })}', '2026-07-14 01:00:17'),
+        ('time_page_content_updated', '/notes', 'time_page', '37', '${metadata({ appSessionId: "session-1", appSessionSequence: 10, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:18.000Z", pageType: "day", dateKey: "2026-07-14", deltaLength: 2 })}', '2026-07-14 01:00:18'),
+        ('notification_audio_prepare_result', '/', NULL, NULL, '${metadata({ appSessionId: "session-1", appSessionSequence: 11, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:19.000Z", trigger: "timer_start", phase: "short_break", outcome: "failed", errorName: "ReferenceError", errorMessage: "Missing audio buffer" })}', '2026-07-14 01:00:19'),
+        ('app_usage_session_ended', '/tasks', NULL, NULL, '${metadata({ appSessionId: "session-1", appSessionSequence: 12, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:20.000Z" })}', '2026-07-14 01:00:20');
       INSERT INTO sessions VALUES (1, '2026-07-14 09:00:00', 1500, 1);
       INSERT INTO tasks VALUES (1, 'PRIVATE TASK NAME', '2026-07-14 01:00:00', NULL);
     `;
@@ -81,8 +84,8 @@ describe("daily product usage analyzer", () => {
 
     const report = JSON.parse(result.stdout);
     expect(report.coverage).toMatchObject({
-      eventCount: 9,
-      sessionizedEventCount: 9,
+      eventCount: 12,
+      sessionizedEventCount: 12,
       appSessionCount: 1,
       appSessionStartedCount: 1,
       appSessionEndedCount: 1,
@@ -112,6 +115,14 @@ describe("daily product usage analyzer", () => {
       createdThenDeleted: 0,
       deletedWithin10Minutes: 0,
     });
+    expect(report.flows.timePages).toMatchObject({
+      selected: 1,
+      updated: 2,
+      pagesTouched: 1,
+      zeroDeltaUpdates: 1,
+      tinyDeltaUpdates: 2,
+      netDelta: 2,
+    });
     expect(report.hypotheses).not.toContainEqual(
       expect.objectContaining({ code: "task_create_delete_rework" }),
     );
@@ -134,6 +145,9 @@ describe("daily product usage analyzer", () => {
     expect(markdownResult.status, markdownResult.stderr).toBe(0);
     expect(markdownResult.stdout).toContain(
       "App 会话事件：开始 1 条，结束 1 条（跨日或异常退出可能不成对）",
+    );
+    expect(markdownResult.stdout).toContain(
+      "时间页：选择 1，内容更新 2，涉及 1 个页面；零长度变化 1，长度变化不超过 2 字符 2",
     );
   });
 
@@ -203,7 +217,7 @@ describe("daily product usage analyzer", () => {
     expect(result.status, result.stderr).toBe(0);
 
     const report = JSON.parse(result.stdout);
-    expect(report.schemaVersion).toBe(3);
+    expect(report.schemaVersion).toBe(4);
     expect(report.routes.find((route: { route: string }) => route.route === "/notes"))
       .toMatchObject({
         rapidExits: 3,
