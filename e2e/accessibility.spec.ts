@@ -140,6 +140,22 @@ test.describe("Responsive and accessibility", () => {
     await expect(sidebar).toBeVisible();
     expect((await sidebar.boundingBox())?.width).toBe(64);
 
+    const expandButton = sidebar.getByRole("button", { name: "展开侧边栏" });
+    await expect(expandButton).toHaveAttribute("aria-expanded", "false");
+    await expect(expandButton.locator("svg")).toHaveClass(/lucide-chevrons-right/);
+    const toggleBounds = await expandButton.boundingBox();
+    expect(toggleBounds?.width).toBeGreaterThanOrEqual(32);
+    expect(toggleBounds?.height).toBeGreaterThanOrEqual(32);
+
+    await expandButton.hover();
+    await expect(expandButton.locator('[role="tooltip"]')).toBeVisible();
+
+    await expandButton.click();
+    expect((await sidebar.boundingBox())?.width).toBe(224);
+    const collapseButton = sidebar.getByRole("button", { name: "收起侧边栏" });
+    await expect(collapseButton).toHaveAttribute("aria-expanded", "true");
+    await expect(collapseButton.locator("svg")).toHaveClass(/lucide-chevrons-left/);
+
     const safeArea = sidebar.locator("[data-tauri-drag-region]").first();
     expect((await safeArea.boundingBox())?.height).toBeGreaterThanOrEqual(32);
   });

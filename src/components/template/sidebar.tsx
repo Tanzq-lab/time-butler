@@ -8,8 +8,8 @@ import {
   Settings,
   Calendar,
   HelpCircle,
-  PanelLeftClose,
-  PanelLeftOpen,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { m } from "framer-motion";
@@ -49,13 +49,21 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
         intent="default"
         onClick={onToggleCollapse}
         aria-label={isCollapsed ? "展开侧边栏" : "收起侧边栏"}
-        className="absolute -right-3 top-10 z-50 size-6 rounded-md border border-sahara-border bg-sahara-surface text-sahara-text-muted hover:text-sahara-text"
+        aria-expanded={!isCollapsed}
+        className="group absolute -right-4 top-10 z-50 size-8 touch-manipulation rounded-md border border-sahara-border bg-sahara-surface text-sahara-text-secondary hover:bg-sahara-card hover:text-sahara-text"
       >
         {isCollapsed ? (
-          <PanelLeftOpen aria-hidden="true" className="size-3.5" />
+          <ChevronsRight aria-hidden="true" className="size-4" strokeWidth={2.1} />
         ) : (
-          <PanelLeftClose aria-hidden="true" className="size-3.5" />
+          <ChevronsLeft aria-hidden="true" className="size-4" strokeWidth={2.1} />
         )}
+        <span
+          role="tooltip"
+          aria-hidden="true"
+          className="pointer-events-none invisible absolute left-full top-1/2 ml-2 -translate-y-1/2 whitespace-nowrap rounded-md border border-sahara-border bg-sahara-surface px-2 py-1 text-xs font-normal text-sahara-text opacity-0 shadow-sm transition-opacity duration-150 group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100 motion-reduce:transition-none"
+        >
+          {isCollapsed ? "展开侧边栏" : "收起侧边栏"}
+        </span>
       </Button>
 
       <div
