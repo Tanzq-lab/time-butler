@@ -3,7 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Minimize2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useUIStore } from "@/features/ui/use-ui-store";
+import { useScrollMemory } from "@/hooks/use-scroll-memory";
 import { m, AnimatePresence } from "framer-motion";
+import { useLocation } from "react-router-dom";
 import { Sidebar } from "./sidebar";
 import { MobileNav } from "./mobile-nav";
 
@@ -12,12 +14,16 @@ interface MainLayoutProps {
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
+  const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(() =>
     typeof window !== "undefined"
       ? window.matchMedia("(min-width: 768px) and (max-width: 1023px)").matches
       : false,
   );
   const isFullscreenFocus = useUIStore((s) => s.isFullscreenFocus);
+  const mainScrollRef = useScrollMemory<HTMLElement>(
+    `page:${location.pathname}${location.search}`,
+  );
 
   useEffect(() => {
     const compactDesktop = window.matchMedia(
@@ -57,10 +63,16 @@ export function MainLayout({ children }: MainLayoutProps) {
           data-tauri-drag-region
         />
 
-        <main id="main-content" tabIndex={-1} className={cn(
-          "flex-1 pb-20 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sahara-focus md:pb-0",
-          isFullscreenFocus ? "overflow-hidden" : "overflow-y-auto"
-        )}>
+        <main
+          ref={mainScrollRef}
+          id="main-content"
+          tabIndex={-1}
+          data-scroll-memory-key={`page:${location.pathname}${location.search}`}
+          className={cn(
+            "flex-1 pb-20 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sahara-focus md:pb-0",
+            isFullscreenFocus ? "overflow-hidden" : "overflow-y-auto",
+          )}
+        >
           {children}
         </main>
 

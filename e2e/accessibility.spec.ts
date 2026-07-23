@@ -295,5 +295,45 @@ test.describe("Responsive and accessibility", () => {
 
     await page.mouse.wheel(0, 2_000);
     await expect(timeline.getByText("22:00", { exact: true })).toBeInViewport();
+
+    const savedScrollTop = await timeline.evaluate((element) => element.scrollTop);
+    await page.getByRole("link", { name: "任务" }).click();
+    await page.getByRole("link", { name: "日历" }).click();
+
+    const restoredTimeline = page.getByRole("region", { name: "日历时间轴" });
+    await expect(restoredTimeline).toBeVisible();
+    await expect
+      .poll(() => restoredTimeline.evaluate((element) => element.scrollTop))
+      .toBe(savedScrollTop);
+  });
+
+  test("page navigation restores the previous working position", async ({ page }) => {
+    await page.setViewportSize({ width: 1128, height: 742 });
+    await page.goto("/#/tasks");
+    const main = page.locator("#main-content");
+
+    await main.evaluate((element) => {
+      const spacer = document.createElement("div");
+      spacer.dataset.scrollMemoryTest = "true";
+      spacer.style.height = "1600px";
+      element.append(spacer);
+      element.scrollTop = 520;
+      element.dispatchEvent(new Event("scroll"));
+    });
+    await expect.poll(() => main.evaluate((element) => element.scrollTop)).toBe(520);
+
+    await page.getByRole("link", { name: "计时" }).click();
+    await page.getByRole("link", { name: "任务" }).click();
+
+    const restoredMain = page.locator("#main-content");
+    await restoredMain.evaluate((element) => {
+      const spacer = document.createElement("div");
+      spacer.dataset.scrollMemoryTest = "true";
+      spacer.style.height = "1600px";
+      element.append(spacer);
+    });
+    await expect
+      .poll(() => restoredMain.evaluate((element) => element.scrollTop))
+      .toBe(520);
   });
 });

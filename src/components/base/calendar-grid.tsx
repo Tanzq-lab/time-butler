@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect, useRef, type PointerEvent as ReactPointer
 import { cn } from "@/lib/cn";
 import type { CalendarEvent, WeekSession } from "@/lib/db";
 import { formatTimeAmPm, parseLocalDateTime } from "@/lib/time";
+import { useScrollMemory } from "@/hooks/use-scroll-memory";
 import type { CalendarEventRange } from "./calendar-event-editor";
 import { CalendarEventBlock } from "./calendar-event-block";
 import { CalendarSessionBlock } from "./calendar-session-block";
@@ -311,6 +312,7 @@ export function computeDayLayout(
 }
 
 interface CalendarMobileViewProps {
+  scrollMemoryKey: string;
   weekDays: Date[];
   allDayLayouts: DayLayout[];
   hours: number[];
@@ -323,9 +325,9 @@ interface CalendarMobileViewProps {
 }
 
 function CalendarMobileView({
-  weekDays, allDayLayouts, hours, formatHour, currentTimePos, sessions, events, onEditPomo, onEditEvent,
+  scrollMemoryKey, weekDays, allDayLayouts, hours, formatHour, currentTimePos, sessions, events, onEditPomo, onEditEvent,
 }: CalendarMobileViewProps) {
-  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useScrollMemory<HTMLDivElement>(scrollMemoryKey);
   const todayIdx = weekDays.findIndex(isToday);
   const totalHeight = Math.max(...allDayLayouts.map((layout) => layout.totalHeight));
   const gridTemplateColumns = `48px repeat(${weekDays.length}, 9rem)`;
@@ -457,6 +459,7 @@ function CalendarMobileView({
 }
 
 interface CalendarDesktopViewProps {
+  scrollMemoryKey: string;
   weekDays: Date[];
   allDayLayouts: DayLayout[];
   hours: number[];
@@ -474,10 +477,11 @@ interface CalendarDesktopViewProps {
 }
 
 function CalendarDesktopView({
-  weekDays, allDayLayouts, hours, formatHour,
+  scrollMemoryKey, weekDays, allDayLayouts, hours, formatHour,
   currentTimePos, todayIdx, desktopGridTotalHeight, sessions, events, onEditPomo,
   onCreateEvent, onEditEvent, startHour, hourHeight,
 }: CalendarDesktopViewProps) {
+  const scrollRef = useScrollMemory<HTMLDivElement>(scrollMemoryKey);
   const [hoverTimePosition, setHoverTimePosition] = useState<number | null>(null);
   const draggingRef = useRef(false);
   const [dragSelection, setDragSelection] = useState<{
@@ -576,6 +580,7 @@ function CalendarDesktopView({
       </div>
 
       <div
+        ref={scrollRef}
         role="region"
         aria-label="日历时间轴"
         tabIndex={0}
@@ -758,6 +763,7 @@ export function CalendarGrid({
   }
 
   const currentTimePos = getCurrentTimePosition();
+  const weekScrollKey = toDateString(weekDays[0] ?? new Date());
 
   const desktopGridTotalHeight = Math.max(
     ...allDayLayouts.map((l) => l.totalHeight),
@@ -766,6 +772,7 @@ export function CalendarGrid({
   return (
     <div className="border border-sahara-border bg-sahara-surface">
       <CalendarMobileView
+        scrollMemoryKey={`calendar:${weekScrollKey}:mobile`}
         weekDays={weekDays}
         allDayLayouts={allDayLayouts}
         hours={hours}
@@ -777,6 +784,7 @@ export function CalendarGrid({
         onEditEvent={onEditEvent}
       />
       <CalendarDesktopView
+        scrollMemoryKey={`calendar:${weekScrollKey}:desktop`}
         weekDays={weekDays}
         allDayLayouts={allDayLayouts}
         hours={hours}

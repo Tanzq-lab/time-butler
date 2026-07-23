@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   CalendarGrid,
   computeDayLayout,
@@ -7,6 +7,10 @@ import {
   getCalendarSelectionPosition,
 } from "@/components/base/calendar-grid";
 import type { CalendarEvent, WeekSession } from "@/lib/db";
+
+beforeEach(() => {
+  window.sessionStorage.clear();
+});
 
 function makeSession(
   id: number,
@@ -178,5 +182,27 @@ describe("calendar hover time ruler", () => {
 
     fireEvent.pointerLeave(timeline);
     expect(screen.queryByTestId("calendar-hover-time-ruler")).not.toBeInTheDocument();
+  });
+});
+
+describe("calendar scroll memory", () => {
+  it("restores the vertical timeline position for the same week", () => {
+    const props = {
+      sessions: [],
+      events: [],
+      weekDays: [new Date("2026-07-13T00:00:00")],
+      startHour: 6,
+      endHour: 22,
+      hourHeight: 72,
+    };
+    const firstView = render(<CalendarGrid {...props} />);
+    const firstTimeline = screen.getByTestId("calendar-desktop-timeline");
+
+    firstTimeline.scrollTop = 384;
+    fireEvent.scroll(firstTimeline);
+    firstView.unmount();
+
+    render(<CalendarGrid {...props} />);
+    expect(screen.getByTestId("calendar-desktop-timeline").scrollTop).toBe(384);
   });
 });
