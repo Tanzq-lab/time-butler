@@ -2,28 +2,25 @@ import { describe, expect, it } from "vitest";
 import { getTaskPomoProgressVisual } from "@/lib/task-pomo-progress";
 
 describe("getTaskPomoProgressVisual", () => {
-  it("keeps normal-budget pomodoros neutral", () => {
-    expect(getTaskPomoProgressVisual(0, 4)).toMatchObject({
-      label: "0/4",
-      tone: "neutral",
+  it("keeps every pomodoro inside the estimate active, including a one-pomodoro task", () => {
+    expect(getTaskPomoProgressVisual(0, 1)).toMatchObject({
+      label: "0/1",
+      tone: "active",
       isOverrun: false,
       overrunPomos: 0,
     });
-  });
-
-  it("warns during the final estimated pomodoro", () => {
     expect(getTaskPomoProgressVisual(3, 4)).toMatchObject({
       label: "3/4",
-      tone: "warning",
+      tone: "active",
       isOverrun: false,
       overrunPomos: 0,
     });
   });
 
-  it("starts an over-budget pomodoro in danger without raising an overrun warning early", () => {
+  it("warns when the estimate has been consumed without claiming an overrun", () => {
     expect(getTaskPomoProgressVisual(4, 4)).toMatchObject({
       label: "4/4",
-      tone: "danger",
+      tone: "warning",
       isOverrun: false,
       overrunPomos: 0,
     });

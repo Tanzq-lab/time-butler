@@ -2,7 +2,7 @@ export interface TaskPomoProgressVisual {
   completedPomos: number;
   estimatedPomos: number;
   label: string;
-  tone: "neutral" | "warning" | "danger";
+  tone: "active" | "warning" | "danger";
   isOverrun: boolean;
   overrunPomos: number;
 }
@@ -12,9 +12,9 @@ function asNonNegativeInteger(value: number): number {
 }
 
 /**
- * Keeps the countdown sweep visually quiet while exposing task-budget state.
- * Colour changes happen only at pomodoro boundaries: neutral while there is
- * room, warning for the final estimated pomodoro, and danger beyond budget.
+ * Uses a calm active tone for every pomodoro inside the task budget. Warning
+ * begins only after the estimate has been consumed; danger begins after the
+ * completed count actually exceeds the estimate.
  */
 export function getTaskPomoProgressVisual(
   completedPomos: number,
@@ -27,11 +27,11 @@ export function getTaskPomoProgressVisual(
 
   const isOverrun = completed > estimated;
   const tone =
-    completed >= estimated
+    completed > estimated
       ? "danger"
-      : completed === estimated - 1
+      : completed === estimated
         ? "warning"
-        : "neutral";
+        : "active";
 
   return {
     completedPomos: completed,

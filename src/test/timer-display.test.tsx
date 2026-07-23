@@ -4,21 +4,21 @@ import { TimerDisplay } from "@/components/base/timer-display";
 import { getTaskPomoProgressVisual } from "@/lib/task-pomo-progress";
 
 describe("TimerDisplay task pomodoro progress", () => {
-  it("shows task-budget progress as a single neutral ring during focus", () => {
+  it("shows a one-pomodoro task as a single active ring during focus", () => {
     render(
       <TimerDisplay
         secondsRemaining={1200}
         totalSeconds={1500}
         phase="work"
-        taskPomoProgress={getTaskPomoProgressVisual(0, 4)}
+        taskPomoProgress={getTaskPomoProgressVisual(0, 1)}
       />,
     );
 
     expect(
-      screen.getByLabelText("任务预算：0/4 个番茄"),
+      screen.getByLabelText("任务预算：0/1 个番茄"),
     ).toBeVisible();
     expect(document.querySelectorAll(".timer-task-progress-ring")).toHaveLength(2);
-    expect(document.querySelector(".timer-task-progress-neutral")).toBeVisible();
+    expect(document.querySelector(".timer-task-progress-active")).toBeVisible();
     expect(document.querySelectorAll("linearGradient")).toHaveLength(0);
   });
 
