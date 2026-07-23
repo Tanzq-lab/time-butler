@@ -187,7 +187,9 @@ test.describe("Tasks", () => {
     await page.getByRole("button", { name: "预计 4 个番茄" }).click();
     await page.getByRole("button", { name: "创建任务" }).click();
 
-    await page.getByRole("button", { name: /^测试进行中任务 0\/4 个番茄$/ }).click();
+    await page.getByRole("button", {
+      name: "测试进行中任务 0/4 个番茄，正常进度",
+    }).click();
 
     // The "Active" badge appears near the task — use exact text match within a badge element
     await expect(page.getByText("进行中", { exact: true }).last()).toBeVisible();

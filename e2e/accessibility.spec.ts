@@ -152,7 +152,9 @@ test.describe("Responsive and accessibility", () => {
     await page.getByRole("button", { name: "预计 4 个番茄" }).click();
     await page.getByRole("button", { name: "创建任务" }).click();
     await page
-      .getByRole("button", { name: /^跨页面专注状态测试 0\/4 个番茄$/ })
+      .getByRole("button", {
+        name: "跨页面专注状态测试 0/4 个番茄，正常进度",
+      })
       .click();
 
     await page.getByRole("button", { name: "开始专注", exact: true }).click();
@@ -176,7 +178,9 @@ test.describe("Responsive and accessibility", () => {
     await page.getByPlaceholder("你现在要做什么？").fill("选择态对比度任务");
     await page.getByRole("button", { name: "预计 4 个番茄" }).click();
     await page.getByRole("button", { name: "创建任务" }).click();
-    await page.getByRole("button", { name: /^选择态对比度任务 0\/4 个番茄$/ }).click();
+    await page.getByRole("button", {
+      name: "选择态对比度任务 0/4 个番茄，正常进度",
+    }).click();
     await page.getByRole("link", { name: "计时" }).click();
     await expect(page).toHaveURL(/\/#\/$/);
     await expect(page.getByRole("textbox", { name: "设置计时时长" })).toBeVisible();

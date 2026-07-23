@@ -76,10 +76,28 @@ export function TaskListCard({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isDone = isTaskDone(task);
   const canActivate = !isDone && !isScheduled;
+  const progressState = canActivate
+    ? task.completed_pomos > task.estimated_pomos
+      ? "overrun"
+      : "on-track"
+    : null;
+  const overrunPomos = Math.max(
+    0,
+    task.completed_pomos - task.estimated_pomos,
+  );
+  const progressStatusLabel = progressState === "overrun"
+    ? `超额 ${overrunPomos} 个`
+    : progressState === "on-track"
+      ? "正常进度"
+      : null;
+  const progressAriaText = `${task.completed_pomos}/${task.estimated_pomos} 个番茄${
+    progressStatusLabel ? `，${progressStatusLabel}` : ""
+  }`;
 
   return (
     <article
       data-task-id={task.id}
+      data-progress-state={progressState ?? undefined}
       onPointerDown={reorderable ? onPointerDown : undefined}
       onPointerMove={reorderable ? onPointerMove : undefined}
       onPointerUp={reorderable ? onPointerUp : undefined}
@@ -109,6 +127,17 @@ export function TaskListCard({
         <span
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-2 bottom-0 z-10 h-0.5 rounded-full bg-sahara-primary"
+        />
+      )}
+      {progressState && (
+        <span
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute inset-y-2 left-0 w-0.5 rounded-full",
+            progressState === "overrun"
+              ? "bg-red-500 dark:bg-red-400"
+              : "bg-emerald-500 dark:bg-emerald-400",
+          )}
         />
       )}
       <div className="mb-1.5 flex items-start justify-between gap-2">
@@ -210,18 +239,37 @@ export function TaskListCard({
         <button
           type="button"
           aria-pressed={isActive}
+          aria-label={`${task.name} ${progressAriaText}`}
           onClick={onToggleActive}
           className="block w-full rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-sahara-focus focus-visible:ring-offset-2 focus-visible:ring-offset-sahara-surface"
         >
           <span className="block text-sm font-medium leading-snug text-sahara-text md:text-base">{task.name}</span>
-          <span className="mt-1.5 flex flex-wrap items-center gap-3">
-            <span className="inline-flex items-center gap-1.5 text-xs text-sahara-text-secondary">
-              <Target className="size-3.5" />
+          <span className="mt-1.5 flex flex-wrap items-center gap-2">
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 text-xs font-medium",
+                progressState === "overrun"
+                  ? "text-red-700 dark:text-red-300"
+                  : "text-emerald-700 dark:text-emerald-300",
+              )}
+            >
+              <Target aria-hidden="true" className="size-3.5" />
               <span className="font-mono tabular-nums">{task.completed_pomos}/{task.estimated_pomos}</span> 个番茄
+            </span>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ring-1 ring-inset",
+                progressState === "overrun"
+                  ? "bg-red-50 text-red-700 ring-red-200/80 dark:bg-red-950/40 dark:text-red-300 dark:ring-red-800/80"
+                  : "bg-emerald-50 text-emerald-700 ring-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-800/80",
+              )}
+            >
+              <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
+              {progressStatusLabel}
             </span>
             {isActive && (
               <span className="inline-flex items-center gap-1 text-xs font-medium text-sahara-text">
-                <Clock className="size-3.5" />进行中
+                <Clock aria-hidden="true" className="size-3.5" />进行中
               </span>
             )}
           </span>
@@ -267,11 +315,25 @@ export function TaskListCard({
       </div>}
 
       {task.estimated_pomos > 0 && (
-        <div className="mt-2 h-1 overflow-hidden rounded-full bg-sahara-card">
+        <div
+          role="progressbar"
+          aria-label={`${task.name} 任务进度`}
+          aria-valuemin={0}
+          aria-valuemax={task.estimated_pomos}
+          aria-valuenow={Math.min(task.completed_pomos, task.estimated_pomos)}
+          aria-valuetext={progressAriaText}
+          className="mt-2 h-1 overflow-hidden rounded-full bg-sahara-card"
+        >
           <div
             className={cn(
-              "h-full rounded-full transition-[width] duration-200",
-              isDone ? "bg-green-500" : "bg-sahara-primary",
+              "h-full rounded-full transition-[width,background-color] duration-200 motion-reduce:transition-none",
+              isDone
+                ? "bg-green-500"
+                : progressState === "overrun"
+                  ? "bg-red-500 dark:bg-red-400"
+                  : progressState === "on-track"
+                    ? "bg-emerald-500 dark:bg-emerald-400"
+                    : "bg-sahara-primary",
             )}
             style={{
               width: `${Math.min(
