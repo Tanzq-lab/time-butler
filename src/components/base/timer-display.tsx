@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, useMemo, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAnimationFrame, useReducedMotion } from "framer-motion";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/cn";
@@ -155,17 +155,6 @@ function WavyRing({
   );
 }
 
-function TaskPomoGradient({ id }: { id: string }) {
-  return (
-    <defs>
-      <linearGradient id={id} x1="8%" y1="92%" x2="92%" y2="8%">
-        <stop offset="0%" className="timer-task-progress-gradient-start" />
-        <stop offset="100%" className="timer-task-progress-gradient-end" />
-      </linearGradient>
-    </defs>
-  );
-}
-
 export function TimerDisplay({
   secondsRemaining,
   totalSeconds,
@@ -175,7 +164,6 @@ export function TimerDisplay({
   style = "solid",
   taskPomoProgress = null,
 }: TimerDisplayProps) {
-  const gradientId = useId().replaceAll(":", "");
   const isRunning = secondsRemaining > 0 && secondsRemaining < totalSeconds;
   const isComplete = secondsRemaining <= 0;
   const progress =
@@ -184,26 +172,18 @@ export function TimerDisplay({
       : 100;
   const visibleTaskPomoProgress =
     phase === "work" ? taskPomoProgress : null;
-  const progressRingClassName = visibleTaskPomoProgress
-    ? cn(
-        "timer-task-progress-ring",
-        visibleTaskPomoProgress.isOverrun && "timer-task-overrun-ring",
-      )
-    : isComplete
-      ? "stroke-sahara-ring-complete"
+  const taskBudgetToneClassName = visibleTaskPomoProgress
+    ? `timer-task-progress-${visibleTaskPomoProgress.tone}`
+    : undefined;
+  const progressRingClassName = isComplete
+    ? "timer-complete-ring"
+    : visibleTaskPomoProgress
+      ? "timer-task-progress-ring"
       : "stroke-sahara-primary";
   const progressDotClassName = visibleTaskPomoProgress
     ? "timer-task-progress-dot"
     : "fill-sahara-primary";
-  const taskPomoStyle = visibleTaskPomoProgress
-    ? ({
-        "--timer-task-progress-start-color": visibleTaskPomoProgress.color,
-        "--timer-task-progress-start-color-dark": visibleTaskPomoProgress.darkColor,
-        "--timer-task-progress-end-color": visibleTaskPomoProgress.gradientEndColor,
-        "--timer-task-progress-end-color-dark": visibleTaskPomoProgress.gradientEndDarkColor,
-      } as CSSProperties)
-    : undefined;
-      
+
   const [rawInput, setRawInput] = useState(() =>
     formatEditableValueFromSeconds(secondsRemaining),
   );
@@ -235,8 +215,10 @@ export function TimerDisplay({
 
   return (
     <div
-      className="relative inline-flex items-center justify-center"
-      style={taskPomoStyle}
+      className={cn(
+        "relative inline-flex items-center justify-center",
+        taskBudgetToneClassName,
+      )}
     >
       {/* Desktop SVG */}
       <svg
@@ -245,7 +227,6 @@ export function TimerDisplay({
         className="-rotate-90 hidden md:block"
         aria-hidden="true"
       >
-        {visibleTaskPomoProgress && <TaskPomoGradient id={`${gradientId}-desktop`} />}
         {/* Full faded track — static */}
         <WavyRing
           cx={CENTER_DESKTOP}
@@ -278,9 +259,6 @@ export function TimerDisplay({
           strokeWidth={style === "zigzag" ? "6" : "4"}
           className={progressRingClassName}
           dotClassName={progressDotClassName}
-          stroke={
-            visibleTaskPomoProgress ? `url(#${gradientId}-desktop)` : undefined
-          }
           showDot={true}
           isRunning={isRunning}
         />
@@ -293,7 +271,6 @@ export function TimerDisplay({
         className="-rotate-90 md:hidden"
         aria-hidden="true"
       >
-        {visibleTaskPomoProgress && <TaskPomoGradient id={`${gradientId}-mobile`} />}
         {/* Full faded track — static */}
         <WavyRing
           cx={CENTER_MOBILE}
@@ -326,9 +303,6 @@ export function TimerDisplay({
           strokeWidth={style === "zigzag" ? "5" : "3"}
           className={progressRingClassName}
           dotClassName={progressDotClassName}
-          stroke={
-            visibleTaskPomoProgress ? `url(#${gradientId}-mobile)` : undefined
-          }
           showDot={true}
           isRunning={isRunning}
         />
@@ -398,7 +372,7 @@ export function TimerDisplay({
           <Text
             variant="timer"
             className={cn(
-              isComplete ? "text-green-600" : "text-sahara-text",
+              isComplete ? "timer-complete-text" : "text-sahara-text",
               "font-mono text-[76px] font-medium tracking-[-0.06em] md:text-[120px]",
             )}
           >

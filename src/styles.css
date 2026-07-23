@@ -26,6 +26,9 @@
   --color-sahara-ring-track: #e9e9e7;
   --color-sahara-ring-track-active: #ffffff;
   --color-sahara-ring-complete: #37352f;
+  --color-timer-warning: #8a5a00;
+  --color-timer-danger: #b42318;
+  --color-timer-complete: #2f7d4e;
 }
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -52,6 +55,9 @@
   --color-sahara-ring-track: #343433;
   --color-sahara-ring-track-active: #202020;
   --color-sahara-ring-complete: #f7f7f5;
+  --color-timer-warning: #f0bd52;
+  --color-timer-danger: #fb7a70;
+  --color-timer-complete: #6cc88a;
 }
 
 :root {
@@ -224,47 +230,38 @@ textarea {
   }
 }
 
-/* The timer sweep measures this session; its colour range measures the selected task's budget. */
-.timer-task-progress-gradient-start {
-  stop-color: var(--timer-task-progress-start-color);
+/* The sweep measures this session; discrete tones report task-budget state. */
+.timer-task-progress-neutral {
+  --timer-task-progress-color: var(--color-sahara-text);
 }
 
-.timer-task-progress-gradient-end {
-  stop-color: var(--timer-task-progress-end-color);
+.timer-task-progress-warning {
+  --timer-task-progress-color: var(--color-timer-warning);
+}
+
+.timer-task-progress-danger {
+  --timer-task-progress-color: var(--color-timer-danger);
+}
+
+.timer-task-progress-ring {
+  stroke: var(--timer-task-progress-color);
 }
 
 .timer-task-progress-dot {
-  fill: var(--timer-task-progress-end-color);
+  fill: var(--timer-task-progress-color);
 }
 
 .timer-task-progress-value,
 .timer-task-overrun-text {
-  color: var(--timer-task-progress-start-color);
+  color: var(--timer-task-progress-color);
 }
 
-.dark .timer-task-progress-gradient-start {
-  stop-color: var(--timer-task-progress-start-color-dark);
+.timer-complete-ring {
+  stroke: var(--color-timer-complete);
 }
 
-.dark .timer-task-progress-gradient-end {
-  stop-color: var(--timer-task-progress-end-color-dark);
-}
-
-.dark .timer-task-progress-dot {
-  fill: var(--timer-task-progress-end-color-dark);
-}
-
-.dark .timer-task-progress-value,
-.dark .timer-task-overrun-text {
-  color: var(--timer-task-progress-start-color-dark);
-}
-
-.timer-task-overrun-ring {
-  filter: drop-shadow(0 0 4px var(--timer-task-progress-start-color));
-}
-
-.dark .timer-task-overrun-ring {
-  filter: drop-shadow(0 0 4px var(--timer-task-progress-start-color-dark));
+.timer-complete-text {
+  color: var(--color-timer-complete);
 }
 
 input[type="range"]::-webkit-slider-thumb {
