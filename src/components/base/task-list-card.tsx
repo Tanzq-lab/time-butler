@@ -23,6 +23,7 @@ import { ModalOverlay } from "@/components/ui/modal-overlay";
 
 interface TaskListCardProps {
   task: Task;
+  categoryName?: string | null;
   isActive: boolean;
   runtimeStatus?: "running" | "paused" | null;
   onToggleActive: () => void;
@@ -58,6 +59,7 @@ function formatScheduledFor(value?: string | null): string {
 
 export function TaskListCard({
   task,
+  categoryName,
   isActive,
   runtimeStatus = null,
   onToggleActive,
@@ -103,6 +105,7 @@ export function TaskListCard({
     : visibleRuntimeStatus === "paused"
       ? "已暂停"
       : progressStatusLabel;
+  const categoryLabel = categoryName?.trim() || "未分类";
   const progressAriaText = `${task.completed_pomos}/${task.estimated_pomos} 个番茄${
     visibleStatusLabel ? `，${visibleStatusLabel}` : ""
   }`;
@@ -168,12 +171,13 @@ export function TaskListCard({
             </span>
           )}
           <span
+            title={categoryLabel}
             className={cn(
-              "rounded-md bg-sahara-card px-2 py-0.5 text-[10px] font-medium text-sahara-text-muted",
+              "max-w-full truncate rounded-md bg-sahara-card px-2 py-0.5 text-[10px] font-medium text-sahara-text-muted",
               isActive ? "bg-sahara-surface text-sahara-text" : "",
             )}
           >
-            {task.project || "通用"}
+            {categoryLabel}
           </span>
         </div>
         <div className="hidden shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-150 md:flex md:group-hover:opacity-100 md:group-focus-within:opacity-100">

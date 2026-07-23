@@ -14,6 +14,40 @@ const task: Task = {
 };
 
 describe("TaskListCard", () => {
+  it("shows the assigned category instead of a generic project fallback", () => {
+    render(
+      <TaskListCard
+        task={{ ...task, project: "旧项目", category_id: 63 }}
+        categoryName="写作输出"
+        isActive={false}
+        onToggleActive={vi.fn()}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        onCompleteTask={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("写作输出")).toBeVisible();
+    expect(screen.queryByText("旧项目")).not.toBeInTheDocument();
+    expect(screen.queryByText("通用")).not.toBeInTheDocument();
+  });
+
+  it("labels a task without a category as unclassified", () => {
+    render(
+      <TaskListCard
+        task={task}
+        isActive={false}
+        onToggleActive={vi.fn()}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        onCompleteTask={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("未分类")).toBeVisible();
+    expect(screen.queryByText("通用")).not.toBeInTheDocument();
+  });
+
   it("marks a zero-pomodoro unfinished task as not started", () => {
     render(
       <TaskListCard

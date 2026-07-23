@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TasksList } from "@/components/containers/tasks-list";
+import { useCategoriesStore } from "@/features/categories/use-categories-store";
 import { useTaskStore } from "@/features/tasks/use-task-store";
 import { useTodoStore } from "@/features/todos/use-todo-store";
 import type { Task } from "@/features/tasks/task-types";
@@ -35,6 +36,43 @@ beforeEach(() => {
   useTodoStore.setState({
     todos: [],
     loadTodos: vi.fn().mockResolvedValue(undefined),
+  });
+  useCategoriesStore.setState({
+    categories: [],
+    isLoading: false,
+    error: null,
+    loadCategories: vi.fn().mockResolvedValue(undefined),
+  });
+});
+
+describe("TasksList category labels", () => {
+  it("maps a task category id to its readable category name", () => {
+    useTaskStore.setState({
+      tasks: [{ ...activeTask(11, "输出调研结论", 0), category_id: 63 }],
+      loadTasks: vi.fn().mockResolvedValue(undefined),
+      reorderTasks: vi.fn().mockResolvedValue(true),
+      deleteTask: vi.fn().mockResolvedValue(undefined),
+      updateTask: vi.fn().mockResolvedValue(undefined),
+      completeTask: vi.fn().mockResolvedValue(undefined),
+      addTask: vi.fn().mockResolvedValue(undefined),
+    });
+    useCategoriesStore.setState({
+      categories: [{
+        id: 63,
+        name: "写作输出",
+        color: "#B08968",
+        created_at: "2026-07-01T00:00:00.000Z",
+      }],
+    });
+
+    render(
+      <MemoryRouter>
+        <TasksList />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("写作输出")).toBeVisible();
+    expect(screen.queryByText("通用")).not.toBeInTheDocument();
   });
 });
 

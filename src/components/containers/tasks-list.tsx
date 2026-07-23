@@ -2,6 +2,7 @@ import { useReducer, useEffect, useRef, useState } from "react";
 import type { PointerEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTaskStore } from "@/features/tasks/use-task-store";
+import { useCategoriesStore } from "@/features/categories/use-categories-store";
 import { useTimerStore } from "@/features/timer/use-timer-store";
 import { useTaskFilter } from "@/features/tasks/use-task-filter";
 import { useTodoStore } from "@/features/todos/use-todo-store";
@@ -209,6 +210,8 @@ export function TasksList() {
   const loadTasks = useTaskStore((s) => s.loadTasks);
   const todos = useTodoStore((s) => s.todos);
   const archiveTodo = useTodoStore((s) => s.archiveTodo);
+  const categories = useCategoriesStore((s) => s.categories);
+  const loadCategories = useCategoriesStore((s) => s.loadCategories);
 
   const activeTaskId = useTimerStore((s) => s.activeTaskId);
   const currentSessionTaskId = useTimerStore((s) => s.currentSessionTaskId);
@@ -243,6 +246,10 @@ export function TasksList() {
   useEffect(() => {
     persistTaskViewMode(viewMode);
   }, [viewMode]);
+
+  useEffect(() => {
+    void loadCategories();
+  }, [loadCategories]);
 
   useEffect(() => {
     let disposed = false;
@@ -286,6 +293,9 @@ export function TasksList() {
   );
   const canReorderActiveTasks =
     viewMode === "list" && !searchQuery.trim() && activeTasks.length > 1;
+  const categoryNameById = new Map(
+    categories.map((category) => [category.id, category.name]),
+  );
 
   const handleFocus = async (taskId: number) => {
     await setActiveTask(taskId);
@@ -743,6 +753,11 @@ export function TasksList() {
                   <TaskListCard
                     key={task.id}
                     task={task}
+                    categoryName={
+                      task.category_id == null
+                        ? null
+                        : categoryNameById.get(task.category_id)
+                    }
                     isActive={activeTaskId === task.id}
                     runtimeStatus={
                       timerPhase === "work"
@@ -818,6 +833,11 @@ export function TasksList() {
                   <TaskListCard
                     key={task.id}
                     task={task}
+                    categoryName={
+                      task.category_id == null
+                        ? null
+                        : categoryNameById.get(task.category_id)
+                    }
                     isActive={false}
                     isScheduled
                     onToggleActive={() => undefined}
@@ -867,6 +887,11 @@ export function TasksList() {
                     <TaskListCard
                       key={task.id}
                       task={task}
+                      categoryName={
+                        task.category_id == null
+                          ? null
+                          : categoryNameById.get(task.category_id)
+                      }
                       isActive={false}
                       onToggleActive={() => setActiveTask(task.id)}
                       onEdit={() =>
