@@ -161,6 +161,15 @@ test.describe("Responsive and accessibility", () => {
     await expect(page).toHaveURL(/\/#\/$/);
     await page.getByRole("link", { name: "任务" }).click();
 
+    const runningCard = page.locator("article").filter({
+      hasText: "跨页面专注状态测试",
+    });
+    await expect(runningCard.getByRole("button", {
+      name: "跨页面专注状态测试 0/4 个番茄，进行中",
+    })).toBeVisible();
+    await expect(runningCard.getByText("进行中", { exact: true })).toBeVisible();
+    await expect(runningCard.getByText("未开始", { exact: true })).toHaveCount(0);
+
     const sidebarStatus = page.getByRole("region", { name: "当前专注状态" });
     await expect(sidebarStatus.getByText("跨页面专注状态测试")).toBeVisible();
     await expect(sidebarStatus.getByRole("timer")).toHaveText(/\d{2}:\d{2}/);
@@ -169,6 +178,8 @@ test.describe("Responsive and accessibility", () => {
 
     await sidebarStatus.getByRole("button", { name: "暂停专注" }).click();
     await expect(sidebarStatus.getByRole("button", { name: "继续专注" })).toBeVisible();
+    await expect(runningCard.getByText("已暂停", { exact: true })).toBeVisible();
+    await expect(runningCard.getByText("进行中", { exact: true })).toHaveCount(0);
     await expect(page).toHaveURL(/\/#\/tasks/);
   });
 

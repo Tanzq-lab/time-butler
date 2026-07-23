@@ -211,6 +211,9 @@ export function TasksList() {
   const archiveTodo = useTodoStore((s) => s.archiveTodo);
 
   const activeTaskId = useTimerStore((s) => s.activeTaskId);
+  const currentSessionTaskId = useTimerStore((s) => s.currentSessionTaskId);
+  const timerPhase = useTimerStore((s) => s.phase);
+  const timerStatus = useTimerStore((s) => s.status);
   const setActiveTask = useTimerStore((s) => s.setActiveTask);
 
   const [listState, dispatch] = useReducer(
@@ -741,6 +744,13 @@ export function TasksList() {
                     key={task.id}
                     task={task}
                     isActive={activeTaskId === task.id}
+                    runtimeStatus={
+                      timerPhase === "work"
+                      && currentSessionTaskId === task.id
+                      && timerStatus !== "idle"
+                        ? timerStatus
+                        : null
+                    }
                     onToggleActive={() =>
                       setActiveTask(activeTaskId === task.id ? null : task.id)
                     }

@@ -181,18 +181,21 @@ test.describe("Tasks", () => {
     await expect(page.getByText("代码重构")).not.toBeVisible();
   });
 
-  test("clicking a task sets it as active", async ({ page }) => {
+  test("clicking a task selects it without claiming focus has started", async ({ page }) => {
     await page.getByRole("button", { name: "添加专注任务" }).click();
     await page.getByPlaceholder("你现在要做什么？").fill("测试进行中任务");
     await page.getByRole("button", { name: "预计 4 个番茄" }).click();
     await page.getByRole("button", { name: "创建任务" }).click();
 
-    await page.getByRole("button", {
+    const taskButton = page.getByRole("button", {
       name: "测试进行中任务 0/4 个番茄，未开始",
-    }).click();
+    });
+    await taskButton.click();
 
-    // The "Active" badge appears near the task — use exact text match within a badge element
-    await expect(page.getByText("进行中", { exact: true }).last()).toBeVisible();
+    await expect(taskButton).toHaveAttribute("aria-pressed", "true");
+    const taskCard = taskButton.locator("xpath=ancestor::article");
+    await expect(taskCard.getByText("未开始", { exact: true })).toBeVisible();
+    await expect(taskCard.getByText("进行中", { exact: true })).toHaveCount(0);
   });
 
   test("quick-adds, completes, and reopens a todo", async ({ page }) => {

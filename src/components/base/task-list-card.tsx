@@ -2,6 +2,7 @@ import {
   CalendarClock,
   Target,
   Clock,
+  Pause,
   CheckCircle2,
   CircleCheckBig,
   Trash2,
@@ -23,6 +24,7 @@ import { ModalOverlay } from "@/components/ui/modal-overlay";
 interface TaskListCardProps {
   task: Task;
   isActive: boolean;
+  runtimeStatus?: "running" | "paused" | null;
   onToggleActive: () => void;
   onFocus?: () => void;
   onRecord?: () => void;
@@ -57,6 +59,7 @@ function formatScheduledFor(value?: string | null): string {
 export function TaskListCard({
   task,
   isActive,
+  runtimeStatus = null,
   onToggleActive,
   onFocus,
   onRecord,
@@ -94,14 +97,21 @@ export function TaskListCard({
       : progressState === "on-track"
         ? "正常进度"
         : null;
+  const visibleRuntimeStatus = canActivate ? runtimeStatus : null;
+  const visibleStatusLabel = visibleRuntimeStatus === "running"
+    ? "进行中"
+    : visibleRuntimeStatus === "paused"
+      ? "已暂停"
+      : progressStatusLabel;
   const progressAriaText = `${task.completed_pomos}/${task.estimated_pomos} 个番茄${
-    progressStatusLabel ? `，${progressStatusLabel}` : ""
+    visibleStatusLabel ? `，${visibleStatusLabel}` : ""
   }`;
 
   return (
     <article
       data-task-id={task.id}
       data-progress-state={progressState ?? undefined}
+      data-runtime-status={visibleRuntimeStatus ?? undefined}
       onPointerDown={reorderable ? onPointerDown : undefined}
       onPointerMove={reorderable ? onPointerMove : undefined}
       onPointerUp={reorderable ? onPointerUp : undefined}
@@ -267,21 +277,26 @@ export function TaskListCard({
             <span
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ring-1 ring-inset",
-                progressState === "not-started"
-                  ? "bg-sahara-card text-sahara-text-secondary ring-sahara-border"
-                  : progressState === "overrun"
-                    ? "bg-red-50 text-red-700 ring-red-200/80 dark:bg-red-950/40 dark:text-red-300 dark:ring-red-800/80"
-                    : "bg-emerald-50 text-emerald-700 ring-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-800/80",
+                visibleRuntimeStatus === "running"
+                  ? "bg-blue-50 text-blue-700 ring-blue-200/80 dark:bg-blue-950/40 dark:text-blue-300 dark:ring-blue-800/80"
+                  : visibleRuntimeStatus === "paused"
+                    ? "bg-amber-50 text-amber-700 ring-amber-200/80 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-800/80"
+                    : progressState === "not-started"
+                      ? "bg-sahara-card text-sahara-text-secondary ring-sahara-border"
+                      : progressState === "overrun"
+                        ? "bg-red-50 text-red-700 ring-red-200/80 dark:bg-red-950/40 dark:text-red-300 dark:ring-red-800/80"
+                        : "bg-emerald-50 text-emerald-700 ring-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-800/80",
               )}
             >
-              <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
-              {progressStatusLabel}
+              {visibleRuntimeStatus === "running" ? (
+                <Clock aria-hidden="true" className="size-3" />
+              ) : visibleRuntimeStatus === "paused" ? (
+                <Pause aria-hidden="true" className="size-3 fill-current" />
+              ) : (
+                <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
+              )}
+              {visibleStatusLabel}
             </span>
-            {isActive && (
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-sahara-text">
-                <Clock aria-hidden="true" className="size-3.5" />进行中
-              </span>
-            )}
           </span>
         </button>
       ) : (

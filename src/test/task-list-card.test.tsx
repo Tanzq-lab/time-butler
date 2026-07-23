@@ -34,6 +34,58 @@ describe("TaskListCard", () => {
     ).toHaveAttribute("aria-valuetext", "0/2 个番茄，未开始");
   });
 
+  it("shows a compact blue runtime state while keeping zero progress neutral", () => {
+    render(
+      <TaskListCard
+        task={task}
+        isActive
+        runtimeStatus="running"
+        onToggleActive={vi.fn()}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        onCompleteTask={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText("未开始")).not.toBeInTheDocument();
+    expect(screen.getByText("进行中")).toHaveClass(
+      "bg-blue-50",
+      "text-blue-700",
+    );
+    expect(screen.getByText("0/2").parentElement).toHaveClass(
+      "text-sahara-text-secondary",
+    );
+    expect(
+      screen.getByRole("progressbar", { name: "补齐任务记录入口 任务进度" }),
+    ).toHaveAttribute("aria-valuetext", "0/2 个番茄，进行中");
+  });
+
+  it("shows a compact amber runtime state when focus is paused", () => {
+    render(
+      <TaskListCard
+        task={{ ...task, completed_pomos: 1 }}
+        isActive
+        runtimeStatus="paused"
+        onToggleActive={vi.fn()}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        onCompleteTask={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText("正常进度")).not.toBeInTheDocument();
+    expect(screen.getByText("已暂停")).toHaveClass(
+      "bg-amber-50",
+      "text-amber-700",
+    );
+    expect(screen.getByText("1/2").parentElement).toHaveClass(
+      "text-emerald-700",
+    );
+    expect(
+      screen.getByRole("progressbar", { name: "补齐任务记录入口 任务进度" }),
+    ).toHaveAttribute("aria-valuetext", "1/2 个番茄，已暂停");
+  });
+
   it("marks an unfinished task within its estimate as normal progress", () => {
     render(
       <TaskListCard
