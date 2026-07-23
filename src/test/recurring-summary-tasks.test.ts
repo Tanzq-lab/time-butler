@@ -28,6 +28,26 @@ import {
   isDayOff,
 } from "@/features/tasks/recurring-summary-tasks";
 import type { UserRecurringTaskRule } from "@/features/tasks/recurring-task-rules";
+import { BUILT_IN_RECURRING_TASK_RULES } from "@/lib/db/default-recurring-task-rules";
+
+const builtInRules: UserRecurringTaskRule[] = BUILT_IN_RECURRING_TASK_RULES.map(
+  (rule, index) => ({
+    id: index + 1,
+    rule_key: rule.ruleKey,
+    name: rule.name,
+    estimated_pomos: rule.estimatedPomos,
+    project: rule.project,
+    category_id: null,
+    category_name: rule.categoryName,
+    frequency: rule.legacyFrequency,
+    schedule_type: rule.scheduleType,
+    start_date: rule.startDate,
+    scheduled_time: rule.scheduledTime,
+    enabled: 1,
+    created_at: rule.startDate,
+    updated_at: rule.startDate,
+  }),
+);
 
 function userRule(
   overrides: Partial<UserRecurringTaskRule> = {},
@@ -56,6 +76,7 @@ beforeEach(() => {
     select: dbMocks.select,
   });
   dbMocks.select.mockImplementation(async (query: string) => {
+    if (query.includes("FROM recurring_task_rules")) return builtInRules;
     if (query.includes("FROM categories")) return [{ id: 69 }];
     return [];
   });
@@ -94,6 +115,28 @@ describe("recurring summary tasks", () => {
     expect(occurrences.map((item) => item.occurrenceDate)).toEqual([
       "2026-07-24",
     ]);
+  });
+
+  it("keeps an original rule key after the rule is edited", () => {
+    const occurrences = buildUserRecurringTaskOccurrences(
+      [
+        userRule({
+          rule_key: "summary.weekly",
+          name: "每周复盘",
+          frequency: "weekly",
+          start_date: "2026-07-20",
+        }),
+      ],
+      new Date(2026, 6, 20),
+      7,
+    );
+
+    expect(occurrences[0]).toEqual(
+      expect.objectContaining({
+        ruleKey: "summary.weekly",
+        name: "每周复盘",
+      }),
+    );
   });
 
   it("moves a monthly day 31 rule to the end of shorter months", () => {

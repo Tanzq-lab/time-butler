@@ -28,6 +28,13 @@ describe("AddRecurringTaskModal", () => {
     expect(
       formatRecurringRuleSummary("monthly", "2026-07-31", "18:00"),
     ).toBe("从 7月31日起，每月31日 18:00 生成任务");
+    expect(
+      formatRecurringRuleSummary(
+        "monthly_first_day_off",
+        "2026-01-01",
+        "09:00",
+      ),
+    ).toBe("从 1月1日起，每月首个休息日 09:00 生成任务");
   });
 
   it("requires the core fields and submits project and category separately", async () => {
@@ -140,7 +147,7 @@ describe("AddRecurringTaskModal", () => {
     fireEvent.click(screen.getByText("已配置规则"));
     expect(
       screen.getByText(
-        "可编辑或停用规则；修改仅影响之后新生成的任务，已经出现的任务会保留。",
+        "原有规则和新建规则都可编辑或停用；修改仅影响之后新生成的任务。",
       ),
     ).toBeVisible();
     fireEvent.click(
@@ -150,6 +157,57 @@ describe("AddRecurringTaskModal", () => {
     await waitFor(() =>
       expect(onToggleRule).toHaveBeenCalledWith(31, false),
     );
+  });
+
+  it("always exposes the configured-rules entry, including its empty state", () => {
+    render(
+      <AddRecurringTaskModal open onClose={vi.fn()} onSubmit={vi.fn()} />,
+    );
+
+    expect(screen.getByText("已配置规则")).toBeVisible();
+    fireEvent.click(screen.getByText("已配置规则"));
+    expect(
+      screen.getByText("还没有已配置规则，可在下方创建第一条。"),
+    ).toBeVisible();
+  });
+
+  it("loads the original monthly-summary cadence into the shared editor", () => {
+    render(
+      <AddRecurringTaskModal
+        open
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        onUpdateRule={vi.fn()}
+        rules={[
+          {
+            id: 2,
+            rule_key: "summary.monthly",
+            name: "月总结",
+            estimated_pomos: 2,
+            project: "个人复盘",
+            category_id: 50,
+            category_name: "复盘计划",
+            frequency: "monthly",
+            schedule_type: "monthly_first_day_off",
+            start_date: "2026-01-01",
+            scheduled_time: "09:00",
+            enabled: 1,
+            created_at: "2026-01-01T00:00:00",
+            updated_at: "2026-01-01T00:00:00",
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("已配置规则"));
+    fireEvent.click(
+      screen.getByRole("button", { name: "编辑循环规则：月总结" }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: "每月首个休息日" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText("生效日期")).toHaveValue("2026-01-01");
   });
 
   it("reuses the form to edit an existing rule and keeps generated tasks unchanged", async () => {

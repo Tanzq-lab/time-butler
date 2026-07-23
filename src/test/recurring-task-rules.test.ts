@@ -49,9 +49,14 @@ describe("recurring task rules database", () => {
         "个人效率",
         66,
         "daily",
+        "daily",
         "2026-07-22",
         "09:00",
       ],
+    );
+    expect(dbMocks.execute).toHaveBeenCalledWith(
+      "UPDATE recurring_task_rules SET rule_key = $1 WHERE id = $2",
+      ["custom.31", 31],
     );
   });
 
@@ -106,6 +111,7 @@ describe("recurring task rules database", () => {
         "个人效率",
         66,
         "weekly",
+        "weekly",
         "2026-07-29",
         "10:30",
         31,
@@ -113,6 +119,33 @@ describe("recurring task rules database", () => {
     );
     expect(dbMocks.execute.mock.calls[0][0]).not.toContain(
       "recurring_task_occurrences",
+    );
+  });
+
+  it("stores special summary schedules without breaking the legacy frequency check", async () => {
+    await updateRecurringTaskRule(7, {
+      name: "月总结",
+      estimatedPomos: 2,
+      project: "个人复盘",
+      categoryId: 50,
+      frequency: "monthly_first_day_off",
+      startDate: "2026-01-01",
+      scheduledTime: "09:00",
+    });
+
+    expect(dbMocks.execute).toHaveBeenCalledWith(
+      expect.stringContaining("schedule_type = $6"),
+      [
+        "月总结",
+        2,
+        "个人复盘",
+        50,
+        "monthly",
+        "monthly_first_day_off",
+        "2026-01-01",
+        "09:00",
+        7,
+      ],
     );
   });
 

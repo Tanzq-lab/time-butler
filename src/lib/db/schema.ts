@@ -1,6 +1,7 @@
 import Database from "@tauri-apps/plugin-sql";
 import { DEFAULT_CATEGORY_COLOR } from "@/lib/constants";
 import { seedDefaultTaskCategories } from "./default-categories";
+import { seedBuiltInRecurringTaskRules } from "./default-recurring-task-rules";
 import { invoke, isTauri } from "@/lib/tauri";
 
 const FALLBACK_DB_NAME = "sqlite:Time-butler.db";
@@ -253,9 +254,21 @@ export async function initDb(): Promise<void> {
       `CREATE INDEX IF NOT EXISTS idx_recurring_task_rules_enabled
         ON recurring_task_rules (enabled, created_at)`,
     ],
+    17: [
+      "ALTER TABLE recurring_task_rules ADD COLUMN rule_key TEXT",
+      "ALTER TABLE recurring_task_rules ADD COLUMN schedule_type TEXT",
+      `UPDATE recurring_task_rules
+       SET rule_key = 'custom.' || id
+       WHERE rule_key IS NULL`,
+      `UPDATE recurring_task_rules
+       SET schedule_type = frequency
+       WHERE schedule_type IS NULL`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_recurring_task_rules_key
+        ON recurring_task_rules (rule_key)`,
+    ],
   };
 
-  const targetVersion = 16;
+  const targetVersion = 17;
 
   for (let v = currentVersion + 1; v <= targetVersion; v++) {
     const statements = migrations[v];
@@ -280,6 +293,7 @@ export async function initDb(): Promise<void> {
   }
 
   await seedDefaultTaskCategories(database);
+  await seedBuiltInRecurringTaskRules(database);
 
   // Seed default presets if none exist
   const presetCount = await database.select<{ count: number }[]>(

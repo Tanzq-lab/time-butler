@@ -1,6 +1,13 @@
 import { getDb } from "@/lib/db";
 
-export type RecurringTaskFrequency = "daily" | "weekly" | "monthly";
+export type RecurringTaskFrequency =
+  | "daily"
+  | "weekly"
+  | "monthly"
+  | "monthly_first_day_off"
+  | "yearly_first_day_off";
+
+type LegacyRecurringTaskFrequency = "daily" | "weekly" | "monthly";
 
 export interface RecurringTaskRuleInput {
   name: string;
@@ -19,7 +26,9 @@ export interface UserRecurringTaskRule {
   project: string | null;
   category_id: number | null;
   category_name: string | null;
-  frequency: RecurringTaskFrequency;
+  frequency: LegacyRecurringTaskFrequency;
+  schedule_type?: RecurringTaskFrequency | null;
+  rule_key?: string | null;
   start_date: string;
   scheduled_time: string;
   enabled: number;
@@ -29,6 +38,27 @@ export interface UserRecurringTaskRule {
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+const SCHEDULE_TYPES: readonly RecurringTaskFrequency[] = [
+  "daily",
+  "weekly",
+  "monthly",
+  "monthly_first_day_off",
+  "yearly_first_day_off",
+];
+
+function toLegacyFrequency(
+  frequency: RecurringTaskFrequency,
+): LegacyRecurringTaskFrequency {
+  return frequency === "monthly_first_day_off" || frequency === "yearly_first_day_off"
+    ? "monthly"
+    : frequency;
+}
+
+export function getRecurringTaskSchedule(
+  rule: UserRecurringTaskRule,
+): RecurringTaskFrequency {
+  return rule.schedule_type ?? rule.frequency;
+}
 
 function assertRuleInput(input: RecurringTaskRuleInput): void {
   if (!input.name.trim()) throw new Error("任务名称不能为空");
@@ -45,7 +75,7 @@ function assertRuleInput(input: RecurringTaskRuleInput): void {
   if (!TIME_PATTERN.test(input.scheduledTime)) {
     throw new Error("提醒时间格式无效");
   }
-  if (!(["daily", "weekly", "monthly"] as const).includes(input.frequency)) {
+  if (!SCHEDULE_TYPES.includes(input.frequency)) {
     throw new Error("循环频率无效");
   }
 }
@@ -62,20 +92,27 @@ export async function addRecurringTaskRule(
       project,
       category_id,
       frequency,
+      schedule_type,
       start_date,
       scheduled_time
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
     [
       input.name.trim(),
       input.estimatedPomos,
       input.project?.trim() || null,
       input.categoryId,
+      toLegacyFrequency(input.frequency),
       input.frequency,
       input.startDate,
       input.scheduledTime,
     ],
   );
-  return result.lastInsertId as number;
+  const ruleId = result.lastInsertId as number;
+  await database.execute(
+    "UPDATE recurring_task_rules SET rule_key = $1 WHERE id = $2",
+    [`custom.${ruleId}`, ruleId],
+  );
+  return ruleId;
 }
 
 export async function updateRecurringTaskRule(
@@ -95,15 +132,17 @@ export async function updateRecurringTaskRule(
          project = $3,
          category_id = $4,
          frequency = $5,
-         start_date = $6,
-         scheduled_time = $7,
+         schedule_type = $6,
+         start_date = $7,
+         scheduled_time = $8,
          updated_at = CURRENT_TIMESTAMP
-     WHERE id = $8`,
+     WHERE id = $9`,
     [
       input.name.trim(),
       input.estimatedPomos,
       input.project?.trim() || null,
       input.categoryId,
+      toLegacyFrequency(input.frequency),
       input.frequency,
       input.startDate,
       input.scheduledTime,
@@ -133,7 +172,10 @@ export async function getRecurringTaskRules(
     FROM recurring_task_rules
     LEFT JOIN categories ON categories.id = recurring_task_rules.category_id
     ${enabledOnly ? "WHERE recurring_task_rules.enabled = 1" : ""}
-    ORDER BY recurring_task_rules.created_at ASC`,
+    ORDER BY
+      CASE WHEN recurring_task_rules.rule_key LIKE 'custom.%' THEN 1 ELSE 0 END,
+      recurring_task_rules.created_at ASC,
+      recurring_task_rules.id ASC`,
   );
 }
 

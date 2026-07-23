@@ -9,6 +9,7 @@ import type {
   RecurringTaskRuleInput,
   UserRecurringTaskRule,
 } from "@/features/tasks/recurring-task-rules";
+import { getRecurringTaskSchedule } from "@/features/tasks/recurring-task-rules";
 
 const POMODORO_OPTIONS = [1, 2, 3, 4] as const;
 type PomodoroEstimate = (typeof POMODORO_OPTIONS)[number];
@@ -62,7 +63,9 @@ const FREQUENCY_OPTIONS: {
 }[] = [
   { value: "daily", label: "每天" },
   { value: "weekly", label: "每周" },
-  { value: "monthly", label: "每月" },
+  { value: "monthly", label: "每月同日" },
+  { value: "monthly_first_day_off", label: "每月首个休息日" },
+  { value: "yearly_first_day_off", label: "每年首个休息日" },
 ];
 
 function toDateInputValue(date: Date): string {
@@ -91,7 +94,7 @@ function formStateFromRule(rule: UserRecurringTaskRule): FormState {
     estimatedPomos: rule.estimated_pomos as PomodoroEstimate,
     project: rule.project ?? "",
     categoryId: rule.category_id,
-    frequency: rule.frequency,
+    frequency: getRecurringTaskSchedule(rule),
     startDate: rule.start_date,
     scheduledTime: rule.scheduled_time,
   };
@@ -112,12 +115,15 @@ export function formatRecurringRuleSummary(
   const date = parseDateInput(startDate);
   if (!date) return "选择开始日期后预览循环规则";
 
-  const cadence =
-    frequency === "daily"
-      ? "每天"
-      : frequency === "weekly"
-        ? `每周${WEEKDAY_LABELS[date.getDay()]}`
-        : `每月${date.getDate()}日`;
+  const cadence = frequency === "daily"
+    ? "每天"
+    : frequency === "weekly"
+      ? `每周${WEEKDAY_LABELS[date.getDay()]}`
+      : frequency === "monthly"
+        ? `每月${date.getDate()}日`
+        : frequency === "monthly_first_day_off"
+          ? "每月首个休息日"
+          : "每年首个休息日";
 
   return `从 ${SHORT_DATE_FORMATTER.format(date)}起，${cadence} ${scheduledTime || "--:--"} 生成任务`;
 }
@@ -184,6 +190,9 @@ export function AddRecurringTaskModal({
   );
   const startDay = parseDateInput(form.startDate)?.getDate() ?? 0;
   const isEditing = editingRuleId !== null;
+  const usesRestDaySchedule =
+    form.frequency === "monthly_first_day_off"
+    || form.frequency === "yearly_first_day_off";
 
   const beginEditing = (rule: UserRecurringTaskRule) => {
     dispatch({ type: "RESET", payload: formStateFromRule(rule) });
@@ -295,19 +304,23 @@ export function AddRecurringTaskModal({
           </button>
         </div>
 
-        {rules.length > 0 && (
-          <details className="mb-5 rounded-md border border-sahara-border bg-sahara-card/60">
-            <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 text-xs font-medium text-sahara-text outline-none transition-colors duration-150 hover:bg-sahara-card focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sahara-focus">
-              <Repeat2 aria-hidden="true" className="size-4 text-sahara-text-muted" />
-              已配置规则
-              <span className="ml-auto tabular-nums text-sahara-text-muted">
-                {rules.length}
-              </span>
-            </summary>
-            <div className="border-t border-sahara-border px-3 py-2">
-              <p className="mb-2 text-[11px] leading-4 text-sahara-text-muted">
-                可编辑或停用规则；修改仅影响之后新生成的任务，已经出现的任务会保留。
+        <details className="mb-5 rounded-md border border-sahara-border bg-sahara-card/60">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 text-xs font-medium text-sahara-text outline-none transition-colors duration-150 hover:bg-sahara-card focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sahara-focus">
+            <Repeat2 aria-hidden="true" className="size-4 text-sahara-text-muted" />
+            已配置规则
+            <span className="ml-auto tabular-nums text-sahara-text-muted">
+              {rules.length}
+            </span>
+          </summary>
+          <div className="border-t border-sahara-border px-3 py-2">
+            <p className="mb-2 text-[11px] leading-4 text-sahara-text-muted">
+              原有规则和新建规则都可编辑或停用；修改仅影响之后新生成的任务。
+            </p>
+            {rules.length === 0 ? (
+              <p className="rounded-md bg-sahara-surface px-3 py-3 text-xs text-sahara-text-muted">
+                还没有已配置规则，可在下方创建第一条。
               </p>
+            ) : (
               <div className="space-y-1.5">
                 {rules.map((rule) => {
                   const enabled = rule.enabled === 1;
@@ -326,15 +339,10 @@ export function AddRecurringTaskModal({
                               已停用
                             </span>
                           )}
-                          {editingRuleId === rule.id && (
-                            <span className="shrink-0 rounded-full bg-sahara-card px-1.5 py-0.5 text-[10px] text-sahara-text-muted">
-                              编辑中
-                            </span>
-                          )}
                         </div>
                         <p className="mt-0.5 truncate text-[11px] text-sahara-text-muted">
                           {formatRecurringRuleSummary(
-                            rule.frequency,
+                            getRecurringTaskSchedule(rule),
                             rule.start_date,
                             rule.scheduled_time,
                           )}
@@ -377,9 +385,9 @@ export function AddRecurringTaskModal({
                   );
                 })}
               </div>
-            </div>
-          </details>
-        )}
+            )}
+          </div>
+        </details>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
@@ -520,7 +528,7 @@ export function AddRecurringTaskModal({
             <div
               role="group"
               aria-labelledby="recurring-task-frequency-label"
-              className="grid grid-cols-3 gap-2"
+              className="grid grid-cols-2 gap-2 sm:grid-cols-3"
             >
               {FREQUENCY_OPTIONS.map((option) => {
                 const selected = form.frequency === option.value;
@@ -536,7 +544,7 @@ export function AddRecurringTaskModal({
                         value: option.value,
                       })
                     }
-                    className={`h-11 rounded-md border px-3 text-xs font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-sahara-focus ${
+                    className={`h-11 rounded-md border px-2 text-xs font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-sahara-focus last:col-span-2 sm:last:col-span-1 ${
                       selected
                         ? "border-sahara-text bg-sahara-card text-sahara-text"
                         : "border-sahara-border bg-sahara-surface text-sahara-text-secondary hover:bg-sahara-card"
@@ -555,7 +563,7 @@ export function AddRecurringTaskModal({
                 htmlFor="recurring-task-start-date"
                 className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
               >
-                开始日期
+                {usesRestDaySchedule ? "生效日期" : "开始日期"}
               </label>
               <input
                 id="recurring-task-start-date"
