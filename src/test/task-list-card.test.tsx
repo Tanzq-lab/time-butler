@@ -14,6 +14,26 @@ const task: Task = {
 };
 
 describe("TaskListCard", () => {
+  it("marks a zero-pomodoro unfinished task as not started", () => {
+    render(
+      <TaskListCard
+        task={task}
+        isActive={false}
+        onToggleActive={vi.fn()}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        onCompleteTask={vi.fn()}
+      />,
+    );
+
+    const card = screen.getByText("补齐任务记录入口").closest("article");
+    expect(card).toHaveAttribute("data-progress-state", "not-started");
+    expect(screen.getByText("未开始")).toHaveClass("text-sahara-text-secondary");
+    expect(
+      screen.getByRole("progressbar", { name: "补齐任务记录入口 任务进度" }),
+    ).toHaveAttribute("aria-valuetext", "0/2 个番茄，未开始");
+  });
+
   it("marks an unfinished task within its estimate as normal progress", () => {
     render(
       <TaskListCard
