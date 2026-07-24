@@ -73,11 +73,19 @@ else
   echo "Daily product usage analysis failed with status $analysis_exit_code; Codex must report the gap and may inspect app_events directly."
 fi
 
+REPORT_GENERATED_AT="$(date '+%Y-%m-%d %H:%M:%S %Z')"
+REPORT_DATE="$(date '+%Y-%m-%d')"
+REPORT_WEEK="$(date '+%G-W%V')"
+echo "Planning snapshot: $REPORT_GENERATED_AT ($REPORT_WEEK)"
+
 PROMPT=$(cat <<PROMPT
 在 /Users/amos/time-butler 中执行每日 Time Butler 日报更新。
 
 本次运行的目标日期已经由脚本按 Asia/Shanghai 计算完成：
 - TARGET_DATE=$TARGET_DATE
+- REPORT_GENERATED_AT=$REPORT_GENERATED_AT
+- REPORT_DATE=$REPORT_DATE
+- REPORT_WEEK=$REPORT_WEEK
 
 必须先完整读取 /Users/amos/time-butler/复盘/日报SKILL.md，并严格按该 skill 执行：
 - 读取 AGENTS.md、README.md、docs/codex-mistake-notebook.md、../time-butler-data/README.md 和 SQLite schema。
@@ -90,6 +98,9 @@ PROMPT=$(cat <<PROMPT
 - 必须单独生成“任务完成记录（原文）”：只收集 completed_at 按 Asia/Shanghai 归属于 TARGET_DATE=$TARGET_DATE 且非空的每一条 completion_review，按完成时间排列。
 - completion_review 只汇总一次，必须保持原文和换行，不摘要、不改写、不纠错、不合并。不得因任务当天有 session、当天被计划或后来才完成，就把其他日期的完成复盘混入。
 - 目标日日页面中用户自己写的日报必须完整阅读和理解，但它已存在于页面中，不得在自动区块中再次摘要、改写或大段复述。
+- 写“下一步行动”前，必须按 skill 读取 REPORT_GENERATED_AT=$REPORT_GENERATED_AT 时的计划快照：所有未完成任务、REPORT_DATE=$REPORT_DATE 起未来 7 天日历事件、REPORT_DATE 日页面、REPORT_WEEK=$REPORT_WEEK 周页面及未归档 week_plan_items。
+- 历史事实仍严格限定 TARGET_DATE=$TARGET_DATE；不得把计划快照中的后续任务、日历或周承诺倒填进目标日事实、完成数、专注统计或 Git 工作记录。
+- 每条下一步行动必须先与已有任务、明确排期、日历事件和未完成周承诺对齐；优先写成已有事项的开工检查、执行步骤或验收条件。已有等价事项时不得再制造平行行动，发生冲突或无法确认容量时就省略。
 - AI 部分只允许写 1 个高价值关键判断和最多 3 条下一步行动。每条行动必须包含范围或时间上限和完成标准；证据不足时明确写数据不足，不要编造或填满章节。
 - 当日时长和番茄只能从目标日 work sessions 计算；不得把任务累计 completed_pomos 写成当日投入。
 - 日报写入并验证完成后，必须按 skill 的「复盘后自我优化规则」判断 Time Butler 代码、脚本、SKILL 或复盘流程是否有小而明确的优化点。

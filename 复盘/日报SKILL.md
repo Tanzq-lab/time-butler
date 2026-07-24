@@ -170,6 +170,75 @@ WHERE t.archived = 0
 ORDER BY t.created_at ASC;
 ```
 
+### 2.1 报告生成时的计划快照
+
+这份快照只约束“下一步行动”，不得改变目标日事实、完成数、专注统计、Git 工作记录或完成复盘归属。
+
+先记录：
+
+```text
+REPORT_GENERATED_AT=<Asia/Shanghai 当前时间>
+REPORT_DATE=<Asia/Shanghai 当前日期>
+REPORT_WEEK=<REPORT_DATE 所在 ISO 周，YYYY-Wxx>
+```
+
+如果调用方没有提供这些值，使用 `Asia/Shanghai` 当前时间计算。然后只读获取：
+
+1. 所有未完成且未归档的任务，重点关注 `REPORT_DATE` 起的排期，以及 `TARGET_DATE` 结束后新增但尚未排期的任务。
+2. 从 `REPORT_DATE` 起未来 7 天内有重叠的日历事件。
+3. `REPORT_DATE` 日页面、`REPORT_WEEK` 周页面及该周未归档的 `week_plan_items`；从页面内容中提取未勾选的 `- [ ]` 承诺。
+
+参考查询：
+
+```sql
+SELECT
+  t.id,
+  t.name,
+  t.project,
+  t.priority,
+  t.estimated_pomos,
+  t.completed_pomos,
+  t.scheduled_for,
+  t.created_at,
+  t.week_plan_item_id,
+  c.name AS task_category_name
+FROM tasks t
+LEFT JOIN categories c ON t.category_id = c.id
+WHERE t.archived = 0
+  AND t.completed_at IS NULL
+ORDER BY
+  CASE WHEN t.scheduled_for IS NULL THEN 1 ELSE 0 END,
+  datetime(t.scheduled_for) ASC,
+  t.sort_order ASC,
+  datetime(t.created_at) ASC;
+
+SELECT id, title, starts_at, ends_at
+FROM calendar_events
+WHERE datetime(ends_at) >= datetime('<REPORT_DATE>')
+  AND datetime(starts_at) < datetime('<REPORT_DATE>', '+7 days')
+ORDER BY datetime(starts_at) ASC;
+
+SELECT id, type, title, date_key, content, updated_at
+FROM time_pages
+WHERE (type = 'day' AND date_key = '<REPORT_DATE>')
+   OR (type = 'week' AND date_key = '<REPORT_WEEK>')
+ORDER BY type ASC;
+
+SELECT
+  i.id,
+  i.title,
+  i.sort_order,
+  p.date_key AS week_date_key
+FROM week_plan_items i
+JOIN time_pages p ON p.id = i.week_page_id
+WHERE i.archived = 0
+  AND p.type = 'week'
+  AND p.date_key = '<REPORT_WEEK>'
+ORDER BY i.sort_order ASC, i.created_at ASC;
+```
+
+时间字段统一换算到 `Asia/Shanghai` 后判断。快照读取失败时，不得凭空给出带具体时间安排的行动；只能写与已有目标日证据直接相关的条件式执行护栏，或省略“下一步行动”。
+
 ### 3. 当天完成任务
 
 ```sql
@@ -372,7 +441,12 @@ overview
 * 必须把 **当天完成** 且非空的每一条 `completion_review` 逐条复制到“任务完成记录（原文）”。只按目标日的 `completed_at` 判定，不得因任务当天有 session、当天被计划或后来才完成，就把其他日期的完成复盘混入。
 * `completion_review` 必须保持原文和原有换行，不摘要、不改写、不纠错、不合并。sessions 的 `intention`、`mood`、`notes` 只作为 AI 理解证据，不逐条铺开。
 * 再看预估偏差日志，但只在它能支撑一个高价值判断时使用，不得为了填满章节编造 lesson。
-* 最后给出最多 3 条下一步行动。每条必须包含行动、范围或时间上限、完成标准；否则不写。
+* 写“下一步行动”前，必须用报告生成时的计划快照逐条做横向自检：
+  1. 优先把建议嵌入已有任务或未完成周承诺，写成该事项的开工检查、执行步骤或验收条件。
+  2. 已有等价任务或承诺时，不再制造新的独立行动。
+  3. 建议会和明确排期、日历事件或已有工作量冲突时，改成不增加工作量的执行护栏；无法对齐就不写。
+  4. 正常次日日报可以对齐 `REPORT_DATE` 的安排；历史补跑只能用当前快照避免重复或冲突，不得把当前安排写成历史上的“明天计划”。
+* 最后给出最多 3 条下一步行动。每条必须指明所依附的已有任务/承诺（如果存在），并包含行动、范围或时间上限、完成标准；否则不写。
 * 任务的 `completed_pomos` 是累计值，不是当日投入。“当日番茄 / 当日时长”只能由目标日完成的 work sessions 计算；如展示 `completed_pomos`，必须明确标成“任务累计”。
 
 如果没有新的高价值判断，直接写“今天没有足够记录得出新判断”。宁可少写，不要重复用户已经写过的内容，也不要编造心理状态、成果或因果关系。
@@ -421,7 +495,7 @@ overview
 
 ### 5. 下一步行动
 
-- **行动**：XXX。**上限**：X 个番茄 / 只处理 X 项。**完成标准**：XXX。
+- **对应已有安排**：任务 / 周承诺名称；如果确实没有对应项，写“无，条件式护栏”。**行动**：XXX。**上限**：X 个番茄 / 只处理 X 项。**完成标准**：XXX。
 
 最多写 3 条。如果无法给出包含上限和完成标准的建议，就不写空泛建议。
 
@@ -446,6 +520,8 @@ overview
 * 没有 `scheduled_for` 只能写“未设置计划时间”，不得推断为“计划外”。
 * 复盘判断必须有数据、任务复盘、session 备注、手写日报或预估日志作为依据。
 * Git 工作记录必须来自目标日 commit 的实际内容；不得用今天补提交的内容倒推成昨天已完成的事实。
+* 报告生成时的未完成任务、日历和当前周承诺只用于约束下一步行动，不得混入“当日事实”或伪装成目标日成果。
+* 下一步行动应优先服务已有计划，不得在用户已经排好的工作之外默认追加一套平行计划。
 * 下一步建议必须可直接执行，避免“继续努力”“提高效率”这类空话。
 
 推荐表达：
