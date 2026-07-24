@@ -4,7 +4,7 @@ import { TimerDisplay } from "@/components/base/timer-display";
 import { getTaskPomoProgressVisual } from "@/lib/task-pomo-progress";
 
 describe("TimerDisplay task pomodoro progress", () => {
-  it("shows the active pomodoro ordinal while keeping the ring active blue", () => {
+  it("uses energetic green for the first pomodoro", () => {
     render(
       <TimerDisplay
         secondsRemaining={1200}
@@ -16,11 +16,14 @@ describe("TimerDisplay task pomodoro progress", () => {
 
     expect(screen.getByLabelText("任务进度：第 1 个番茄，预计 1 个番茄")).toBeVisible();
     expect(screen.getByText(/第/)).toHaveTextContent("第 1 个番茄·预计 1 个");
-    expect(document.querySelectorAll(".timer-task-progress-ring")).toHaveLength(2);
+    expect(
+      document.querySelectorAll(".timer-task-progress-ring"),
+    ).toHaveLength(2);
+    expect(document.querySelector(".timer-task-pomo-start")).toBeVisible();
     expect(document.querySelectorAll("linearGradient")).toHaveLength(0);
   });
 
-  it("keeps the second pomodoro ring blue and reports that it is crossing the estimate", () => {
+  it("uses the same red tone for a pomodoro beyond the estimate", () => {
     render(
       <TimerDisplay
         secondsRemaining={1200}
@@ -36,10 +39,45 @@ describe("TimerDisplay task pomodoro progress", () => {
       ),
     ).toBeVisible();
     expect(screen.getByText("超出预计中")).toHaveClass(
-      "timer-task-budget-warning",
+      "timer-task-budget-danger",
     );
-    expect(document.querySelectorAll(".timer-task-progress-ring")).toHaveLength(2);
-    expect(document.querySelector(".timer-task-progress-warning")).toBeNull();
+    expect(
+      document.querySelectorAll(".timer-task-progress-ring"),
+    ).toHaveLength(2);
+    expect(document.querySelector(".timer-task-pomo-overrun")).toBeVisible();
+  });
+
+  it("uses a distinct solid color for each position in a four-pomodoro budget", () => {
+    const { rerender } = render(
+      <TimerDisplay
+        secondsRemaining={1200}
+        totalSeconds={1500}
+        phase="work"
+        taskPomoProgress={getTaskPomoProgressVisual(0, 4, true)}
+      />,
+    );
+
+    for (const [completedPomos, tone] of [
+      [0, "start"],
+      [1, "progress"],
+      [2, "caution"],
+      [3, "limit"],
+    ] as const) {
+      rerender(
+        <TimerDisplay
+          secondsRemaining={1200}
+          totalSeconds={1500}
+          phase="work"
+          taskPomoProgress={getTaskPomoProgressVisual(
+            completedPomos,
+            4,
+            true,
+          )}
+        />,
+      );
+      expect(document.querySelector(`.timer-task-pomo-${tone}`)).toBeVisible();
+      expect(document.querySelectorAll("linearGradient")).toHaveLength(0);
+    }
   });
 
   it("reports completed overrun separately when no pomodoro is active", () => {
@@ -66,7 +104,7 @@ describe("TimerDisplay task pomodoro progress", () => {
     );
   });
 
-  it("uses the completion colour when the countdown reaches zero", () => {
+  it("keeps the pomodoro ring color when the countdown reaches zero", () => {
     render(
       <TimerDisplay
         secondsRemaining={0}
@@ -76,7 +114,11 @@ describe("TimerDisplay task pomodoro progress", () => {
       />,
     );
 
-    expect(document.querySelectorAll(".timer-complete-ring")).toHaveLength(2);
+    expect(
+      document.querySelectorAll(".timer-task-progress-ring"),
+    ).toHaveLength(2);
+    expect(document.querySelector(".timer-task-pomo-limit")).toBeVisible();
+    expect(document.querySelectorAll(".timer-complete-ring")).toHaveLength(0);
     expect(document.querySelector(".timer-complete-text")).toBeVisible();
   });
 

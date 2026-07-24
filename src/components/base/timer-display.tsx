@@ -172,10 +172,13 @@ export function TimerDisplay({
       : 100;
   const visibleTaskPomoProgress =
     phase === "work" ? taskPomoProgress : null;
-  const progressRingClassName = isComplete
-    ? "timer-complete-ring"
-    : visibleTaskPomoProgress
-      ? "timer-task-progress-ring"
+  const taskPomoToneClassName = visibleTaskPomoProgress?.ringTone
+    ? `timer-task-pomo-${visibleTaskPomoProgress.ringTone}`
+    : undefined;
+  const progressRingClassName = visibleTaskPomoProgress
+    ? "timer-task-progress-ring"
+    : isComplete
+      ? "timer-complete-ring"
       : "stroke-sahara-primary";
   const progressDotClassName = visibleTaskPomoProgress
     ? "timer-task-progress-dot"
@@ -216,7 +219,12 @@ export function TimerDisplay({
   };
 
   return (
-    <div className="relative inline-flex items-center justify-center">
+    <div
+      className={cn(
+        "relative inline-flex items-center justify-center",
+        taskPomoToneClassName,
+      )}
+    >
       {/* Desktop SVG */}
       <svg
         width={SIZE_DESKTOP}
@@ -407,7 +415,7 @@ export function TimerDisplay({
                   预计 {visibleTaskPomoProgress.estimatedPomos} 个
                 </p>
                 {visibleTaskPomoProgress.isCurrentPomoOverEstimate && (
-                  <p className="timer-task-budget-warning">超出预计中</p>
+                  <p className="timer-task-budget-danger">超出预计中</p>
                 )}
               </>
             ) : (

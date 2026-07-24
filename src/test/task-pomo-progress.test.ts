@@ -8,6 +8,7 @@ describe("getTaskPomoProgressVisual", () => {
       currentPomo: 1,
       isCurrentPomoOverEstimate: false,
       overrunPomos: 0,
+      ringTone: "start",
     });
   });
 
@@ -17,7 +18,29 @@ describe("getTaskPomoProgressVisual", () => {
       currentPomo: 2,
       isCurrentPomoOverEstimate: true,
       overrunPomos: 0,
+      ringTone: "overrun",
     });
+  });
+
+  it("moves through the full budget color scale for a four-pomodoro task", () => {
+    expect(getTaskPomoProgressVisual(0, 4, true)?.ringTone).toBe("start");
+    expect(getTaskPomoProgressVisual(1, 4, true)?.ringTone).toBe("progress");
+    expect(getTaskPomoProgressVisual(2, 4, true)?.ringTone).toBe("caution");
+    expect(getTaskPomoProgressVisual(3, 4, true)?.ringTone).toBe("limit");
+  });
+
+  it("uses the endpoints and midpoint when the estimate has fewer positions", () => {
+    expect(getTaskPomoProgressVisual(0, 2, true)?.ringTone).toBe("start");
+    expect(getTaskPomoProgressVisual(1, 2, true)?.ringTone).toBe("limit");
+
+    expect(getTaskPomoProgressVisual(0, 3, true)?.ringTone).toBe("start");
+    expect(getTaskPomoProgressVisual(1, 3, true)?.ringTone).toBe("caution");
+    expect(getTaskPomoProgressVisual(2, 3, true)?.ringTone).toBe("limit");
+  });
+
+  it("keeps every pomodoro beyond the estimate on the same red tone", () => {
+    expect(getTaskPomoProgressVisual(4, 4, true)?.ringTone).toBe("overrun");
+    expect(getTaskPomoProgressVisual(7, 4, true)?.ringTone).toBe("overrun");
   });
 
   it("keeps an on-budget completed task neutral when there is no active session", () => {
@@ -25,6 +48,7 @@ describe("getTaskPomoProgressVisual", () => {
       currentPomo: null,
       isCurrentPomoOverEstimate: false,
       overrunPomos: 0,
+      ringTone: null,
     });
   });
 
