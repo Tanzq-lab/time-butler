@@ -1,9 +1,8 @@
 export interface TaskPomoProgressVisual {
   completedPomos: number;
   estimatedPomos: number;
-  label: string;
-  tone: "active" | "warning" | "danger";
-  isOverrun: boolean;
+  currentPomo: number | null;
+  isCurrentPomoOverEstimate: boolean;
   overrunPomos: number;
 }
 
@@ -12,33 +11,27 @@ function asNonNegativeInteger(value: number): number {
 }
 
 /**
- * Uses a calm active tone for every pomodoro inside the task budget. Warning
- * begins only after the estimate has been consumed; danger begins after the
- * completed count actually exceeds the estimate.
+ * Keeps completed work separate from the active session. The timer ring owns
+ * the current-session progress; this model only describes the task budget.
  */
 export function getTaskPomoProgressVisual(
   completedPomos: number,
   estimatedPomos: number,
+  hasActiveSession = false,
 ): TaskPomoProgressVisual | null {
   const completed = asNonNegativeInteger(completedPomos);
   const estimated = asNonNegativeInteger(estimatedPomos);
 
   if (estimated === 0) return null;
 
-  const isOverrun = completed > estimated;
-  const tone =
-    completed > estimated
-      ? "danger"
-      : completed === estimated
-        ? "warning"
-        : "active";
+  const currentPomo = hasActiveSession ? completed + 1 : null;
 
   return {
     completedPomos: completed,
     estimatedPomos: estimated,
-    label: `${completed}/${estimated}`,
-    tone,
-    isOverrun,
+    currentPomo,
+    isCurrentPomoOverEstimate:
+      currentPomo !== null && currentPomo > estimated,
     overrunPomos: Math.max(0, completed - estimated),
   };
 }

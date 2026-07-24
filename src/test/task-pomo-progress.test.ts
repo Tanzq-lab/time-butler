@@ -2,35 +2,37 @@ import { describe, expect, it } from "vitest";
 import { getTaskPomoProgressVisual } from "@/lib/task-pomo-progress";
 
 describe("getTaskPomoProgressVisual", () => {
-  it("keeps every pomodoro inside the estimate active, including a one-pomodoro task", () => {
-    expect(getTaskPomoProgressVisual(0, 1)).toMatchObject({
-      label: "0/1",
-      tone: "active",
-      isOverrun: false,
-      overrunPomos: 0,
-    });
-    expect(getTaskPomoProgressVisual(3, 4)).toMatchObject({
-      label: "3/4",
-      tone: "active",
-      isOverrun: false,
+  it("identifies the active pomodoro without counting it as completed", () => {
+    expect(getTaskPomoProgressVisual(0, 1, true)).toMatchObject({
+      completedPomos: 0,
+      currentPomo: 1,
+      isCurrentPomoOverEstimate: false,
       overrunPomos: 0,
     });
   });
 
-  it("warns when the estimate has been consumed without claiming an overrun", () => {
-    expect(getTaskPomoProgressVisual(4, 4)).toMatchObject({
-      label: "4/4",
-      tone: "warning",
-      isOverrun: false,
+  it("marks the second active pomodoro as over estimate for a one-pomodoro task", () => {
+    expect(getTaskPomoProgressVisual(1, 1, true)).toMatchObject({
+      completedPomos: 1,
+      currentPomo: 2,
+      isCurrentPomoOverEstimate: true,
       overrunPomos: 0,
     });
   });
 
-  it("keeps the true count and raises an overrun warning after the estimate", () => {
+  it("keeps an on-budget completed task neutral when there is no active session", () => {
+    expect(getTaskPomoProgressVisual(1, 1)).toMatchObject({
+      currentPomo: null,
+      isCurrentPomoOverEstimate: false,
+      overrunPomos: 0,
+    });
+  });
+
+  it("reports only completed overrun after the extra pomodoro finishes", () => {
     expect(getTaskPomoProgressVisual(5, 4)).toMatchObject({
-      label: "5/4",
-      tone: "danger",
-      isOverrun: true,
+      completedPomos: 5,
+      currentPomo: null,
+      isCurrentPomoOverEstimate: false,
       overrunPomos: 1,
     });
   });

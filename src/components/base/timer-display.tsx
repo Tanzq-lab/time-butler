@@ -172,9 +172,6 @@ export function TimerDisplay({
       : 100;
   const visibleTaskPomoProgress =
     phase === "work" ? taskPomoProgress : null;
-  const taskBudgetToneClassName = visibleTaskPomoProgress
-    ? `timer-task-progress-${visibleTaskPomoProgress.tone}`
-    : undefined;
   const progressRingClassName = isComplete
     ? "timer-complete-ring"
     : visibleTaskPomoProgress
@@ -183,6 +180,11 @@ export function TimerDisplay({
   const progressDotClassName = visibleTaskPomoProgress
     ? "timer-task-progress-dot"
     : "fill-sahara-primary";
+  const taskProgressAriaLabel = visibleTaskPomoProgress
+    ? visibleTaskPomoProgress.currentPomo !== null
+      ? `任务进度：第 ${visibleTaskPomoProgress.currentPomo} 个番茄，预计 ${visibleTaskPomoProgress.estimatedPomos} 个番茄${visibleTaskPomoProgress.isCurrentPomoOverEstimate ? "，超出预计中" : ""}`
+      : `任务进度：已完成 ${visibleTaskPomoProgress.completedPomos}/${visibleTaskPomoProgress.estimatedPomos} 个番茄${visibleTaskPomoProgress.overrunPomos > 0 ? `，已超 ${visibleTaskPomoProgress.overrunPomos} 个番茄` : ""}`
+    : undefined;
 
   const [rawInput, setRawInput] = useState(() =>
     formatEditableValueFromSeconds(secondsRemaining),
@@ -214,12 +216,7 @@ export function TimerDisplay({
   };
 
   return (
-    <div
-      className={cn(
-        "relative inline-flex items-center justify-center",
-        taskBudgetToneClassName,
-      )}
-    >
+    <div className="relative inline-flex items-center justify-center">
       {/* Desktop SVG */}
       <svg
         width={SIZE_DESKTOP}
@@ -387,20 +384,48 @@ export function TimerDisplay({
                 : "长休息"}
         </p>
         {visibleTaskPomoProgress && (
-          <p
-            className="mt-1.5 flex items-center justify-center gap-1 text-[11px] font-medium tabular-nums text-sahara-text-secondary"
+          <div
+            className="mt-1.5 flex max-w-[220px] flex-col items-center gap-0.5 text-center text-[11px] font-medium tabular-nums text-sahara-text-secondary"
             aria-live="polite"
-            aria-label={`任务预算：${visibleTaskPomoProgress.label} 个番茄${visibleTaskPomoProgress.isOverrun ? `，已超 ${visibleTaskPomoProgress.overrunPomos} 个番茄` : ""}`}
+            aria-atomic="true"
+            aria-label={taskProgressAriaLabel}
           >
-            <span className="text-sahara-text-muted">任务预算</span>
-            <span className="timer-task-progress-value font-semibold">
-              {visibleTaskPomoProgress.completedPomos} / {visibleTaskPomoProgress.estimatedPomos}
-            </span>
-            <span>个番茄</span>
-            {visibleTaskPomoProgress.isOverrun && (
-              <span className="timer-task-overrun-text">· 已超 {visibleTaskPomoProgress.overrunPomos} 个</span>
+            {visibleTaskPomoProgress.currentPomo !== null ? (
+              <>
+                <p>
+                  第{" "}
+                  <span className="font-semibold text-sahara-text">
+                    {visibleTaskPomoProgress.currentPomo}
+                  </span>{" "}
+                  个番茄
+                  <span
+                    className="mx-1 text-sahara-text-muted"
+                    aria-hidden="true"
+                  >
+                    ·
+                  </span>
+                  预计 {visibleTaskPomoProgress.estimatedPomos} 个
+                </p>
+                {visibleTaskPomoProgress.isCurrentPomoOverEstimate && (
+                  <p className="timer-task-budget-warning">超出预计中</p>
+                )}
+              </>
+            ) : (
+              <p>
+                已完成{" "}
+                <span className="font-semibold text-sahara-text">
+                  {visibleTaskPomoProgress.completedPomos}/
+                  {visibleTaskPomoProgress.estimatedPomos}
+                </span>{" "}
+                个番茄
+                {visibleTaskPomoProgress.overrunPomos > 0 && (
+                  <span className="timer-task-budget-danger ml-1">
+                    · 已超 {visibleTaskPomoProgress.overrunPomos} 个
+                  </span>
+                )}
+              </p>
             )}
-          </p>
+          </div>
         )}
       </div>
     </div>

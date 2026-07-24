@@ -232,30 +232,21 @@ textarea {
   }
 }
 
-/* The sweep measures this session; discrete tones report task-budget state. */
-.timer-task-progress-active {
-  --timer-task-progress-color: var(--color-timer-active);
-}
-
-.timer-task-progress-warning {
-  --timer-task-progress-color: var(--color-timer-warning);
-}
-
-.timer-task-progress-danger {
-  --timer-task-progress-color: var(--color-timer-danger);
-}
-
+/* The sweep only measures the active session; budget status stays in the copy. */
 .timer-task-progress-ring {
-  stroke: var(--timer-task-progress-color);
+  stroke: var(--color-timer-active);
 }
 
 .timer-task-progress-dot {
-  fill: var(--timer-task-progress-color);
+  fill: var(--color-timer-active);
 }
 
-.timer-task-progress-value,
-.timer-task-overrun-text {
-  color: var(--timer-task-progress-color);
+.timer-task-budget-warning {
+  color: var(--color-timer-warning);
+}
+
+.timer-task-budget-danger {
+  color: var(--color-timer-danger);
 }
 
 .timer-complete-ring {

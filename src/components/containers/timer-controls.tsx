@@ -65,6 +65,7 @@ export function TimerControls() {
     ? getTaskPomoProgressVisual(
         activeTask.completed_pomos,
         activeTask.estimated_pomos,
+        status !== "idle",
       )
     : null;
 
