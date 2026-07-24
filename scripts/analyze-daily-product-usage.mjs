@@ -157,6 +157,31 @@ function formatDuration(milliseconds) {
   return remainingMinutes ? `${hours}小时${remainingMinutes}分` : `${hours}小时`;
 }
 
+function shiftDate(dateString, dayDelta) {
+  const [year, month, day] = dateString.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + dayDelta);
+  return date.toISOString().slice(0, 10);
+}
+
+function loadPriorRouteReports(outputDir, date, days = 2) {
+  const reports = [];
+  for (let offset = days; offset >= 1; offset -= 1) {
+    const reportDate = shiftDate(date, -offset);
+    const reportPath = path.join(outputDir, `${reportDate}.json`);
+    if (!fs.existsSync(reportPath)) continue;
+    try {
+      const report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
+      if (report?.date === reportDate && Array.isArray(report.routes)) {
+        reports.push({ date: reportDate, routes: report.routes });
+      }
+    } catch {
+      // A missing or incomplete historical report must not block today's analysis.
+    }
+  }
+  return reports;
+}
+
 function eventOccurredAt(event) {
   const clientTime = Date.parse(event.metadata.clientOccurredAt ?? "");
   if (Number.isFinite(clientTime)) return clientTime;
@@ -354,7 +379,16 @@ function buildTimePageFlow(events, getCount) {
   };
 }
 
-function buildHypotheses({ events, routeStats, timer, tasks, timePages, audio, coverage }) {
+function buildHypotheses({
+  events,
+  routeStats,
+  priorRouteReports,
+  timer,
+  tasks,
+  timePages,
+  audio,
+  coverage,
+}) {
   const hypotheses = [];
   const push = (hypothesis) => hypotheses.push(hypothesis);
 
@@ -398,14 +432,32 @@ function buildHypotheses({ events, routeStats, timer, tasks, timePages, audio, c
     const destinations = rapidRoute.rapidExitDestinations
       .map((item) => `${item.route} ${item.count} 次`)
       .join("、");
+    const routeWindow = [
+      ...priorRouteReports.map((report) => ({
+        date: report.date,
+        route: report.routes.find((route) => route.route === rapidRoute.route),
+      })),
+      { date: null, route: rapidRoute },
+    ];
+    const availableDays = routeWindow.filter(({ route }) => route).length;
+    const hitDays = routeWindow.filter(({ route }) =>
+      route?.measuredExits >= 3
+        && route.rapidExits / route.measuredExits >= 0.6
+    ).length;
+    const historyEvidence = availableDays > 1
+      ? `；近 ${availableDays} 个有报告的自然日中 ${hitDays} 天命中同一阈值`
+      : "";
+    const observationComplete = availableDays >= 3 && hitDays >= 3;
     push({
       priority: "low",
       code: "repeated_rapid_route_exit",
       userPath: `进入 ${rapidRoute.route} → 3 秒内离开`,
-      evidence: `${rapidRoute.rapidExits}/${rapidRoute.measuredExits} 次已测访问在 3 秒内离开${destinations ? `；短停留后去向：${destinations}` : ""}`,
+      evidence: `${rapidRoute.rapidExits}/${rapidRoute.measuredExits} 次已测访问在 3 秒内离开${destinations ? `；短停留后去向：${destinations}` : ""}${historyEvidence}`,
       need: "快速找到目标信息或动作入口。",
       keyAssumption: "短停留是找不到入口，而不是一次成功的快速查看。",
-      smallestChange: "连续观察 3 个自然日的短停留去向和实际动作；证据一致时只调整一个入口或默认状态。",
+      smallestChange: observationComplete
+        ? "3 日观察窗口已满足；先核对短停留后的实际动作或手写反馈，再决定是否只调整一个入口或默认状态。"
+        : "继续累计到 3 个自然日均命中同一阈值，并核对短停留后的实际动作；证据一致时只调整一个入口或默认状态。",
       validation: "短停留后立即折返的比例下降，目标动作数不下降。",
       riskBoundary: "单日短停留不直接触发界面改版。",
     });
@@ -608,6 +660,10 @@ function analyze(options) {
   );
   const getCount = (eventName) => Number(eventCounts[eventName] ?? 0);
   const routeStats = buildRouteStats(events);
+  const priorRouteReports = loadPriorRouteReports(
+    options.outputDir,
+    options.date,
+  );
   const pathData = buildPaths(events);
   const sessionizedEventCount = events.filter(
     (event) => typeof event.metadata.appSessionId === "string",
@@ -711,6 +767,7 @@ function analyze(options) {
   report.hypotheses = buildHypotheses({
     events,
     routeStats,
+    priorRouteReports,
     timer,
     tasks,
     timePages,

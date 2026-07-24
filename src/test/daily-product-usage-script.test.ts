@@ -1,7 +1,7 @@
 /// <reference types="node" />
 
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -155,6 +155,17 @@ describe("daily product usage analyzer", () => {
     const directory = mkdtempSync(path.join(tmpdir(), "time-butler-usage-"));
     temporaryDirectories.push(directory);
     const database = path.join(directory, "fixture.db");
+    const historicalRoute = {
+      route: "/notes",
+      measuredExits: 4,
+      rapidExits: 3,
+    };
+    for (const date of ["2026-07-18", "2026-07-19"]) {
+      writeFileSync(
+        path.join(directory, `${date}.json`),
+        JSON.stringify({ date, routes: [historicalRoute] }),
+      );
+    }
     const metadata = (value: Record<string, unknown>) =>
       JSON.stringify(value).replaceAll("'", "''");
     const eventMetadata = (sequence: number, extra: Record<string, unknown> = {}) =>
@@ -209,6 +220,8 @@ describe("daily product usage analyzer", () => {
         "2026-07-20",
         "--db",
         database,
+        "--output-dir",
+        directory,
         "--no-write",
         "--json",
       ],
@@ -229,7 +242,8 @@ describe("daily product usage analyzer", () => {
     expect(report.hypotheses).toContainEqual(
       expect.objectContaining({
         code: "repeated_rapid_route_exit",
-        evidence: expect.stringContaining("短停留后去向：/calendar 2 次、/tasks 1 次"),
+        evidence: expect.stringContaining("近 3 个有报告的自然日中 3 天命中同一阈值"),
+        smallestChange: expect.stringContaining("3 日观察窗口已满足"),
       }),
     );
   });
