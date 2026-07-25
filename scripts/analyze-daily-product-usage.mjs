@@ -320,6 +320,58 @@ function buildTaskFlow(events, getCount) {
   }
 
   const quickDeleteThresholdMs = 10 * 60 * 1000;
+  const overrunReviewEvents = events
+    .filter((event) =>
+      [
+        "task_overrun_review_shown",
+        "task_overrun_review_cancelled",
+        "task_overrun_review_confirmed",
+      ].includes(event.event_name),
+    )
+    .sort((a, b) => eventOccurredAt(a) - eventOccurredAt(b));
+  const reopenThresholdMs = 3 * 60 * 1000;
+  const cancelReopenConfirmed = [];
+
+  for (let index = 0; index < overrunReviewEvents.length; index += 1) {
+    const cancelled = overrunReviewEvents[index];
+    if (
+      cancelled.event_name !== "task_overrun_review_cancelled"
+      || !cancelled.entity_id
+    ) {
+      continue;
+    }
+    const cancelledAt = eventOccurredAt(cancelled);
+    const appSessionId = cancelled.metadata.appSessionId;
+    let reopened = false;
+
+    for (
+      let nextIndex = index + 1;
+      nextIndex < overrunReviewEvents.length;
+      nextIndex += 1
+    ) {
+      const next = overrunReviewEvents[nextIndex];
+      const elapsedMs = eventOccurredAt(next) - cancelledAt;
+      if (elapsedMs > reopenThresholdMs) break;
+      if (
+        next.entity_id !== cancelled.entity_id
+        || next.metadata.appSessionId !== appSessionId
+      ) {
+        continue;
+      }
+      if (next.event_name === "task_overrun_review_shown") {
+        reopened = true;
+        continue;
+      }
+      if (reopened && next.event_name === "task_overrun_review_confirmed") {
+        cancelReopenConfirmed.push({
+          entityId: cancelled.entity_id,
+          elapsedMs,
+        });
+        break;
+      }
+    }
+  }
+
   return {
     added: getCount("task_added"),
     updated: getCount("task_updated"),
@@ -330,6 +382,13 @@ function buildTaskFlow(events, getCount) {
     deletedWithin10Minutes: [...createdThenDeleted.values()].filter(
       (lifetimeMs) => lifetimeMs <= quickDeleteThresholdMs,
     ).length,
+    overrunReviewShown: getCount("task_overrun_review_shown"),
+    overrunReviewCancelled: getCount("task_overrun_review_cancelled"),
+    overrunReviewConfirmed: getCount("task_overrun_review_confirmed"),
+    overrunCancelReopenConfirmedWithin3Minutes:
+      cancelReopenConfirmed.length,
+    overrunCancelReopenConfirmedTasks:
+      new Set(cancelReopenConfirmed.map((item) => item.entityId)).size,
   };
 }
 
@@ -421,6 +480,20 @@ function buildHypotheses({
       smallestChange: "先按 phase、经过时长和前后页面分组，确认单一高频模式后再改一个入口。",
       validation: "同类中断率在 7 天滚动窗口下降，完成番茄数不下降。",
       riskBoundary: "不自动续时、不改既有 session、不把正常跳过当失败。",
+    });
+  }
+
+  if (tasks.overrunCancelReopenConfirmedWithin3Minutes >= 3) {
+    push({
+      priority: "observe",
+      code: "overrun_review_cancel_reopen",
+      userPath: "开始超额番茄 → 打开路线复核 → 取消 → 3 分钟内重新打开并确认",
+      evidence: `${tasks.overrunCancelReopenConfirmedWithin3Minutes} 次取消在 3 分钟内重新打开并确认，涉及 ${tasks.overrunCancelReopenConfirmedTasks} 个任务；当天共取消 ${tasks.overrunReviewCancelled} 次、确认 ${tasks.overrunReviewConfirmed} 次`,
+      need: "在决定暂停或继续超额番茄时，一次完成路线判断，不反复开关复核弹窗。",
+      keyAssumption: "短时间内重新打开并确认代表首次关闭有操作或理解阻力，而不是用户有意暂停思考。",
+      smallestChange: "先继续观察 3 个自然日；若重复出现，再只增加本地关闭方式字段，区分按钮、遮罩和 Escape，不立即改弹窗。",
+      validation: "连续 3 天都能区分主动暂停与快速重开；只有快速重开稳定集中于同一关闭方式时才进入界面调整。",
+      riskBoundary: "不读取复核文字，不阻止取消，不把主动暂停计为失败。",
     });
   }
 
@@ -579,6 +652,7 @@ function buildMarkdown(report) {
     "",
     `- 计时：开始 ${report.flows.timer.started}，完成 ${report.flows.timer.finished}，放弃 ${report.flows.timer.abandoned}，跳过 ${report.flows.timer.skipped}`,
     `- 任务：创建 ${report.flows.tasks.added}，更新 ${report.flows.tasks.updated}，完成 ${report.flows.tasks.completed}，删除 ${report.flows.tasks.deleted}，归档 ${report.flows.tasks.archived}；当天新增后删除 ${report.flows.tasks.createdThenDeleted}，其中 10 分钟内删除 ${report.flows.tasks.deletedWithin10Minutes}`,
+    `- 超额复核：展示 ${report.flows.tasks.overrunReviewShown}，取消 ${report.flows.tasks.overrunReviewCancelled}，确认 ${report.flows.tasks.overrunReviewConfirmed}；取消后 3 分钟内重开并确认 ${report.flows.tasks.overrunCancelReopenConfirmedWithin3Minutes} 次，涉及 ${report.flows.tasks.overrunCancelReopenConfirmedTasks} 个任务`,
     `- 时间页：选择 ${report.flows.timePages.selected}，内容更新 ${report.flows.timePages.updated}，涉及 ${report.flows.timePages.pagesTouched} 个页面；零长度变化 ${report.flows.timePages.zeroDeltaUpdates}，长度变化不超过 2 字符 ${report.flows.timePages.tinyDeltaUpdates}`,
     `- 音频通知：请求 ${report.flows.audio.deliveryRequested}，播放启动/已播放 ${report.flows.audio.playbackObserved}，失败 ${report.flows.audio.failures}，缺口 ${report.flows.audio.deliveryGaps}`,
   );
@@ -738,7 +812,7 @@ function analyze(options) {
   };
 
   const report = {
-    schemaVersion: 4,
+    schemaVersion: 5,
     date: options.date,
     generatedAt: new Date().toISOString(),
     privacy: {

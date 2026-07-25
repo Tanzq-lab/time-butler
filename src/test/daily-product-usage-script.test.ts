@@ -230,7 +230,7 @@ describe("daily product usage analyzer", () => {
     expect(result.status, result.stderr).toBe(0);
 
     const report = JSON.parse(result.stdout);
-    expect(report.schemaVersion).toBe(4);
+    expect(report.schemaVersion).toBe(5);
     expect(report.routes.find((route: { route: string }) => route.route === "/notes"))
       .toMatchObject({
         rapidExits: 3,
@@ -244,6 +244,93 @@ describe("daily product usage analyzer", () => {
         code: "repeated_rapid_route_exit",
         evidence: expect.stringContaining("近 3 个有报告的自然日中 3 天命中同一阈值"),
         smallestChange: expect.stringContaining("3 日观察窗口已满足"),
+      }),
+    );
+  });
+
+  it("flags repeated overrun review cancellations followed by quick confirmation", () => {
+    const directory = mkdtempSync(path.join(tmpdir(), "time-butler-usage-"));
+    temporaryDirectories.push(directory);
+    const database = path.join(directory, "fixture.db");
+    const metadata = (sequence: number) =>
+      JSON.stringify({
+        appSessionId: "session-overrun-review",
+        appSessionSequence: sequence,
+        clientLocalDate: "2026-07-24",
+        clientOccurredAt: `2026-07-24T01:00:${String(sequence).padStart(2, "0")}.000Z`,
+      }).replaceAll("'", "''");
+    const values: string[] = [];
+    let sequence = 1;
+    for (const taskId of ["101", "102", "103"]) {
+      for (const eventName of [
+        "task_overrun_review_shown",
+        "task_overrun_review_cancelled",
+        "task_overrun_review_shown",
+        "task_overrun_review_confirmed",
+      ]) {
+        values.push(
+          `('${eventName}', '/', 'task', '${taskId}', '${metadata(sequence)}', '2026-07-24 01:00:${String(sequence).padStart(2, "0")}')`,
+        );
+        sequence += 1;
+      }
+    }
+    const sql = `
+      CREATE TABLE app_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_name TEXT NOT NULL,
+        route TEXT,
+        entity_type TEXT,
+        entity_id TEXT,
+        metadata TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE sessions (
+        id INTEGER PRIMARY KEY,
+        started_at TEXT,
+        duration_sec INTEGER,
+        completed INTEGER
+      );
+      CREATE TABLE tasks (
+        id INTEGER PRIMARY KEY,
+        name TEXT,
+        created_at TEXT,
+        completed_at TEXT
+      );
+      INSERT INTO app_events
+        (event_name, route, entity_type, entity_id, metadata, created_at)
+      VALUES ${values.join(",\n")};
+    `;
+    const setup = spawnSync("sqlite3", [database, sql], { encoding: "utf8" });
+    expect(setup.status, setup.stderr).toBe(0);
+
+    const result = spawnSync(
+      process.execPath,
+      [
+        path.join(repoRoot, "scripts/analyze-daily-product-usage.mjs"),
+        "--date",
+        "2026-07-24",
+        "--db",
+        database,
+        "--no-write",
+        "--json",
+      ],
+      { encoding: "utf8", env: { ...process.env, TZ: "Asia/Shanghai" } },
+    );
+    expect(result.status, result.stderr).toBe(0);
+
+    const report = JSON.parse(result.stdout);
+    expect(report.flows.tasks).toMatchObject({
+      overrunReviewShown: 6,
+      overrunReviewCancelled: 3,
+      overrunReviewConfirmed: 3,
+      overrunCancelReopenConfirmedWithin3Minutes: 3,
+      overrunCancelReopenConfirmedTasks: 3,
+    });
+    expect(report.hypotheses).toContainEqual(
+      expect.objectContaining({
+        code: "overrun_review_cancel_reopen",
+        priority: "observe",
+        riskBoundary: expect.stringContaining("不把主动暂停计为失败"),
       }),
     );
   });
