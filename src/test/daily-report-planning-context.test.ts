@@ -47,4 +47,39 @@ describe("daily report planning context", () => {
     expect(mistakeNotebook).toContain("历史事实窗口");
     expect(mistakeNotebook).toContain("生成时计划快照");
   });
+
+  it("returns Git cleanup and product decisions to the Codex conversation", () => {
+    const skill = readRepositoryFile("复盘/日报SKILL.md");
+    const runner = readRepositoryFile("scripts/run-codex-daily-report.sh");
+    const readme = readRepositoryFile("README.md");
+    const mistakeNotebook = readRepositoryFile(
+      "docs/codex-mistake-notebook.md",
+    );
+
+    expect(skill).toContain(
+      "把所有可以安全解释、隔离和验证的现有修改提交掉",
+    );
+    expect(skill).toContain(
+      "一个修改组失败或存在疑问时，继续处理其他独立修改组",
+    );
+    expect(skill).toContain("定时日报不得自行实施产品优化");
+    expect(skill).toContain(
+      "Codex 对话中的最终回复才是产品审计的交付面",
+    );
+
+    expect(runner).toContain("--no-write");
+    expect(runner).toContain("--json >");
+    expect(runner).not.toContain("PRODUCT_INSIGHT_MARKDOWN");
+    expect(runner).toContain(
+      "Git 收尾默认要把所有可以安全解释、隔离和验证的现有修改提交掉",
+    );
+    expect(runner).toContain(
+      "不得把“请查看日志或文件”当成交付",
+    );
+
+    expect(readme).toContain("每日 09:30 日报只由 Codex 自动化调度");
+    expect(mistakeNotebook).toContain(
+      "日报分析和 Git 检查必须回到 Codex 对话形成闭环",
+    );
+  });
 });

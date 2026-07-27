@@ -154,15 +154,17 @@ scripts/run-codex-monthly-report.sh
 npm run usage:daily -- --date 2026-07-14
 ```
 
-报告写入 `../time-butler-data/data/product-insights/`。分析只聚合页面路径、有效停留、前后台状态、动作类型、实体 id 和布尔/计数特征，不复制任务名称、笔记/日报正文或完成复盘原文。每日复盘脚本会先生成前一天的路径报告，再用 session、任务、复盘和用户反馈交叉验证，输出最多 3 条可证伪的产品优化建议。
+单独运行这个命令时，报告默认写入 `../time-butler-data/data/product-insights/`。分析只聚合页面路径、有效停留、前后台状态、动作类型、实体 id 和布尔/计数特征，不复制任务名称、笔记/日报正文或完成复盘原文。
 
-三个复盘脚本会依次从 ChatGPT.app、Codex.app 和 `PATH` 发现可执行的 Codex CLI，不依赖单一 App 安装路径。需要补跑某一天的日报时使用：
+每日复盘脚本使用 `--no-write --json` 生成仅供本轮读取的临时分析，结束后删除，不把产品建议文件当成交付。它会用 session、任务、复盘和用户反馈交叉验证，并把最多 3 条可证伪的产品优化建议直接返回 Codex 自动化对话，等待用户选择后再实施。
+
+三个复盘脚本会依次从 ChatGPT.app、Codex.app 和 `PATH` 发现可执行的 Codex CLI，不依赖单一 App 安装路径。每日 09:30 日报只由 Codex 自动化调度；不要同时启用 `local.time-butler.codex-daily-report` LaunchAgent，否则后台运行会先取得锁，使对话侧只能看到“已有任务运行”。需要补跑某一天的日报时使用：
 
 ```zsh
 TIME_BUTLER_REPORT_DATE=2026-07-10 scripts/run-codex-daily-report.sh
 ```
 
-日期必须是 `YYYY-MM-DD`。无覆盖值时，日报仍按 `Asia/Shanghai` 处理运行日前一天。运行成功不能只看退出码；还要确认 `../time-butler-data/logs` 中生成对应 `.final.md`、`../time-butler-data/backups` 中生成写入前备份，并读回页面的 start/end marker 各 1 个。锁冲突会安全退出而不创建第二份报告。CLI 缺失、日期无效、模型容量不足等错误要先按日志、备份和 marker 判断失败发生在写入前还是写入后；只有目标报告缺失或 marker 不完整时才重跑，不能把非零退出直接等同于“完全未写入”。
+日期必须是 `YYYY-MM-DD`。无覆盖值时，日报仍按 `Asia/Shanghai` 处理运行日前一天。运行成功不能只看退出码；还要确认 `../time-butler-data/logs` 中生成对应 `.final.md`、`../time-butler-data/backups` 中生成写入前备份，并读回页面的 start/end marker 各 1 个。Codex 自动化必须把 `.final.md` 中的日报、Git 提交、具体阻塞问题和产品优化建议重新组织为同一对话中的自包含回复，不能只让用户查看文件。锁冲突会安全退出而不创建第二份报告。CLI 缺失、日期无效、模型容量不足等错误要先按日志、备份和 marker 判断失败发生在写入前还是写入后；只有目标报告缺失或 marker 不完整时才重跑，不能把非零退出直接等同于“完全未写入”。
 
 月报脚本面向月初自动运行：每月 1 日 09:30 生成上一个完整自然月的月报，并写回对应 `time_pages` 月页面。
 
