@@ -61,7 +61,7 @@ describe("TimerDisplay task pomodoro progress", () => {
       [0, "start"],
       [1, "progress"],
       [2, "caution"],
-      [3, "limit"],
+      [3, "final-in-budget"],
     ] as const) {
       rerender(
         <TimerDisplay
@@ -117,7 +117,9 @@ describe("TimerDisplay task pomodoro progress", () => {
     expect(
       document.querySelectorAll(".timer-task-progress-ring"),
     ).toHaveLength(2);
-    expect(document.querySelector(".timer-task-pomo-limit")).toBeVisible();
+    expect(
+      document.querySelector(".timer-task-pomo-final-in-budget"),
+    ).toBeVisible();
     expect(document.querySelectorAll(".timer-complete-ring")).toHaveLength(0);
     expect(document.querySelector(".timer-complete-text")).toBeVisible();
   });

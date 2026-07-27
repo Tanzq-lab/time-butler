@@ -29,7 +29,7 @@
   --color-timer-pomo-start: #2e9562;
   --color-timer-pomo-progress: #6e9d3d;
   --color-timer-pomo-caution: #b77a12;
-  --color-timer-pomo-limit: #ce5745;
+  --color-timer-pomo-final-in-budget: #c66a1b;
   --color-timer-pomo-overrun: #b42318;
   --color-timer-danger: #b42318;
   --color-timer-complete: #2f7d4e;
@@ -62,7 +62,7 @@
   --color-timer-pomo-start: #65c58d;
   --color-timer-pomo-progress: #a4c95f;
   --color-timer-pomo-caution: #e0ad4f;
-  --color-timer-pomo-limit: #f08a74;
+  --color-timer-pomo-final-in-budget: #f0a052;
   --color-timer-pomo-overrun: #ff6b63;
   --color-timer-danger: #fb7a70;
   --color-timer-complete: #6cc88a;
@@ -251,8 +251,8 @@ textarea {
   --timer-task-pomo-color: var(--color-timer-pomo-caution);
 }
 
-.timer-task-pomo-limit {
-  --timer-task-pomo-color: var(--color-timer-pomo-limit);
+.timer-task-pomo-final-in-budget {
+  --timer-task-pomo-color: var(--color-timer-pomo-final-in-budget);
 }
 
 .timer-task-pomo-overrun {

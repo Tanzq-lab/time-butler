@@ -2,7 +2,7 @@ export type TaskPomoRingTone =
   | "start"
   | "progress"
   | "caution"
-  | "limit"
+  | "final-in-budget"
   | "overrun";
 
 export interface TaskPomoProgressVisual {
@@ -18,7 +18,7 @@ const BUDGET_RING_TONES: Exclude<TaskPomoRingTone, "overrun">[] = [
   "start",
   "progress",
   "caution",
-  "limit",
+  "final-in-budget",
 ];
 
 function asNonNegativeInteger(value: number): number {
@@ -43,8 +43,8 @@ function getRingTone(
 /**
  * Keeps completed work separate from the active session. The timer ring owns
  * the current-session progress and receives one solid color for the whole
- * pomodoro. Budget positions 1–4 move from energetic green to warning coral;
- * every pomodoro beyond the estimate uses the same red.
+ * pomodoro. Every supported estimate spans its own budget from energetic green
+ * to a warm final-in-budget orange; only pomodoros beyond the estimate use red.
  */
 export function getTaskPomoProgressVisual(
   completedPomos: number,

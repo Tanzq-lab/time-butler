@@ -27,6 +27,54 @@ test.describe("Timer", () => {
     await expect(page.getByRole("button", { name: "继续" })).toBeVisible();
   });
 
+  test("reserves red for pomodoros beyond the task estimate", async ({ page }) => {
+    await page.getByRole("link", { name: "任务" }).click();
+    await page.getByRole("button", { name: "添加专注任务" }).click();
+    await page.getByPlaceholder("你现在要做什么？").fill("预算内颜色测试");
+    await page.getByRole("button", { name: "预计 2 个番茄" }).click();
+    await page.getByRole("button", { name: "创建任务" }).click();
+
+    await page.getByRole("link", { name: "计时" }).click();
+    await page.evaluate(async () => {
+      const storeModulePath = "/src/features/tasks/use-task-store.ts";
+      const { useTaskStore } = await import(
+        /* @vite-ignore */ storeModulePath
+      );
+      const state = useTaskStore.getState();
+      useTaskStore.setState({
+        tasks: state.tasks.map((task) =>
+          task.name === "预算内颜色测试"
+            ? { ...task, completed_pomos: 1 }
+            : task,
+        ),
+      });
+    });
+
+    await page.getByRole("button", { name: "选择任务" }).click();
+    const taskDialog = page.getByRole("dialog").filter({
+      has: page.getByRole("heading", { name: "选择任务" }),
+    });
+    await taskDialog.getByRole("button").filter({
+      hasText: "预算内颜色测试",
+    }).click();
+    await page.locator("#main-content").getByRole("button", {
+      name: "开始专注",
+    }).click();
+
+    await expect(
+      page.getByLabel("任务进度：第 2 个番茄，预计 2 个番茄"),
+    ).toBeVisible();
+    const finalInBudgetRing = page.locator(
+      ".timer-task-pomo-final-in-budget",
+    );
+    await expect(finalInBudgetRing).toBeVisible();
+    await expect(page.locator(".timer-task-pomo-overrun")).toHaveCount(0);
+    await expect(finalInBudgetRing).toHaveCSS(
+      "--timer-task-pomo-color",
+      "#c66a1b",
+    );
+  });
+
   test("abandon session returns to idle", async ({ page }) => {
     await page.locator("#main-content").getByRole("button", { name: "开始专注" }).click();
     await expect(page.getByRole("button", { name: "放弃" })).toBeVisible();

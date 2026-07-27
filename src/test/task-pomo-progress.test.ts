@@ -22,20 +22,26 @@ describe("getTaskPomoProgressVisual", () => {
     });
   });
 
-  it("moves through the full budget color scale for a four-pomodoro task", () => {
-    expect(getTaskPomoProgressVisual(0, 4, true)?.ringTone).toBe("start");
-    expect(getTaskPomoProgressVisual(1, 4, true)?.ringTone).toBe("progress");
-    expect(getTaskPomoProgressVisual(2, 4, true)?.ringTone).toBe("caution");
-    expect(getTaskPomoProgressVisual(3, 4, true)?.ringTone).toBe("limit");
-  });
+  it("maps every supported estimate across its own in-budget color scale", () => {
+    const expectedTonesByEstimate = [
+      ["start"],
+      ["start", "final-in-budget"],
+      ["start", "caution", "final-in-budget"],
+      ["start", "progress", "caution", "final-in-budget"],
+    ] as const;
 
-  it("uses the endpoints and midpoint when the estimate has fewer positions", () => {
-    expect(getTaskPomoProgressVisual(0, 2, true)?.ringTone).toBe("start");
-    expect(getTaskPomoProgressVisual(1, 2, true)?.ringTone).toBe("limit");
+    expectedTonesByEstimate.forEach((expectedTones, estimateIndex) => {
+      const estimatedPomos = estimateIndex + 1;
+      const actualTones = expectedTones.map((_, completedPomos) =>
+        getTaskPomoProgressVisual(
+          completedPomos,
+          estimatedPomos,
+          true,
+        )?.ringTone,
+      );
 
-    expect(getTaskPomoProgressVisual(0, 3, true)?.ringTone).toBe("start");
-    expect(getTaskPomoProgressVisual(1, 3, true)?.ringTone).toBe("caution");
-    expect(getTaskPomoProgressVisual(2, 3, true)?.ringTone).toBe("limit");
+      expect(actualTones).toEqual(expectedTones);
+    });
   });
 
   it("keeps every pomodoro beyond the estimate on the same red tone", () => {
