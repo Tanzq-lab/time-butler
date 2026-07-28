@@ -332,6 +332,36 @@ test.describe("Tasks", () => {
     ).toBeVisible();
   });
 
+  test("locks focus-to-todo conversion after a pomodoro is recorded", async ({ page }) => {
+    const title = "已经开始投入的专注任务";
+    await page.getByRole("button", { name: "添加专注任务" }).click();
+    await page.getByPlaceholder("你现在要做什么？").fill(title);
+    await page.getByRole("button", { name: "预计 2 个番茄" }).click();
+    await page.getByRole("button", { name: "创建任务" }).click();
+
+    await page.evaluate(async (taskName) => {
+      const storeModulePath = "/src/features/tasks/use-task-store.ts";
+      const { useTaskStore } = await import(
+        /* @vite-ignore */ storeModulePath
+      );
+      const state = useTaskStore.getState();
+      useTaskStore.setState({
+        tasks: state.tasks.map((task) =>
+          task.name === taskName
+            ? { ...task, completed_pomos: 1 }
+            : task,
+        ),
+      });
+    }, title);
+
+    const taskRow = page.locator("article").filter({ hasText: title }).first();
+    await expect(taskRow.getByText("1/2", { exact: true })).toBeVisible();
+    await taskRow.hover();
+    await expect(
+      taskRow.getByRole("button", { name: `改为普通待办：${title}` }),
+    ).toHaveCount(0);
+  });
+
   test("shows todo actions inline on mobile", async ({ page }) => {
     const title = "移动端待办操作";
     await page.setViewportSize({ width: 390, height: 844 });

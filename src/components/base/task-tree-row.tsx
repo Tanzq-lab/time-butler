@@ -481,17 +481,22 @@ export function TaskTreeRow({
                 <Pencil aria-hidden="true" className="size-3.5" />
               </button>
 
-              {!isGroup && !completed && isFocus && onConvertToTodo && (
-                <button
-                  type="button"
-                  onClick={onConvertToTodo}
-                  aria-label={`改为普通待办：${task.name}`}
-                  title="改为普通待办"
-                  className="flex size-10 touch-manipulation items-center justify-center rounded-md text-sahara-text-muted outline-none hover:bg-sahara-card hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus md:size-8"
-                >
-                  <ListTodo aria-hidden="true" className="size-3.5" />
-                </button>
-              )}
+              {!isGroup
+                && !completed
+                && isFocus
+                && task.completed_pomos === 0
+                && onConvertToTodo
+                && (
+                  <button
+                    type="button"
+                    onClick={onConvertToTodo}
+                    aria-label={`改为普通待办：${task.name}`}
+                    title="改为普通待办"
+                    className="flex size-10 touch-manipulation items-center justify-center rounded-md text-sahara-text-muted outline-none hover:bg-sahara-card hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus md:size-8"
+                  >
+                    <ListTodo aria-hidden="true" className="size-3.5" />
+                  </button>
+                )}
 
               {!isGroup && !completed && !isFocus && onConvertToFocus && (
                 <button

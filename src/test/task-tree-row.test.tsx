@@ -259,6 +259,26 @@ describe("TaskTreeRow", () => {
     expect(onDelete).toHaveBeenCalledOnce();
   });
 
+  it.each([1, 2])(
+    "hides focus-to-todo conversion after %s completed pomodoro(s)",
+    (completedPomos) => {
+      render(
+        <TaskTreeRow
+          task={{ ...focusTask, completed_pomos: completedPomos }}
+          onConvertToTodo={vi.fn()}
+          onRename={vi.fn(() => true)}
+          onDelete={vi.fn()}
+        />,
+      );
+
+      expect(
+        screen.queryByRole("button", {
+          name: "改为普通待办：整理任务树视觉",
+        }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
   it("turns a complete child-progress bar green without striking the group title", () => {
     render(
       <TaskTreeRow

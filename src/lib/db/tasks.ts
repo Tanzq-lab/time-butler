@@ -138,10 +138,16 @@ export async function setTaskItemType(
     return;
   }
 
-  await database.execute(
-    "UPDATE tasks SET item_type = 'todo' WHERE id = $1",
+  const result = await database.execute(
+    `UPDATE tasks
+     SET item_type = 'todo'
+     WHERE id = $1
+       AND completed_pomos = 0`,
     [id],
   );
+  if (result.rowsAffected !== 1) {
+    throw new Error("已产生番茄记录的专注任务不能转为待办");
+  }
 }
 
 async function reconcileParentCompletion(

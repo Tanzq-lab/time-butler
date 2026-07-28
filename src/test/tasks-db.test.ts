@@ -20,7 +20,7 @@ const select = vi.fn();
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(getDb).mockResolvedValue({ execute, select } as never);
-  execute.mockResolvedValue({ lastInsertId: 9 });
+  execute.mockResolvedValue({ lastInsertId: 9, rowsAffected: 1 });
   select.mockResolvedValue([]);
 });
 
@@ -67,12 +67,24 @@ describe("task database boundaries", () => {
 
     await setTaskItemType(8, "todo");
     expect(execute).toHaveBeenCalledWith(
-      "UPDATE tasks SET item_type = 'todo' WHERE id = $1",
+      expect.stringContaining("AND completed_pomos = 0"),
       [8],
     );
 
     await expect(setTaskItemType(8, "focus", 5)).rejects.toThrow(
       "预计番茄数必须是 1 到 4 的整数",
+    );
+  });
+
+  it("rejects focus-to-todo conversion after pomodoros are recorded", async () => {
+    execute.mockResolvedValueOnce({ rowsAffected: 0 });
+
+    await expect(setTaskItemType(8, "todo")).rejects.toThrow(
+      "已产生番茄记录的专注任务不能转为待办",
+    );
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining("AND completed_pomos = 0"),
+      [8],
     );
   });
 

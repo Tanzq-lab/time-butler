@@ -314,6 +314,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   setItemType: async (id, itemType, estimatedPomos) => {
     const task = get().tasks.find((candidate) => candidate.id === id);
     if (!task || getTaskItemType(task) === itemType) return Boolean(task);
+    if (itemType === "todo" && task.completed_pomos !== 0) return false;
 
     try {
       await dbSetTaskItemType(id, itemType, estimatedPomos);

@@ -260,6 +260,45 @@ describe("useTaskStore", () => {
       );
     });
 
+    it("converts a zero-pomodoro focus task back to a todo", async () => {
+      const { setTaskItemType } = await import("@/lib/db");
+      useTaskStore.setState({
+        tasks: [{
+          id: 12,
+          name: "暂时不需要计时",
+          item_type: "focus",
+          estimated_pomos: 2,
+          completed_pomos: 0,
+          created_at: "2026-07-28T00:00:00.000Z",
+          archived: 0,
+        }],
+      });
+
+      expect(await useTaskStore.getState().setItemType(12, "todo")).toBe(true);
+      expect(setTaskItemType).toHaveBeenCalledWith(12, "todo", undefined);
+      expect(useTaskStore.getState().tasks[0].item_type).toBe("todo");
+    });
+
+    it("rejects focus-to-todo conversion after a pomodoro is recorded", async () => {
+      const { setTaskItemType, recordAppEvent } = await import("@/lib/db");
+      useTaskStore.setState({
+        tasks: [{
+          id: 13,
+          name: "已有专注记录",
+          item_type: "focus",
+          estimated_pomos: 2,
+          completed_pomos: 1,
+          created_at: "2026-07-28T00:00:00.000Z",
+          archived: 0,
+        }],
+      });
+
+      expect(await useTaskStore.getState().setItemType(13, "todo")).toBe(false);
+      expect(setTaskItemType).not.toHaveBeenCalled();
+      expect(recordAppEvent).not.toHaveBeenCalled();
+      expect(useTaskStore.getState().tasks[0].item_type).toBe("focus");
+    });
+
     it("completes and reopens the parent from child completion", async () => {
       const { setTaskCompleted } = await import("@/lib/db");
       const parent = {

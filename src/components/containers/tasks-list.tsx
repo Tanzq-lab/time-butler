@@ -253,6 +253,7 @@ export function TasksList() {
   };
 
   const handleConvertToTodo = async (task: Task) => {
+    if (task.completed_pomos !== 0) return;
     if (
       timerStatus !== "idle"
       && timerPhase === "work"
@@ -595,6 +596,7 @@ export function TasksList() {
             getTaskItemType(task) === "focus"
             && !isGroup
             && !task.completed_at
+            && task.completed_pomos === 0
             && !taskIsCurrentRunningSession
               ? () => void handleConvertToTodo(task)
               : undefined
