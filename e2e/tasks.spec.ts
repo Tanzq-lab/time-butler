@@ -131,7 +131,7 @@ test.describe("Tasks", () => {
       "修改只影响之后新生成的任务",
     );
     await updatedDialog.getByRole("button", { name: "关闭对话框" }).click();
-    await expect(page.getByText("每日整理收件箱", { exact: true })).toBeVisible();
+    await expect(page.getByTitle("每日整理收件箱")).toBeVisible();
 
     await page.getByRole("button", { name: "添加循环任务" }).click();
     const persistedDialog = page.getByRole("dialog", { name: "添加循环任务" });
@@ -199,7 +199,7 @@ test.describe("Tasks", () => {
     await expect(page.getByText("代码重构")).not.toBeVisible();
   });
 
-  test("shows focus capability through icons without a type label", async ({ page }) => {
+  test("shows focus capability through a colored title prefix", async ({ page }) => {
     await page.getByRole("button", { name: "添加专注任务" }).click();
     await page.getByPlaceholder("你现在要做什么？").fill("测试进行中任务");
     await page.getByRole("button", { name: "预计 4 个番茄" }).click();
@@ -208,11 +208,26 @@ test.describe("Tasks", () => {
     const taskRow = page.locator("article").filter({ hasText: "测试进行中任务" }).first();
     await expect(taskRow).toHaveAttribute("data-task-kind", "focus");
     await expect(taskRow).toHaveAttribute("data-pomo-tone", "not-started");
+    await expect(taskRow.getByText("专注：", { exact: true })).toBeVisible();
     await expect(taskRow.getByText("0/4", { exact: true })).toBeVisible();
+    await expect(
+      taskRow.getByRole("checkbox", { name: "完成专注任务：测试进行中任务" }),
+    ).toBeVisible();
     await expect(
       taskRow.getByRole("button", { name: "开始专注：测试进行中任务" }),
     ).toBeVisible();
     await expect(taskRow.getByText("专注任务", { exact: true })).toHaveCount(0);
+
+    await taskRow
+      .getByRole("checkbox", { name: "完成专注任务：测试进行中任务" })
+      .click();
+    await expect(
+      page.getByRole("dialog", { name: "完成任务复盘" }),
+    ).toBeVisible();
+    await page
+      .getByRole("dialog", { name: "完成任务复盘" })
+      .getByRole("button", { name: "取消" })
+      .click();
   });
 
   test("quick-adds, completes, and reopens a todo", async ({ page }) => {

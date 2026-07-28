@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { TaskTreeRow } from "@/components/base/task-tree-row";
 import type { Task } from "@/features/tasks/task-types";
@@ -37,12 +37,14 @@ describe("TaskTreeRow", () => {
     (completedPomos, tone, toneClassName) => {
       renderFocusTask({ ...focusTask, completed_pomos: completedPomos });
 
-      const row = screen.getByText("整理任务树视觉").closest("article");
+      const row = screen.getByTitle("整理任务树视觉").closest("article");
       const progress = screen.getByLabelText(
         `番茄进度 ${completedPomos}/4`,
       );
+      const prefix = screen.getByText("专注：");
       expect(row).toHaveAttribute("data-pomo-tone", tone);
       expect(progress).toHaveClass(toneClassName);
+      expect(prefix).toHaveClass(toneClassName);
     },
   );
 
@@ -53,11 +55,74 @@ describe("TaskTreeRow", () => {
       completed_at: "2026-07-28T12:00:00.000Z",
     });
 
-    const row = screen.getByText("整理任务树视觉").closest("article");
+    const row = screen.getByTitle("整理任务树视觉").closest("article");
     expect(row).toHaveAttribute("data-pomo-tone", "complete");
     expect(screen.getByLabelText("番茄进度 3/4")).toHaveClass(
       "task-pomo-complete",
     );
+    expect(screen.getByText("专注：")).toHaveClass("task-pomo-complete");
+  });
+
+  it("uses the shared checkbox to open the focus completion flow", () => {
+    const onCompleteFocus = vi.fn();
+    const onToggleTodo = vi.fn();
+    render(
+      <TaskTreeRow
+        task={focusTask}
+        onCompleteFocus={onCompleteFocus}
+        onToggleTodo={onToggleTodo}
+        onRename={vi.fn(() => true)}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    const checkbox = screen.getByRole("checkbox", {
+      name: "完成专注任务：整理任务树视觉",
+    });
+    expect(checkbox).not.toBeChecked();
+    fireEvent.click(checkbox);
+    expect(onCompleteFocus).toHaveBeenCalledOnce();
+    expect(onToggleTodo).not.toHaveBeenCalled();
+  });
+
+  it("uses the shared checkbox to directly complete a todo", () => {
+    const onToggleTodo = vi.fn();
+    render(
+      <TaskTreeRow
+        task={{ ...focusTask, name: "洗衣服", item_type: "todo" }}
+        onToggleTodo={onToggleTodo}
+        onRename={vi.fn(() => true)}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "完成待办：洗衣服" }),
+    );
+    expect(onToggleTodo).toHaveBeenCalledOnce();
+    expect(screen.queryByText("专注：")).not.toBeInTheDocument();
+  });
+
+  it("reopens a completed focus task through the shared checkbox", () => {
+    const onToggleTodo = vi.fn();
+    render(
+      <TaskTreeRow
+        task={{
+          ...focusTask,
+          completed_at: "2026-07-28T12:00:00.000Z",
+        }}
+        onToggleTodo={onToggleTodo}
+        onRename={vi.fn(() => true)}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    const checkbox = screen.getByRole("checkbox", {
+      name: "重新打开专注任务：整理任务树视觉",
+    });
+    expect(checkbox).toBeChecked();
+    fireEvent.click(checkbox);
+    expect(onToggleTodo).toHaveBeenCalledOnce();
   });
 
   it("turns a complete child-progress bar green without striking the group title", () => {

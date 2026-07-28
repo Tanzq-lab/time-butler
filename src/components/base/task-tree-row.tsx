@@ -147,6 +147,18 @@ export function TaskTreeRow({
     ? 0
     : Math.round((completedChildCount / childCount) * 100);
   const groupComplete = childCount > 0 && completedChildCount === childCount;
+  const leafCompletionAction = completed
+    ? onToggleTodo
+    : isFocus
+      ? onCompleteFocus
+      : onToggleTodo;
+  const leafCompletionLabel = completed
+    ? isFocus
+      ? `重新打开专注任务：${task.name}`
+      : `恢复待办：${task.name}`
+    : isFocus
+      ? `完成专注任务：${task.name}`
+      : `完成待办：${task.name}`;
 
   useEffect(() => {
     if (!editing) setEditingName(task.name);
@@ -224,27 +236,14 @@ export function TaskTreeRow({
                   <ChevronRight aria-hidden="true" className="size-4" />
                 )}
               </button>
-            ) : isFocus ? (
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "task-pomo-tone task-pomo-mark flex size-6 items-center justify-center rounded-full border-[1.5px]",
-                  focusPomoToneClassName,
-                )}
-              >
-                {completed ? (
-                  <Check aria-hidden="true" className="size-3.5" strokeWidth={2.75} />
-                ) : (
-                  <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
-                )}
-              </span>
             ) : (
               <button
                 type="button"
                 role="checkbox"
                 aria-checked={completed}
-                aria-label={completed ? `恢复待办：${task.name}` : `完成待办：${task.name}`}
-                onClick={onToggleTodo}
+                aria-label={leafCompletionLabel}
+                onClick={leafCompletionAction}
+                disabled={!leafCompletionAction}
                 className="flex size-10 touch-manipulation items-center justify-center self-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-sahara-focus md:size-8"
               >
                 <span
@@ -313,6 +312,16 @@ export function TaskTreeRow({
                     )}
                     title={task.name}
                   >
+                    {isFocus && (
+                      <span
+                        className={cn(
+                          "task-pomo-label font-medium",
+                          focusPomoToneClassName,
+                        )}
+                      >
+                        专注：
+                      </span>
+                    )}
                     {task.name}
                   </p>
                   {runtimeStatus && !completed && (

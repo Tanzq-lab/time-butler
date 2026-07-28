@@ -284,17 +284,8 @@ textarea {
   --task-pomo-label-color: var(--color-timer-complete);
 }
 
-.task-pomo-tone {
-  color: var(--timer-task-pomo-color, var(--color-sahara-text-secondary));
-}
-
 .task-pomo-label {
   color: var(--task-pomo-label-color, var(--color-sahara-text-secondary));
-}
-
-.task-pomo-mark {
-  border-color: color-mix(in srgb, currentColor 42%, transparent);
-  background-color: color-mix(in srgb, currentColor 9%, transparent);
 }
 
 .timer-task-progress-ring {
