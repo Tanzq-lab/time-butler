@@ -31,6 +31,11 @@
   --color-timer-pomo-caution: #b77a12;
   --color-timer-pomo-final-in-budget: #c66a1b;
   --color-timer-pomo-overrun: #b42318;
+  --color-task-pomo-start-text: #1f7048;
+  --color-task-pomo-progress-text: #4b6f1e;
+  --color-task-pomo-caution-text: #81570b;
+  --color-task-pomo-final-in-budget-text: #934b12;
+  --color-task-pomo-overrun-text: #b42318;
   --color-timer-danger: #b42318;
   --color-timer-complete: #2f7d4e;
 }
@@ -64,6 +69,11 @@
   --color-timer-pomo-caution: #e0ad4f;
   --color-timer-pomo-final-in-budget: #f0a052;
   --color-timer-pomo-overrun: #ff6b63;
+  --color-task-pomo-start-text: #65c58d;
+  --color-task-pomo-progress-text: #a4c95f;
+  --color-task-pomo-caution-text: #e0ad4f;
+  --color-task-pomo-final-in-budget-text: #f0a052;
+  --color-task-pomo-overrun-text: #ff6b63;
   --color-timer-danger: #fb7a70;
   --color-timer-complete: #6cc88a;
 }
@@ -241,22 +251,50 @@ textarea {
 /* One solid color per pomodoro; the budget position chooses the color. */
 .timer-task-pomo-start {
   --timer-task-pomo-color: var(--color-timer-pomo-start);
+  --task-pomo-label-color: var(--color-task-pomo-start-text);
 }
 
 .timer-task-pomo-progress {
   --timer-task-pomo-color: var(--color-timer-pomo-progress);
+  --task-pomo-label-color: var(--color-task-pomo-progress-text);
 }
 
 .timer-task-pomo-caution {
   --timer-task-pomo-color: var(--color-timer-pomo-caution);
+  --task-pomo-label-color: var(--color-task-pomo-caution-text);
 }
 
 .timer-task-pomo-final-in-budget {
   --timer-task-pomo-color: var(--color-timer-pomo-final-in-budget);
+  --task-pomo-label-color: var(--color-task-pomo-final-in-budget-text);
 }
 
 .timer-task-pomo-overrun {
   --timer-task-pomo-color: var(--color-timer-pomo-overrun);
+  --task-pomo-label-color: var(--color-task-pomo-overrun-text);
+}
+
+.task-pomo-not-started {
+  --timer-task-pomo-color: var(--color-sahara-text-secondary);
+  --task-pomo-label-color: var(--color-sahara-text-secondary);
+}
+
+.task-pomo-complete {
+  --timer-task-pomo-color: var(--color-timer-complete);
+  --task-pomo-label-color: var(--color-timer-complete);
+}
+
+.task-pomo-tone {
+  color: var(--timer-task-pomo-color, var(--color-sahara-text-secondary));
+}
+
+.task-pomo-label {
+  color: var(--task-pomo-label-color, var(--color-sahara-text-secondary));
+}
+
+.task-pomo-mark {
+  border-color: color-mix(in srgb, currentColor 42%, transparent);
+  background-color: color-mix(in srgb, currentColor 9%, transparent);
 }
 
 .timer-task-progress-ring {

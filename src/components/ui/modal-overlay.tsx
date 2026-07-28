@@ -11,7 +11,7 @@ interface ModalOverlayProps {
   backdropClassName?: string;
   showCloseButton?: boolean;
   ariaLabel?: string;
-  placement?: "center" | "bottom";
+  placement?: "center" | "bottom" | "responsive";
 }
 
 export function ModalOverlay({
@@ -70,7 +70,9 @@ export function ModalOverlay({
         "fixed inset-0 z-100 flex justify-center overscroll-contain",
         placement === "bottom"
           ? "items-end p-0"
-          : "items-center p-4",
+          : placement === "responsive"
+            ? "items-end p-0 md:items-center md:p-4"
+            : "items-center p-4",
       )}
     >
       <div
@@ -87,7 +89,9 @@ export function ModalOverlay({
           "relative w-full overflow-hidden border border-sahara-border bg-sahara-surface shadow-2xl animate-in fade-in duration-150",
           placement === "bottom"
             ? "max-h-[85dvh] rounded-t-[10px] border-b-0 slide-in-from-bottom-3"
-            : "rounded-[10px] zoom-in-95",
+            : placement === "responsive"
+              ? "max-h-[85dvh] rounded-t-[10px] border-b-0 slide-in-from-bottom-3 md:rounded-[10px] md:border-b"
+              : "rounded-[10px] zoom-in-95",
           maxWidth,
         )}
       >

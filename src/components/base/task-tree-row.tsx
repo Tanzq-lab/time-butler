@@ -14,12 +14,12 @@ import {
   Play,
   Plus,
   RotateCcw,
-  Target,
   Trash2,
   X,
 } from "lucide-react";
 import type { Task } from "@/features/tasks/task-types";
 import { getTaskItemType } from "@/features/tasks/task-types";
+import type { TaskPomoRingTone } from "@/lib/task-pomo-progress";
 import { Button } from "@/components/ui/button";
 import { ModalOverlay } from "@/components/ui/modal-overlay";
 import { cn } from "@/lib/cn";
@@ -52,6 +52,43 @@ interface TaskTreeRowProps {
   onPointerMove?: (event: PointerEvent<HTMLElement>) => void;
   onPointerUp?: (event: PointerEvent<HTMLElement>) => void;
   onPointerCancel?: (event: PointerEvent<HTMLElement>) => void;
+}
+
+type FocusPomoTone = "not-started" | "complete" | TaskPomoRingTone;
+
+const BUDGET_TONES: Exclude<TaskPomoRingTone, "overrun">[] = [
+  "start",
+  "progress",
+  "caution",
+  "final-in-budget",
+];
+
+const POMO_TONE_CLASS_NAMES: Record<FocusPomoTone, string> = {
+  "not-started": "task-pomo-not-started",
+  "complete": "task-pomo-complete",
+  "start": "timer-task-pomo-start",
+  "progress": "timer-task-pomo-progress",
+  "caution": "timer-task-pomo-caution",
+  "final-in-budget": "timer-task-pomo-final-in-budget",
+  "overrun": "timer-task-pomo-overrun",
+};
+
+function getFocusPomoTone(task: Task, completed: boolean): FocusPomoTone {
+  if (completed) return "complete";
+
+  const completedPomos = Math.max(0, Math.floor(task.completed_pomos));
+  const estimatedPomos = Math.max(0, Math.floor(task.estimated_pomos));
+  if (completedPomos === 0 || estimatedPomos === 0) return "not-started";
+  if (completedPomos > estimatedPomos) return "overrun";
+  if (completedPomos === estimatedPomos || estimatedPomos === 1) {
+    return "final-in-budget";
+  }
+
+  const budgetPosition = (completedPomos - 1) / (estimatedPomos - 1);
+  const toneIndex = Math.round(
+    budgetPosition * (BUDGET_TONES.length - 1),
+  );
+  return BUDGET_TONES[toneIndex];
 }
 
 function formatScheduledFor(value?: string | null): string {
@@ -102,9 +139,14 @@ export function TaskTreeRow({
   const isGroup = childCount > 0;
   const isFocus = getTaskItemType(task) === "focus" && !isGroup;
   const completed = Boolean(task.completed_at);
+  const focusPomoTone = isFocus ? getFocusPomoTone(task, completed) : null;
+  const focusPomoToneClassName = focusPomoTone
+    ? POMO_TONE_CLASS_NAMES[focusPomoTone]
+    : null;
   const groupProgress = childCount === 0
     ? 0
     : Math.round((completedChildCount / childCount) * 100);
+  const groupComplete = childCount > 0 && completedChildCount === childCount;
 
   useEffect(() => {
     if (!editing) setEditingName(task.name);
@@ -128,15 +170,20 @@ export function TaskTreeRow({
         data-task-id={task.id}
         data-task-depth={depth}
         data-task-kind={isGroup ? "group" : isFocus ? "focus" : "todo"}
+        data-pomo-tone={focusPomoTone ?? undefined}
         onPointerDown={reorderable ? onPointerDown : undefined}
         onPointerMove={reorderable ? onPointerMove : undefined}
         onPointerUp={reorderable ? onPointerUp : undefined}
         onPointerCancel={reorderable ? onPointerCancel : undefined}
         className={cn(
-          "group/task relative bg-sahara-surface transition-[background-color,opacity,transform] duration-150 motion-reduce:transition-none",
-          depth === 0 ? "rounded-md border border-sahara-border" : "border-t border-sahara-border/80",
+          "group/task relative transition-[background-color,opacity,transform] duration-150 motion-reduce:transition-none",
+          depth === 0
+            ? isGroup
+              ? "bg-sahara-card/55 hover:bg-sahara-card/75"
+              : "bg-sahara-surface hover:bg-sahara-card/40"
+            : "border-t border-sahara-border/80 bg-sahara-surface hover:bg-sahara-card/35",
           isActive && !completed && "bg-sahara-card/70",
-          completed && "opacity-65 hover:opacity-90",
+          completed && !isGroup && "opacity-65 hover:opacity-90",
           reorderable && "cursor-grab select-none",
           dragging && "z-20 cursor-grabbing rounded-md bg-sahara-surface shadow-lg ring-1 ring-sahara-primary/25",
           dropIndicator && "bg-sahara-card/60",
@@ -155,7 +202,13 @@ export function TaskTreeRow({
           />
         )}
 
-        <div className={cn("flex min-w-0 items-start gap-2.5 px-3 py-3", depth === 1 && "pl-3")}>
+        <div
+          className={cn(
+            "flex min-w-0 items-start gap-2.5 py-2.5",
+            depth === 0 ? "px-3 sm:px-4" : "px-2.5 sm:px-3",
+            isGroup && "py-3",
+          )}
+        >
           <div className="flex h-10 shrink-0 items-center md:h-8">
             {isGroup ? (
               <button
@@ -175,20 +228,14 @@ export function TaskTreeRow({
               <span
                 aria-hidden="true"
                 className={cn(
-                  "flex size-8 items-center justify-center rounded-md border",
-                  completed
-                    ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/35 dark:text-emerald-300"
-                    : runtimeStatus === "running"
-                      ? "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/35 dark:text-blue-300"
-                      : runtimeStatus === "paused"
-                        ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/35 dark:text-amber-300"
-                        : "border-sahara-border bg-sahara-card text-sahara-text-secondary",
+                  "task-pomo-tone task-pomo-mark flex size-6 items-center justify-center rounded-full border-[1.5px]",
+                  focusPomoToneClassName,
                 )}
               >
                 {completed ? (
-                  <Check aria-hidden="true" className="size-4" strokeWidth={2.5} />
+                  <Check aria-hidden="true" className="size-3.5" strokeWidth={2.75} />
                 ) : (
-                  <Focus aria-hidden="true" className="size-4" />
+                  <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
                 )}
               </span>
             ) : (
@@ -261,7 +308,8 @@ export function TaskTreeRow({
                     className={cn(
                       "min-w-0 truncate text-sm leading-6 text-sahara-text",
                       isGroup && "font-semibold",
-                      completed && "text-sahara-text-muted line-through decoration-sahara-text-muted/55",
+                      completed && !isGroup && "text-sahara-text-muted line-through decoration-sahara-text-muted/55",
+                      completed && isGroup && "text-sahara-text-secondary",
                     )}
                     title={task.name}
                   >
@@ -281,7 +329,7 @@ export function TaskTreeRow({
                 </div>
 
                 {isGroup && (
-                  <div className="mt-1.5 flex items-center gap-2.5">
+                  <div className="mt-2 flex max-w-lg items-center gap-3">
                     <div
                       role="progressbar"
                       aria-label={`${task.name} 子任务进度`}
@@ -289,23 +337,40 @@ export function TaskTreeRow({
                       aria-valuemax={childCount}
                       aria-valuenow={completedChildCount}
                       aria-valuetext={`${completedChildCount}/${childCount} 个子任务`}
-                      className="h-1.5 min-w-20 flex-1 overflow-hidden rounded-full bg-sahara-card"
+                      className="h-1.5 min-w-20 flex-1 overflow-hidden rounded-full bg-sahara-border/80"
                     >
                       <div
-                        className="h-full rounded-full bg-sahara-primary transition-[width] duration-200 motion-reduce:transition-none"
-                        style={{ width: `${groupProgress}%` }}
+                        className={cn(
+                          "h-full origin-left rounded-full transition-[transform,background-color] duration-200 motion-reduce:transition-none",
+                          groupComplete
+                            ? "bg-[var(--color-timer-complete)]"
+                            : "bg-sahara-primary",
+                        )}
+                        style={{ transform: `scaleX(${groupProgress / 100})` }}
                       />
                     </div>
-                    <span className="shrink-0 font-mono text-[10px] font-semibold tabular-nums text-sahara-text-secondary">
+                    <span
+                      className={cn(
+                        "shrink-0 font-mono text-[11px] font-semibold tabular-nums",
+                        groupComplete
+                          ? "text-[var(--color-timer-complete)]"
+                          : "text-sahara-text-secondary",
+                      )}
+                    >
                       {completedChildCount}/{childCount}
                     </span>
                   </div>
                 )}
 
                 {isFocus && (
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] text-sahara-text-secondary">
-                    <span className="inline-flex items-center gap-1 font-mono font-semibold tabular-nums">
-                      <Target aria-hidden="true" className="size-3" />
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-sahara-text-secondary">
+                    <span
+                      aria-label={`番茄进度 ${task.completed_pomos}/${task.estimated_pomos}`}
+                      className={cn(
+                        "task-pomo-label font-mono font-semibold tabular-nums",
+                        focusPomoToneClassName,
+                      )}
+                    >
                       {task.completed_pomos}/{task.estimated_pomos}
                     </span>
                     {task.scheduled_for && (
@@ -345,29 +410,8 @@ export function TaskTreeRow({
                   <Play aria-hidden="true" className="size-3.5 fill-current" />
                 </button>
               )}
-              {!isGroup && !isFocus && !completed && onConvertToFocus && (
-                <button
-                  type="button"
-                  onClick={onConvertToFocus}
-                  aria-label={`设为专注任务：${task.name}`}
-                  title="设为专注任务"
-                  className="flex size-10 touch-manipulation items-center justify-center rounded-md text-sahara-text-secondary outline-none hover:bg-sahara-card hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus md:size-8"
-                >
-                  <Focus aria-hidden="true" className="size-3.5" />
-                </button>
-              )}
 
-              {reorderable && (
-                <span
-                  aria-hidden="true"
-                  title="按住任务空白处或点阵拖动调整顺序"
-                  className="hidden size-8 items-center justify-center rounded-md text-sahara-text-muted/80 md:flex"
-                >
-                  <GripVertical aria-hidden="true" className="size-4" />
-                </span>
-              )}
-
-              <div className="hidden items-center gap-0.5 opacity-0 transition-opacity duration-150 md:flex md:group-hover/task:opacity-100 md:group-focus-within/task:opacity-100">
+              <div className="pointer-events-none hidden items-center gap-0.5 opacity-0 transition-opacity duration-150 md:flex md:group-hover/task:pointer-events-auto md:group-hover/task:opacity-100 md:group-focus-within/task:pointer-events-auto md:group-focus-within/task:opacity-100">
                 {canAddSubtask && onAddSubtask && (
                   <button
                     type="button"
@@ -379,76 +423,23 @@ export function TaskTreeRow({
                     <Plus aria-hidden="true" className="size-3.5" />
                   </button>
                 )}
-                {isFocus && !completed && onRecord && (
-                  <button
-                    type="button"
-                    onClick={onRecord}
-                    aria-label={`记录任务：${task.name}`}
-                    title="记录"
-                    className="flex size-8 items-center justify-center rounded-md text-sahara-text-muted outline-none hover:bg-sahara-card hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus"
+                {reorderable && (
+                  <span
+                    aria-hidden="true"
+                    title="按住任务空白处或点阵拖动调整顺序"
+                    className="flex size-8 items-center justify-center rounded-md text-sahara-text-muted/80"
                   >
-                    <NotebookPen aria-hidden="true" className="size-3.5" />
-                  </button>
+                    <GripVertical aria-hidden="true" className="size-4" />
+                  </span>
                 )}
                 <button
                   type="button"
-                  onClick={() => {
-                    if (onEditDetails) onEditDetails();
-                    else setEditing(true);
-                  }}
-                  aria-label={`编辑任务：${task.name}`}
-                  title="编辑"
-                  className="flex size-8 items-center justify-center rounded-md text-sahara-text-muted outline-none hover:bg-sahara-card hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus"
+                  onClick={() => setMobileMenuOpen(true)}
+                  aria-label={`更多操作：${task.name}`}
+                  title="更多操作"
+                  className="flex size-8 items-center justify-center rounded-md text-sahara-text-muted outline-none hover:bg-sahara-surface hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus"
                 >
-                  <Pencil aria-hidden="true" className="size-3.5" />
-                </button>
-                {!isGroup && !completed && (
-                  isFocus ? (
-                    <>
-                      {onCompleteFocus && (
-                        <button
-                          type="button"
-                          onClick={onCompleteFocus}
-                          aria-label={`完成任务：${task.name}`}
-                          title="完成"
-                          className="flex size-8 items-center justify-center rounded-md text-sahara-text-muted outline-none hover:bg-sahara-card hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus"
-                        >
-                          <CircleCheckBig aria-hidden="true" className="size-3.5" />
-                        </button>
-                      )}
-                      {onConvertToTodo && (
-                        <button
-                          type="button"
-                          onClick={onConvertToTodo}
-                          aria-label={`改为普通待办：${task.name}`}
-                          title="改为普通待办"
-                          className="flex size-8 items-center justify-center rounded-md text-sahara-text-muted outline-none hover:bg-sahara-card hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus"
-                        >
-                          <CheckCircle2 aria-hidden="true" className="size-3.5" />
-                        </button>
-                      )}
-                    </>
-                  ) : null
-                )}
-                {!isGroup && completed && onToggleTodo && (
-                  <button
-                    type="button"
-                    onClick={onToggleTodo}
-                    aria-label={`重新打开：${task.name}`}
-                    title="重新打开"
-                    className="flex size-8 items-center justify-center rounded-md text-sahara-text-muted outline-none hover:bg-sahara-card hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus"
-                  >
-                    <RotateCcw aria-hidden="true" className="size-3.5" />
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={onDelete}
-                  aria-label={`删除任务：${task.name}`}
-                  title="删除"
-                  className="flex size-8 items-center justify-center rounded-md text-red-400 outline-none hover:bg-red-50 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-red-500 dark:hover:bg-red-950/30"
-                >
-                  <Trash2 aria-hidden="true" className="size-3.5" />
+                  <MoreHorizontal aria-hidden="true" className="size-4" />
                 </button>
               </div>
 
@@ -468,7 +459,7 @@ export function TaskTreeRow({
       <ModalOverlay
         open={mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}
-        placement="bottom"
+        placement="responsive"
         maxWidth="max-w-md"
         ariaLabel={`任务操作：${task.name}`}
         showCloseButton

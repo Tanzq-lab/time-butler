@@ -36,8 +36,7 @@ import { TaskNoteModal } from "@/components/base/task-note-modal";
 import { TaskTreeRow } from "@/components/base/task-tree-row";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { PageHeader, SectionHeader } from "@/components/ui/page-header";
-import { cn } from "@/lib/cn";
+import { PageHeader } from "@/components/ui/page-header";
 import { recordAppEvent } from "@/lib/db";
 import {
   addRecurringTaskRule,
@@ -561,7 +560,7 @@ export function TasksList() {
       && !isScheduledForFuture(task);
 
     return (
-      <div key={task.id} className={cn(depth === 0 && "space-y-1.5")}>
+      <div key={task.id}>
         <TaskTreeRow
           task={task}
           depth={depth}
@@ -734,14 +733,39 @@ export function TasksList() {
   return (
     <div className="flex h-full flex-col">
       <PageHeader
-        eyebrow="任务管理"
         title="我的任务"
-        description="在一棵任务树里拆解、勾选和专注推进。"
-        className="mb-6 md:mb-8"
+        description="拆开复杂任务，找到下一件事，然后开始专注。"
+        actions={
+          <div role="group" aria-label="任务操作" className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              intent="default"
+              size="sm"
+              aria-label="添加循环任务"
+              onClick={handleOpenRecurringModal}
+              className="min-h-10 gap-1.5 px-2.5 text-xs font-medium md:px-3"
+            >
+              <Repeat2 aria-hidden="true" className="size-3.5 md:size-4" />
+              <span className="hidden md:inline">循环任务</span>
+            </Button>
+            <Button
+              variant="solid"
+              intent="sahara"
+              size="sm"
+              aria-label="添加专注任务"
+              onClick={() => setShowAddFocusModal(true)}
+              className="min-h-10 gap-1.5 px-2.5 text-xs font-medium md:px-3"
+            >
+              <Plus aria-hidden="true" className="size-3.5 md:size-4" />
+              <span className="hidden sm:inline">添加专注任务</span>
+            </Button>
+          </div>
+        }
+        className="mb-5 md:mb-6"
       />
 
-      <div className="mb-7 border-b border-sahara-border pb-5 md:mb-9">
-        <div className="relative flex-1 sm:max-w-xs">
+      <div className="mb-5 flex items-center gap-3 border-b border-sahara-border pb-4">
+        <div className="relative min-w-0 flex-1 sm:max-w-xs">
           <Search
             aria-hidden="true"
             className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-sahara-text-muted"
@@ -757,6 +781,9 @@ export function TasksList() {
             className="h-9 w-full rounded-md border border-sahara-border bg-sahara-surface pl-9 pr-3 text-sm text-sahara-text outline-none transition-colors duration-150 placeholder:text-sahara-text-muted focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
           />
         </div>
+        <span className="ml-auto shrink-0 font-mono text-[11px] tabular-nums text-sahara-text-muted">
+          {openRoots.length} 项
+        </span>
       </div>
 
       <AddTaskModal
@@ -804,42 +831,6 @@ export function TasksList() {
       />
 
       <section aria-label="任务">
-        <SectionHeader
-          title="任务"
-          meta={
-            <span className="text-xs text-sahara-text-muted">
-              {openRoots.length}
-            </span>
-          }
-          actions={
-            <div role="group" aria-label="任务操作" className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                intent="default"
-                size="sm"
-                aria-label="添加循环任务"
-                onClick={handleOpenRecurringModal}
-                className="min-h-10 gap-1.5 px-2.5 text-xs font-medium md:px-3"
-              >
-                <Repeat2 aria-hidden="true" className="size-3.5 md:size-4" />
-                <span className="hidden md:inline">循环任务</span>
-              </Button>
-              <Button
-                variant="solid"
-                intent="sahara"
-                size="sm"
-                aria-label="添加专注任务"
-                onClick={() => setShowAddFocusModal(true)}
-                className="min-h-10 gap-1.5 px-2.5 text-xs font-medium md:px-3"
-              >
-                <Plus aria-hidden="true" className="size-3.5 md:size-4" />
-                <span className="hidden sm:inline">添加专注任务</span>
-              </Button>
-            </div>
-          }
-          className="mb-3"
-        />
-
         <form
           onSubmit={(event) => void handleQuickAdd(event)}
           className="mb-3 flex items-center gap-2 rounded-md border border-sahara-border bg-sahara-surface px-3 py-2.5"
@@ -877,7 +868,9 @@ export function TasksList() {
             正在加载任务…
           </p>
         ) : openRoots.length > 0 ? (
-          <div className="space-y-2.5">{openRoots.map((task) => renderTask(task, 0))}</div>
+          <div className="divide-y divide-sahara-border overflow-hidden rounded-[10px] border border-sahara-border bg-sahara-surface">
+            {openRoots.map((task) => renderTask(task, 0))}
+          </div>
         ) : normalizedSearch && doneRoots.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-14 text-center">
             <Filter aria-hidden="true" className="mb-3 size-10 text-sahara-border" />
@@ -911,7 +904,7 @@ export function TasksList() {
             </button>
 
             {revealDone && (
-              <div className="space-y-2.5">
+              <div className="divide-y divide-sahara-border overflow-hidden rounded-[10px] border border-sahara-border bg-sahara-surface">
                 {visibleDoneRoots.map((task) => renderTask(task, 0))}
                 {doneVisibleCount < doneRoots.length && (
                   <Button

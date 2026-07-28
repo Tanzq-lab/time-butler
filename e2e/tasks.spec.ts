@@ -8,8 +8,7 @@ test.describe("Tasks", () => {
 
   test("shows Tasks page with title and Add Focus Task button", async ({ page }) => {
     await expect(page.getByRole("heading", { name: "我的任务" })).toBeVisible();
-    const taskSection = page.getByRole("region", { name: "任务" });
-    const taskActions = taskSection.getByRole("group", { name: "任务操作" });
+    const taskActions = page.getByRole("group", { name: "任务操作" });
 
     await expect(taskActions.getByRole("button", { name: "添加专注任务" })).toBeVisible();
     await expect(taskActions.getByRole("button", { name: "添加循环任务" })).toBeVisible();
@@ -208,6 +207,7 @@ test.describe("Tasks", () => {
 
     const taskRow = page.locator("article").filter({ hasText: "测试进行中任务" }).first();
     await expect(taskRow).toHaveAttribute("data-task-kind", "focus");
+    await expect(taskRow).toHaveAttribute("data-pomo-tone", "not-started");
     await expect(taskRow.getByText("0/4", { exact: true })).toBeVisible();
     await expect(
       taskRow.getByRole("button", { name: "开始专注：测试进行中任务" }),
@@ -241,7 +241,11 @@ test.describe("Tasks", () => {
     await quickInput.press("Enter");
     const taskRow = page.locator("article").filter({ hasText: original }).first();
     await taskRow.hover();
-    await taskRow.getByRole("button", { name: `编辑任务：${original}` }).click();
+    await taskRow.getByRole("button", { name: `更多操作：${original}` }).click();
+    await page
+      .getByRole("dialog", { name: `任务操作：${original}` })
+      .getByRole("button", { name: "编辑名称" })
+      .click();
     await page.getByRole("textbox", { name: `编辑任务：${original}` }).fill(updated);
     await page.getByRole("button", { name: `保存任务名称：${original}` }).click();
 
@@ -256,14 +260,25 @@ test.describe("Tasks", () => {
     const quickInput = page.getByRole("textbox", { name: "添加任务" });
     await quickInput.fill(title);
     await quickInput.press("Enter");
-    await page.getByRole("button", { name: `设为专注任务：${title}` }).click();
+    const taskRow = page.locator("article").filter({ hasText: title }).first();
+    await taskRow.hover();
+    await taskRow.getByRole("button", { name: `更多操作：${title}` }).click();
+    await page
+      .getByRole("dialog", { name: `任务操作：${title}` })
+      .getByRole("button", { name: "设为专注任务", exact: true })
+      .click();
 
     const taskName = page.getByLabel("任务名称");
     await expect(taskName).toHaveValue(title);
     await page.getByRole("button", { name: "取消" }).click();
     await expect(page.getByRole("checkbox", { name: `完成待办：${title}` })).toBeVisible();
 
-    await page.getByRole("button", { name: `设为专注任务：${title}` }).click();
+    await taskRow.hover();
+    await taskRow.getByRole("button", { name: `更多操作：${title}` }).click();
+    await page
+      .getByRole("dialog", { name: `任务操作：${title}` })
+      .getByRole("button", { name: "设为专注任务", exact: true })
+      .click();
     await page.getByRole("button", { name: "预计 1 个番茄" }).click();
     await page
       .getByRole("dialog", { name: "设为专注任务" })
@@ -284,7 +299,11 @@ test.describe("Tasks", () => {
 
     const taskRow = page.locator("article").filter({ hasText: title }).first();
     await taskRow.hover();
-    await taskRow.getByRole("button", { name: `改为普通待办：${title}` }).click();
+    await taskRow.getByRole("button", { name: `更多操作：${title}` }).click();
+    await page
+      .getByRole("dialog", { name: `任务操作：${title}` })
+      .getByRole("button", { name: "改为普通待办" })
+      .click();
 
     await expect(taskRow).toHaveAttribute("data-task-kind", "todo");
     await expect(
