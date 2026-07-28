@@ -95,7 +95,7 @@ fn menubar_timer_progress(total_seconds: u64, remaining_seconds: u64) -> Menubar
         0 => MenubarTimerProgress::Full,
         1 => MenubarTimerProgress::ThreeQuarters,
         2 => MenubarTimerProgress::Half,
-        _ => MenubarTimerProgress::Empty,
+        _ => MenubarTimerProgress::Quarter,
     }
 }
 
@@ -270,14 +270,14 @@ mod tests {
     }
 
     #[test]
-    fn maps_elapsed_time_to_four_hourglass_states() {
+    fn maps_elapsed_time_to_four_remaining_time_states() {
         assert_eq!(menubar_timer_progress(100, 100), MenubarTimerProgress::Full);
         assert_eq!(
             menubar_timer_progress(100, 74),
             MenubarTimerProgress::ThreeQuarters,
         );
         assert_eq!(menubar_timer_progress(100, 49), MenubarTimerProgress::Half);
-        assert_eq!(menubar_timer_progress(100, 24), MenubarTimerProgress::Empty);
+        assert_eq!(menubar_timer_progress(100, 24), MenubarTimerProgress::Quarter);
     }
 
     #[test]

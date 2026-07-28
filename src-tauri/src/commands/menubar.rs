@@ -3,16 +3,25 @@ use tauri::image::Image;
 use tauri::{tray::TrayIcon, Emitter, Manager};
 
 const MENUBAR_ICON_SIZE: u32 = 32;
+const MENUBAR_RING_CENTER: f32 = MENUBAR_ICON_SIZE as f32 / 2.0;
+const MENUBAR_RING_RADIUS: f32 = 9.5;
+const MENUBAR_RING_HALF_STROKE: f32 = 2.0;
+const MENUBAR_RING_TRACK_HALF_STROKE: f32 = 0.75;
+const MENUBAR_RING_TRACK_ALPHA: u8 = 128;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MenubarTimerProgress {
     Full,
     ThreeQuarters,
     Half,
-    Empty,
+    Quarter,
 }
 
 fn set_pixel(rgba: &mut [u8], x: u32, y: u32) {
+    set_pixel_with_alpha(rgba, x, y, u8::MAX);
+}
+
+fn set_pixel_with_alpha(rgba: &mut [u8], x: u32, y: u32, alpha: u8) {
     if x >= MENUBAR_ICON_SIZE || y >= MENUBAR_ICON_SIZE {
         return;
     }
@@ -21,55 +30,84 @@ fn set_pixel(rgba: &mut [u8], x: u32, y: u32) {
     rgba[index] = 0;
     rgba[index + 1] = 0;
     rgba[index + 2] = 0;
-    rgba[index + 3] = u8::MAX;
+    rgba[index + 3] = rgba[index + 3].max(alpha);
 }
 
-fn fill_row(rgba: &mut [u8], y: u32, left: u32, right: u32) {
-    for x in left..=right {
-        set_pixel(rgba, x, y);
+fn draw_ring_track(rgba: &mut [u8]) {
+    let inner_radius = MENUBAR_RING_RADIUS - MENUBAR_RING_TRACK_HALF_STROKE;
+    let outer_radius = MENUBAR_RING_RADIUS + MENUBAR_RING_TRACK_HALF_STROKE;
+
+    for y in 0..MENUBAR_ICON_SIZE {
+        for x in 0..MENUBAR_ICON_SIZE {
+            let dx = x as f32 + 0.5 - MENUBAR_RING_CENTER;
+            let dy = y as f32 + 0.5 - MENUBAR_RING_CENTER;
+            let radius_squared = dx * dx + dy * dy;
+            if radius_squared >= inner_radius * inner_radius
+                && radius_squared <= outer_radius * outer_radius
+            {
+                set_pixel_with_alpha(rgba, x, y, MENUBAR_RING_TRACK_ALPHA);
+            }
+        }
     }
 }
 
-fn fill_upper_sand(rgba: &mut [u8], rows: u32) {
-    for step in 0..rows.min(6) {
-        fill_row(rgba, 8 + step, 10 + step, 21 - step);
+fn draw_ring_cap(rgba: &mut [u8], center_x: f32, center_y: f32) {
+    for y in 0..MENUBAR_ICON_SIZE {
+        for x in 0..MENUBAR_ICON_SIZE {
+            let dx = x as f32 + 0.5 - center_x;
+            let dy = y as f32 + 0.5 - center_y;
+            if dx * dx + dy * dy <= MENUBAR_RING_HALF_STROKE * MENUBAR_RING_HALF_STROKE {
+                set_pixel(rgba, x, y);
+            }
+        }
     }
 }
 
-fn fill_lower_sand(rgba: &mut [u8], rows: u32) {
-    for step in 0..rows.min(6) {
-        fill_row(rgba, 23 - step, 10 + step, 21 - step);
+fn draw_remaining_ring(rgba: &mut [u8], progress: MenubarTimerProgress) {
+    let remaining_quarters = match progress {
+        MenubarTimerProgress::Full => 4,
+        MenubarTimerProgress::ThreeQuarters => 3,
+        MenubarTimerProgress::Half => 2,
+        MenubarTimerProgress::Quarter => 1,
+    };
+    let arc_end = std::f32::consts::TAU * remaining_quarters as f32 / 4.0;
+    let inner_radius = MENUBAR_RING_RADIUS - MENUBAR_RING_HALF_STROKE;
+    let outer_radius = MENUBAR_RING_RADIUS + MENUBAR_RING_HALF_STROKE;
+
+    for y in 0..MENUBAR_ICON_SIZE {
+        for x in 0..MENUBAR_ICON_SIZE {
+            let dx = x as f32 + 0.5 - MENUBAR_RING_CENTER;
+            let dy = y as f32 + 0.5 - MENUBAR_RING_CENTER;
+            let radius_squared = dx * dx + dy * dy;
+            if radius_squared < inner_radius * inner_radius
+                || radius_squared > outer_radius * outer_radius
+            {
+                continue;
+            }
+
+            let angle = dx.atan2(-dy).rem_euclid(std::f32::consts::TAU);
+            if remaining_quarters == 4 || angle <= arc_end {
+                set_pixel(rgba, x, y);
+            }
+        }
+    }
+
+    if remaining_quarters < 4 {
+        let end_x = MENUBAR_RING_CENTER + MENUBAR_RING_RADIUS * arc_end.sin();
+        let end_y = MENUBAR_RING_CENTER - MENUBAR_RING_RADIUS * arc_end.cos();
+        draw_ring_cap(
+            rgba,
+            MENUBAR_RING_CENTER,
+            MENUBAR_RING_CENTER - MENUBAR_RING_RADIUS,
+        );
+        draw_ring_cap(rgba, end_x, end_y);
     }
 }
 
 fn menubar_progress_icon(progress: MenubarTimerProgress) -> Image<'static> {
     let mut rgba = vec![0; (MENUBAR_ICON_SIZE * MENUBAR_ICON_SIZE * 4) as usize];
-
-    for y in 5..=7 {
-        fill_row(&mut rgba, y, 7, 24);
-    }
-    for y in 24..=26 {
-        fill_row(&mut rgba, y, 7, 24);
-    }
-
-    for step in 0..=7 {
-        let upper_y = 8 + step;
-        set_pixel(&mut rgba, 9 + step, upper_y);
-        set_pixel(&mut rgba, 22 - step, upper_y);
-
-        let lower_y = 16 + step;
-        set_pixel(&mut rgba, 16 - step, lower_y);
-        set_pixel(&mut rgba, 15 + step, lower_y);
-    }
-
-    let (upper_sand_rows, lower_sand_rows) = match progress {
-        MenubarTimerProgress::Full => (6, 0),
-        MenubarTimerProgress::ThreeQuarters => (4, 2),
-        MenubarTimerProgress::Half => (2, 4),
-        MenubarTimerProgress::Empty => (0, 6),
-    };
-    fill_upper_sand(&mut rgba, upper_sand_rows);
-    fill_lower_sand(&mut rgba, lower_sand_rows);
+    draw_ring_track(&mut rgba);
+    draw_remaining_ring(&mut rgba, progress);
 
     Image::new_owned(rgba, MENUBAR_ICON_SIZE, MENUBAR_ICON_SIZE)
 }
@@ -214,26 +252,39 @@ pub fn setup_menubar_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Er
 
 #[cfg(test)]
 mod tests {
-    use super::{menubar_progress_icon, MenubarTimerProgress};
+    use super::{
+        menubar_progress_icon, MenubarTimerProgress, MENUBAR_RING_TRACK_ALPHA,
+    };
 
-    fn is_opaque(progress: MenubarTimerProgress, x: u32, y: u32) -> bool {
+    fn alpha_at(progress: MenubarTimerProgress, x: u32, y: u32) -> u8 {
         let image = menubar_progress_icon(progress);
         let index = ((y * image.width() + x) * 4) as usize;
-        image.rgba()[index + 3] > 0
+        image.rgba()[index + 3]
     }
 
     #[test]
-    fn draws_four_distinct_hourglass_fill_levels() {
-        assert!(is_opaque(MenubarTimerProgress::Full, 15, 11));
-        assert!(is_opaque(MenubarTimerProgress::ThreeQuarters, 15, 11));
-        assert!(!is_opaque(MenubarTimerProgress::Half, 15, 11));
-        assert!(!is_opaque(MenubarTimerProgress::Empty, 15, 11));
+    fn draws_four_distinct_remaining_time_rings() {
+        assert_eq!(alpha_at(MenubarTimerProgress::Full, 15, 15), 0);
+        assert_eq!(alpha_at(MenubarTimerProgress::Full, 11, 7), u8::MAX);
+        assert_eq!(
+            alpha_at(MenubarTimerProgress::ThreeQuarters, 11, 7),
+            MENUBAR_RING_TRACK_ALPHA
+        );
 
-        assert!(!is_opaque(MenubarTimerProgress::ThreeQuarters, 15, 21));
-        assert!(is_opaque(MenubarTimerProgress::Half, 15, 21));
-        assert!(is_opaque(MenubarTimerProgress::Empty, 15, 21));
+        assert_eq!(
+            alpha_at(MenubarTimerProgress::ThreeQuarters, 7, 20),
+            u8::MAX
+        );
+        assert_eq!(
+            alpha_at(MenubarTimerProgress::Half, 7, 20),
+            MENUBAR_RING_TRACK_ALPHA
+        );
 
-        assert!(!is_opaque(MenubarTimerProgress::Half, 15, 18));
-        assert!(is_opaque(MenubarTimerProgress::Empty, 15, 18));
+        assert_eq!(alpha_at(MenubarTimerProgress::Half, 24, 20), u8::MAX);
+        assert_eq!(
+            alpha_at(MenubarTimerProgress::Quarter, 24, 20),
+            MENUBAR_RING_TRACK_ALPHA
+        );
+        assert_eq!(alpha_at(MenubarTimerProgress::Quarter, 20, 7), u8::MAX);
     }
 }
