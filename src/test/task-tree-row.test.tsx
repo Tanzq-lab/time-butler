@@ -304,4 +304,25 @@ describe("TaskTreeRow", () => {
       }),
     ).not.toBeInTheDocument();
   });
+
+  it("uses the parent title as focus context for focus subtasks", () => {
+    render(
+      <TaskTreeRow
+        task={{ ...focusTask, name: "AI 生成 2D 游戏", item_type: "todo" }}
+        childCount={2}
+        completedChildCount={0}
+        focusChildCount={2}
+        focusChildCompletedPomos={1}
+        focusChildEstimatedPomos={3}
+        onRename={vi.fn(() => true)}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    const row = screen.getByTitle("AI 生成 2D 游戏").closest("article");
+    const prefix = screen.getByText("专注：");
+    expect(row).toHaveAttribute("data-task-kind", "group");
+    expect(row).toHaveAttribute("data-pomo-tone", "start");
+    expect(prefix).toHaveClass("timer-task-pomo-start");
+  });
 });

@@ -22,6 +22,9 @@ interface TaskTreeRowProps {
   task: Task;
   childCount?: number;
   completedChildCount?: number;
+  focusChildCount?: number;
+  focusChildCompletedPomos?: number;
+  focusChildEstimatedPomos?: number;
   expanded?: boolean;
   depth?: 0 | 1;
   categoryName?: string | null;
@@ -67,18 +70,22 @@ const POMO_TONE_CLASS_NAMES: Record<FocusPomoTone, string> = {
   "overrun": "timer-task-pomo-overrun",
 };
 
-function getFocusPomoTone(task: Task, completed: boolean): FocusPomoTone {
+function getFocusPomoTone(
+  completedPomos: number,
+  estimatedPomos: number,
+  completed: boolean,
+): FocusPomoTone {
   if (completed) return "complete";
 
-  const completedPomos = Math.max(0, Math.floor(task.completed_pomos));
-  const estimatedPomos = Math.max(0, Math.floor(task.estimated_pomos));
-  if (completedPomos === 0 || estimatedPomos === 0) return "not-started";
-  if (completedPomos > estimatedPomos) return "overrun";
-  if (completedPomos === estimatedPomos || estimatedPomos === 1) {
+  const safeCompletedPomos = Math.max(0, Math.floor(completedPomos));
+  const safeEstimatedPomos = Math.max(0, Math.floor(estimatedPomos));
+  if (safeCompletedPomos === 0 || safeEstimatedPomos === 0) return "not-started";
+  if (safeCompletedPomos > safeEstimatedPomos) return "overrun";
+  if (safeCompletedPomos === safeEstimatedPomos || safeEstimatedPomos === 1) {
     return "final-in-budget";
   }
 
-  const budgetPosition = (completedPomos - 1) / (estimatedPomos - 1);
+  const budgetPosition = (safeCompletedPomos - 1) / (safeEstimatedPomos - 1);
   const toneIndex = Math.round(
     budgetPosition * (BUDGET_TONES.length - 1),
   );
@@ -102,6 +109,9 @@ export function TaskTreeRow({
   task,
   childCount = 0,
   completedChildCount = 0,
+  focusChildCount = 0,
+  focusChildCompletedPomos = 0,
+  focusChildEstimatedPomos = 0,
   expanded = false,
   depth = 0,
   categoryName,
@@ -131,9 +141,17 @@ export function TaskTreeRow({
   const [editingName, setEditingName] = useState(task.name);
   const [actionsExpanded, setActionsExpanded] = useState(false);
   const isGroup = childCount > 0;
-  const isFocus = getTaskItemType(task) === "focus" && !isGroup;
+  const isFocusTask = getTaskItemType(task) === "focus";
+  const isFocus = isFocusTask && !isGroup;
+  const hasFocusContext = isFocusTask || focusChildCount > 0;
   const completed = Boolean(task.completed_at);
-  const focusPomoTone = isFocus ? getFocusPomoTone(task, completed) : null;
+  const focusPomoTone = hasFocusContext
+    ? getFocusPomoTone(
+        focusChildCount > 0 ? focusChildCompletedPomos : task.completed_pomos,
+        focusChildCount > 0 ? focusChildEstimatedPomos : task.estimated_pomos,
+        completed,
+      )
+    : null;
   const focusPomoToneClassName = focusPomoTone
     ? POMO_TONE_CLASS_NAMES[focusPomoTone]
     : null;
@@ -183,7 +201,7 @@ export function TaskTreeRow({
   );
   const taskTitle = (
     <>
-      {isFocus && (
+      {hasFocusContext && (
         <span
           className={cn(
             "task-pomo-label font-medium",

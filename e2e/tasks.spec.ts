@@ -324,6 +324,35 @@ test.describe("Tasks", () => {
       .toHaveAttribute("data-task-kind", "focus");
   });
 
+  test("uses the parent title as focus context for nested focus tasks", async ({ page }) => {
+    const parent = "AI 生成 2D 游戏需求";
+    const child = "检查任务地图";
+    const quickInput = page.getByRole("textbox", { name: "添加任务" });
+
+    await quickInput.fill(parent);
+    await quickInput.press("Enter");
+    const parentRow = page.locator("article").filter({ hasText: parent }).first();
+    await parentRow.hover();
+    await parentRow.getByRole("button", { name: `添加子任务：${parent}` }).click();
+    const childInput = page.getByRole("textbox", { name: `添加子任务：${parent}` });
+    await childInput.fill(child);
+    await childInput.press("Enter");
+
+    const childRow = page.locator("article").filter({ hasText: child }).first();
+    await childRow.hover();
+    await childRow.getByRole("button", { name: `设为专注任务：${child}` }).click();
+    await page.getByRole("button", { name: "预计 2 个番茄" }).click();
+    await page
+      .getByRole("dialog", { name: "设为专注任务" })
+      .getByRole("button", { name: "设为专注", exact: true })
+      .click();
+
+    await expect(parentRow).toHaveAttribute("data-task-kind", "group");
+    await expect(parentRow).toHaveAttribute("data-pomo-tone", "not-started");
+    await expect(parentRow.getByText("专注：", { exact: true })).toBeVisible();
+    await expect(childRow.getByText("专注：", { exact: true })).toBeVisible();
+  });
+
   test("converts a focus task back to a todo in place", async ({ page }) => {
     const title = "暂时不需要计时的任务";
     await page.getByRole("button", { name: "添加专注任务" }).click();
