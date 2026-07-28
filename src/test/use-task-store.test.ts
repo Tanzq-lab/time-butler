@@ -50,7 +50,10 @@ vi.mock("@/lib/db", () => ({
     },
   ]),
   addTask: vi.fn().mockResolvedValue(3),
+  addTodoTask: vi.fn().mockResolvedValue(4),
   updateTask: vi.fn().mockResolvedValue(undefined),
+  setTaskItemType: vi.fn().mockResolvedValue(undefined),
+  setTaskCompleted: vi.fn().mockResolvedValue(null),
   reorderTasks: vi.fn().mockResolvedValue(undefined),
   deleteTask: vi.fn().mockResolvedValue(undefined),
   toggleTaskArchived: vi.fn().mockResolvedValue(undefined),
@@ -219,6 +222,85 @@ describe("useTaskStore", () => {
     });
   });
 
+  describe("unified task types", () => {
+    it("converts a todo to focus in place and keeps its hierarchy", async () => {
+      const { setTaskItemType, recordAppEvent } = await import("@/lib/db");
+      useTaskStore.setState({
+        tasks: [{
+          id: 11,
+          name: "整理采访笔记",
+          item_type: "todo",
+          parent_id: 10,
+          estimated_pomos: 1,
+          completed_pomos: 0,
+          created_at: "2026-07-28T00:00:00.000Z",
+          archived: 0,
+        }],
+      });
+
+      expect(await useTaskStore.getState().setItemType(11, "focus", 3)).toBe(true);
+
+      expect(setTaskItemType).toHaveBeenCalledWith(11, "focus", 3);
+      expect(useTaskStore.getState().tasks[0]).toMatchObject({
+        id: 11,
+        item_type: "focus",
+        parent_id: 10,
+        estimated_pomos: 3,
+      });
+      expect(recordAppEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventName: "task_type_changed",
+          entityId: 11,
+          metadata: {
+            from: "todo",
+            to: "focus",
+            estimatedPomos: 3,
+          },
+        }),
+      );
+    });
+
+    it("completes and reopens the parent from child completion", async () => {
+      const { setTaskCompleted } = await import("@/lib/db");
+      const parent = {
+        id: 20,
+        name: "完成统一任务树",
+        item_type: "focus" as const,
+        parent_id: null,
+        estimated_pomos: 2,
+        completed_pomos: 0,
+        completed_at: null,
+        created_at: "2026-07-28T00:00:00.000Z",
+        archived: 0,
+      };
+      const firstChild = {
+        ...parent,
+        id: 21,
+        name: "完成数据结构",
+        item_type: "todo" as const,
+        parent_id: 20,
+      };
+      const secondChild = {
+        ...parent,
+        id: 22,
+        name: "完成界面",
+        item_type: "todo" as const,
+        parent_id: 20,
+        completed_at: "2026-07-28T01:00:00.000Z",
+      };
+      vi.mocked(setTaskCompleted).mockResolvedValue(20);
+      useTaskStore.setState({ tasks: [parent, firstChild, secondChild] });
+
+      expect(await useTaskStore.getState().setCompleted(21, true)).toBe(true);
+      expect(useTaskStore.getState().tasks.find((task) => task.id === 20)?.completed_at)
+        .toBeTruthy();
+
+      expect(await useTaskStore.getState().setCompleted(21, false)).toBe(true);
+      expect(useTaskStore.getState().tasks.find((task) => task.id === 20)?.completed_at)
+        .toBeNull();
+    });
+  });
+
   describe("reorderTasks", () => {
     it("persists the active task order and records a local event", async () => {
       const { reorderTasks, recordAppEvent } = await import("@/lib/db");
@@ -236,7 +318,7 @@ describe("useTaskStore", () => {
       expect(recordAppEvent).toHaveBeenCalledWith(
         expect.objectContaining({
           eventName: "task_reordered",
-          metadata: { scope: "active", count: 2 },
+          metadata: { scope: "root", parentId: null, count: 2 },
         }),
       );
     });

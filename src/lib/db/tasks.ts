@@ -1,42 +1,17 @@
 import { getDb } from "./schema";
+import type { Task, TaskItemType } from "@/features/tasks/task-types";
 
-export async function getTasks(): Promise<
-  {
-    id: number;
-    name: string;
-    project?: string;
-    priority?: "low" | "medium" | "high";
-    sort_order: number;
-    estimated_pomos: number;
-    completed_pomos: number;
-    category_id: number | null;
-    scheduled_for: string | null;
-    completed_at: string | null;
-    completion_review: string | null;
-    notes: string | null;
-    created_at: string;
-    archived: number;
-  }[]
-> {
+export async function getTasks(): Promise<Task[]> {
   const database = await getDb();
-  return database.select<
-    {
-      id: number;
-      name: string;
-      project?: string;
-      priority?: "low" | "medium" | "high";
-      sort_order: number;
-      estimated_pomos: number;
-      completed_pomos: number;
-      category_id: number | null;
-      scheduled_for: string | null;
-      completed_at: string | null;
-      completion_review: string | null;
-      notes: string | null;
-      created_at: string;
-      archived: number;
-    }[]
-  >("SELECT * FROM tasks WHERE archived = 0 ORDER BY sort_order ASC, created_at DESC");
+  return database.select<Task[]>(
+    `SELECT *
+     FROM tasks
+     WHERE archived = 0
+     ORDER BY
+       CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END,
+       sort_order ASC,
+       created_at DESC`,
+  );
 }
 
 function assertEstimatedPomos(estimatedPomos: number): void {
@@ -52,6 +27,7 @@ export async function addTask(
   priority?: string,
   categoryId?: number | null,
   scheduledFor?: string | null,
+  parentId?: number | null,
 ): Promise<number> {
   assertEstimatedPomos(estimatedPomos);
   const database = await getDb();
@@ -63,6 +39,8 @@ export async function addTask(
       priority,
       category_id,
       scheduled_for,
+      item_type,
+      parent_id,
       sort_order
     ) VALUES (
       $1,
@@ -71,7 +49,14 @@ export async function addTask(
       $4,
       $5,
       $6,
-      COALESCE((SELECT MIN(sort_order) FROM tasks WHERE archived = 0), 0) - 1
+      'focus',
+      $7,
+      COALESCE((
+        SELECT MIN(sort_order)
+        FROM tasks
+        WHERE archived = 0
+          AND parent_id IS $7
+      ), 0) - 1
     )`,
     [
       name,
@@ -80,9 +65,140 @@ export async function addTask(
       priority ?? null,
       categoryId ?? null,
       scheduledFor ?? null,
+      parentId ?? null,
     ],
   );
+  if (parentId != null) {
+    await database.execute(
+      "UPDATE tasks SET completed_at = NULL WHERE id = $1",
+      [parentId],
+    );
+  }
   return result.lastInsertId as number;
+}
+
+export async function addTodoTask(
+  name: string,
+  parentId?: number | null,
+): Promise<number> {
+  const cleanName = name.trim();
+  if (!cleanName) throw new Error("待办名称不能为空");
+
+  const database = await getDb();
+  const result = await database.execute(
+    `INSERT INTO tasks (
+      name,
+      estimated_pomos,
+      completed_pomos,
+      item_type,
+      parent_id,
+      sort_order
+    ) VALUES (
+      $1,
+      1,
+      0,
+      'todo',
+      $2,
+      COALESCE((
+        SELECT MAX(sort_order)
+        FROM tasks
+        WHERE archived = 0
+          AND parent_id IS $2
+      ), -1) + 1
+    )`,
+    [cleanName, parentId ?? null],
+  );
+  if (parentId != null) {
+    await database.execute(
+      "UPDATE tasks SET completed_at = NULL WHERE id = $1",
+      [parentId],
+    );
+  }
+  return result.lastInsertId as number;
+}
+
+export async function setTaskItemType(
+  id: number,
+  itemType: TaskItemType,
+  estimatedPomos?: number,
+): Promise<void> {
+  if (itemType === "focus") {
+    assertEstimatedPomos(estimatedPomos ?? 1);
+  }
+
+  const database = await getDb();
+  if (itemType === "focus") {
+    await database.execute(
+      `UPDATE tasks
+       SET item_type = 'focus',
+           estimated_pomos = $2
+       WHERE id = $1`,
+      [id, estimatedPomos ?? 1],
+    );
+    return;
+  }
+
+  await database.execute(
+    "UPDATE tasks SET item_type = 'todo' WHERE id = $1",
+    [id],
+  );
+}
+
+async function reconcileParentCompletion(
+  parentId: number | null | undefined,
+): Promise<number | null> {
+  if (parentId == null) return null;
+
+  const database = await getDb();
+  const children = await database.select<
+    { id: number; completed_at: string | null }[]
+  >(
+    `SELECT id, completed_at
+     FROM tasks
+     WHERE parent_id = $1
+       AND archived = 0`,
+    [parentId],
+  );
+  const allChildrenDone =
+    children.length > 0 && children.every((child) => Boolean(child.completed_at));
+
+  await database.execute(
+    `UPDATE tasks
+     SET completed_at = CASE
+       WHEN $2 = 1 THEN COALESCE(completed_at, datetime('now', 'localtime'))
+       ELSE NULL
+     END
+     WHERE id = $1`,
+    [parentId, allChildrenDone ? 1 : 0],
+  );
+  return parentId;
+}
+
+async function getTaskParentId(id: number): Promise<number | null> {
+  const database = await getDb();
+  const rows = await database.select<{ parent_id: number | null }[]>(
+    "SELECT parent_id FROM tasks WHERE id = $1",
+    [id],
+  );
+  return rows[0]?.parent_id ?? null;
+}
+
+export async function setTaskCompleted(
+  id: number,
+  completed: boolean,
+): Promise<number | null> {
+  const database = await getDb();
+  const parentId = await getTaskParentId(id);
+  await database.execute(
+    `UPDATE tasks
+     SET completed_at = CASE
+       WHEN $2 = 1 THEN COALESCE(completed_at, datetime('now', 'localtime'))
+       ELSE NULL
+     END
+     WHERE id = $1`,
+    [id, completed ? 1 : 0],
+  );
+  return reconcileParentCompletion(parentId);
 }
 
 export async function toggleTaskArchived(
@@ -96,7 +212,10 @@ export async function toggleTaskArchived(
   ]);
 }
 
-export async function reorderTasks(orderedIds: number[]): Promise<void> {
+export async function reorderTasks(
+  orderedIds: number[],
+  parentId: number | null = null,
+): Promise<void> {
   if (orderedIds.length === 0) return;
   if (
     orderedIds.some((id) => !Number.isInteger(id) || id <= 0)
@@ -111,17 +230,19 @@ export async function reorderTasks(orderedIds: number[]): Promise<void> {
   const idPlaceholders = orderedIds
     .map((_, index) => `$${index * 2 + 1}`)
     .join(", ");
-  const parameters: number[] = [];
+  const parameters: Array<number | null> = [];
   orderedIds.forEach((id, index) => {
     parameters.push(id, index);
   });
+  parameters.push(parentId);
 
   const database = await getDb();
   await database.execute(
     `UPDATE tasks
      SET sort_order = CASE id ${caseClauses} ELSE sort_order END
      WHERE id IN (${idPlaceholders})
-       AND archived = 0`,
+       AND archived = 0
+       AND parent_id IS $${parameters.length}`,
     parameters,
   );
 }
@@ -176,8 +297,18 @@ export async function updateTask(
 
 export async function deleteTask(id: number): Promise<void> {
   const database = await getDb();
+  const parentId = await getTaskParentId(id);
+  const children = await database.select<{ id: number }[]>(
+    "SELECT id FROM tasks WHERE parent_id = $1",
+    [id],
+  );
+  for (const child of children) {
+    await database.execute("DELETE FROM sessions WHERE task_id = $1", [child.id]);
+  }
+  await database.execute("DELETE FROM tasks WHERE parent_id = $1", [id]);
   await database.execute("DELETE FROM sessions WHERE task_id = $1", [id]);
   await database.execute("DELETE FROM tasks WHERE id = $1", [id]);
+  await reconcileParentCompletion(parentId);
 }
 
 export async function incrementTaskPomos(id: number): Promise<void> {
@@ -192,8 +323,9 @@ export async function completeTask(
   id: number,
   actualPomos: number,
   review?: string | null,
-): Promise<void> {
+): Promise<number | null> {
   const database = await getDb();
+  const parentId = await getTaskParentId(id);
   await database.execute(
     `
     UPDATE tasks
@@ -204,6 +336,7 @@ export async function completeTask(
     `,
     [id, Math.max(0, actualPomos), review?.trim() || null],
   );
+  return reconcileParentCompletion(parentId);
 }
 
 function formatTaskNoteTimestamp(date: Date): string {

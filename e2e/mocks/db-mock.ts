@@ -123,6 +123,86 @@ function parseCreateDefaults(sql: string): Map<string, unknown> {
   return defaults;
 }
 
+function splitSqlList(value: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let quote: "'" | '"' | null = null;
+  let start = 0;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+    if (quote) {
+      if (char === quote && value[index - 1] !== "\\") quote = null;
+      continue;
+    }
+    if (char === "'" || char === '"') {
+      quote = char;
+      continue;
+    }
+    if (char === "(") depth += 1;
+    if (char === ")") depth -= 1;
+    if (char === "," && depth === 0) {
+      parts.push(value.slice(start, index).trim());
+      start = index + 1;
+    }
+  }
+
+  parts.push(value.slice(start).trim());
+  return parts;
+}
+
+function matchingParen(sql: string, openIndex: number): number {
+  let depth = 0;
+  let quote: "'" | '"' | null = null;
+  for (let index = openIndex; index < sql.length; index += 1) {
+    const char = sql[index];
+    if (quote) {
+      if (char === quote && sql[index - 1] !== "\\") quote = null;
+      continue;
+    }
+    if (char === "'" || char === '"') {
+      quote = char;
+      continue;
+    }
+    if (char === "(") depth += 1;
+    if (char === ")") {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
+}
+
+function parseInsertLists(sql: string): { columns: string[]; values: string[] } | null {
+  const intoMatch = /INSERT(?:\s+OR\s+\w+)?\s+INTO\s+["']?\w+["']?/i.exec(sql);
+  if (!intoMatch) return null;
+  const columnsStart = sql.indexOf("(", intoMatch.index + intoMatch[0].length);
+  const columnsEnd = matchingParen(sql, columnsStart);
+  if (columnsStart < 0 || columnsEnd < 0) return null;
+
+  const valuesMatch = /\bVALUES\b/i.exec(sql.slice(columnsEnd + 1));
+  if (!valuesMatch) return null;
+  const valuesKeywordEnd = columnsEnd + 1 + valuesMatch.index + valuesMatch[0].length;
+  const valuesStart = sql.indexOf("(", valuesKeywordEnd);
+  const valuesEnd = matchingParen(sql, valuesStart);
+  if (valuesStart < 0 || valuesEnd < 0) return null;
+
+  return {
+    columns: splitSqlList(sql.slice(columnsStart + 1, columnsEnd)),
+    values: splitSqlList(sql.slice(valuesStart + 1, valuesEnd)),
+  };
+}
+
+function literalValue(token: string, params: unknown[]): unknown {
+  const placeholder = token.match(/^\$(\d+)$/);
+  if (placeholder) return params[parseInt(placeholder[1]) - 1] ?? null;
+  if (/^NULL$/i.test(token)) return null;
+  if (/^-?\d+(?:\.\d+)?$/.test(token)) return Number(token);
+  if (/^'.*'$/s.test(token)) return token.slice(1, -1).replace(/''/g, "'");
+  if (/^CURRENT_TIMESTAMP$/i.test(token)) return new Date().toISOString();
+  return undefined;
+}
+
 export class Database {
   static async load(_name: string): Promise<Database> {
     return new Database();
@@ -140,6 +220,33 @@ export class Database {
 
     if (up.startsWith("INSERT")) {
       const tbl = getTable(name);
+
+      // Migration v18 copies legacy todo rows into the unified task table.
+      // INSERT ... SELECT has no VALUES clause, so model it explicitly.
+      if (name === "tasks" && up.includes("FROM TODOS TODO")) {
+        let inserted = 0;
+        for (const todo of allRows("todos")) {
+          if (allRows("tasks").some((task) => task.legacy_todo_id === todo.id)) continue;
+          const id = (autoInc.get(name) || 0) + 1;
+          autoInc.set(name, id);
+          tbl.set(id, {
+            id,
+            name: todo.title,
+            estimated_pomos: 1,
+            completed_pomos: 0,
+            created_at: todo.created_at,
+            archived: todo.archived ?? 0,
+            completed_at: todo.completed_at ?? null,
+            sort_order: Number(todo.sort_order ?? 0) - 100_000,
+            item_type: "todo",
+            parent_id: null,
+            legacy_todo_id: todo.id,
+          });
+          inserted += 1;
+        }
+        return { lastInsertId: 0, rowsAffected: inserted };
+      }
+
       const id = (autoInc.get(name) || 0) + 1;
       autoInc.set(name, id);
       const row: Row = { id };
@@ -152,22 +259,15 @@ export class Database {
         }
       }
 
-      // Parse the VALUES tokens to handle mixed placeholders and literals
-      const colsM = sql.match(/\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i);
-      if (colsM) {
-        const cols = colsM[1].split(",").map((c) => c.trim());
-        const valTokens = colsM[2].split(",").map((v) => v.trim());
-        cols.forEach((col, i) => {
+      // Parse nested VALUES expressions while retaining simple literals.
+      const insertLists = parseInsertLists(sql);
+      if (insertLists) {
+        insertLists.columns.forEach((col, i) => {
           if (col.toLowerCase() === "id") return;
-          const token = valTokens[i];
+          const token = insertLists.values[i];
           if (!token) return;
-
-          if (/^\$\d+$/.test(token)) {
-            // Placeholder — consume from params
-            const pIdx = parseInt(token.slice(1)) - 1;
-            row[col] = pIdx < params.length ? params[pIdx] : null;
-          }
-          // Otherwise it's a literal/function — skip, default was already applied
+          const value = literalValue(token, params);
+          if (value !== undefined) row[col] = value;
         });
       }
       tbl.set(id, row);
@@ -203,14 +303,16 @@ export class Database {
         // General SET
         const setM = sql.match(/SET\s+(.+?)(?:\s+WHERE|$)/is);
         if (setM) {
-          setM[1]
-            .split(",")
-            .map((s) => s.trim())
-            .forEach((part) => {
-              const [col] = part.split("=").map((s) => s.trim());
-              const idxM = part.match(/\$(\d+)/);
-              if (idxM) row[col] = params[parseInt(idxM[1]) - 1];
-            });
+          splitSqlList(setM[1]).forEach((part) => {
+            const [col] = part.split("=").map((s) => s.trim());
+            const idxM = part.match(/\$(\d+)/);
+            if (idxM) {
+              row[col] = params[parseInt(idxM[1]) - 1];
+              return;
+            }
+            const value = literalValue(part.slice(part.indexOf("=") + 1).trim(), params);
+            if (value !== undefined) row[col] = value;
+          });
         }
         return { lastInsertId: 0, rowsAffected: 1 };
       }
@@ -231,14 +333,28 @@ export class Database {
           if (row.task_id === tid) tbl.delete(rid);
         }
       }
+      const pm = sql.match(/parent_id\s*=\s*\$(\d+)/i);
+      if (pm) {
+        const parentId = Number(params[parseInt(pm[1]) - 1]);
+        for (const [rid, row] of tbl) {
+          if (row.parent_id === parentId) tbl.delete(rid);
+        }
+      }
       return { lastInsertId: 0, rowsAffected: 0 };
     }
 
     if (up.startsWith("ALTER TABLE")) {
       const cm = sql.match(/ADD\s+COLUMN\s+(\w+)/i);
       if (cm) {
+        const defaultMatch = sql.match(/DEFAULT\s+('(?:[^']|'')*'|-?\d+(?:\.\d+)?|NULL)/i);
+        const defaultValue = defaultMatch
+          ? literalValue(defaultMatch[1], [])
+          : null;
+        const defaults = columnDefaults.get(name) ?? new Map<string, unknown>();
+        defaults.set(cm[1], defaultValue);
+        columnDefaults.set(name, defaults);
         for (const row of getTable(name).values()) {
-          if (!(cm[1] in row)) row[cm[1]] = null;
+          if (!(cm[1] in row)) row[cm[1]] = defaultValue;
         }
       }
       return { lastInsertId: 0, rowsAffected: 0 };

@@ -131,7 +131,11 @@ export function useScrollMemory<T extends HTMLElement>(
         && Math.abs(element.scrollTop - lastProgrammaticScrollTop) <= 1;
 
       if (restoring || isProgrammaticScroll) {
-        lastProgrammaticScrollTop = null;
+        // Keep recognizing programmatic scroll events while the requested
+        // position is still waiting for enough asynchronously rendered
+        // content. A short page may clamp several restore attempts before it
+        // becomes tall enough to reach the saved position.
+        if (pendingScrollTop === null) lastProgrammaticScrollTop = null;
         return;
       }
 

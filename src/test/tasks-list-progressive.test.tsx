@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TasksList } from "@/components/containers/tasks-list";
 import { useCategoriesStore } from "@/features/categories/use-categories-store";
 import { useTaskStore } from "@/features/tasks/use-task-store";
-import { useTodoStore } from "@/features/todos/use-todo-store";
 import type { Task } from "@/features/tasks/task-types";
 
 function completedTask(index: number): Task {
@@ -33,10 +32,6 @@ function activeTask(id: number, name: string, sortOrder: number): Task {
 }
 
 beforeEach(() => {
-  useTodoStore.setState({
-    todos: [],
-    loadTodos: vi.fn().mockResolvedValue(undefined),
-  });
   useCategoriesStore.setState({
     categories: [],
     isLoading: false,
@@ -161,11 +156,7 @@ describe("TasksList active task ordering", () => {
 
     await waitFor(() => expect(reorderTasks).toHaveBeenCalledWith([12, 11]));
 
-    fireEvent.click(screen.getByRole("button", { name: "网格视图" }));
-    expect(screen.queryAllByTitle("按住任务空白处或点阵拖动调整顺序")).toHaveLength(0);
-
-    fireEvent.click(screen.getByRole("button", { name: "列表视图" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "搜索待办和任务" }), {
+    fireEvent.change(screen.getByRole("searchbox", { name: "搜索任务" }), {
       target: { value: "先做" },
     });
     expect(screen.queryAllByTitle("按住任务空白处或点阵拖动调整顺序")).toHaveLength(0);

@@ -1,26 +1,28 @@
-import { useReducer, useEffect, useRef, useState } from "react";
-import type { PointerEvent } from "react";
-import { useNavigate } from "react-router-dom";
-import { useTaskStore } from "@/features/tasks/use-task-store";
-import { useCategoriesStore } from "@/features/categories/use-categories-store";
-import { useTimerStore } from "@/features/timer/use-timer-store";
-import { useTaskFilter } from "@/features/tasks/use-task-filter";
-import { useTodoStore } from "@/features/todos/use-todo-store";
 import {
-  Plus,
-  Search,
-  Filter,
-  ListTodo,
-  LayoutGrid,
-  Target,
-  CalendarClock,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type PointerEvent,
+} from "react";
+import { useNavigate } from "react-router-dom";
+import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  Filter,
+  Plus,
   Repeat2,
+  Search,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/cn";
+import { useTaskStore } from "@/features/tasks/use-task-store";
+import { useCategoriesStore } from "@/features/categories/use-categories-store";
+import { useTimerStore } from "@/features/timer/use-timer-store";
+import {
+  getTaskItemType,
+  type Task,
+} from "@/features/tasks/task-types";
 import {
   AddTaskModal,
   type AddTaskData,
@@ -31,12 +33,11 @@ import {
 } from "@/components/base/add-recurring-task-modal";
 import { TaskCompletionReviewModal } from "@/components/base/task-completion-review-modal";
 import { TaskNoteModal } from "@/components/base/task-note-modal";
-import { TaskListCard } from "@/components/base/task-list-card";
-import { TodoSection } from "@/components/base/todo-section";
+import { TaskTreeRow } from "@/components/base/task-tree-row";
+import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PageHeader, SectionHeader } from "@/components/ui/page-header";
-import type { Task } from "@/features/tasks/task-types";
-import type { Todo } from "@/lib/db";
+import { cn } from "@/lib/cn";
 import { recordAppEvent } from "@/lib/db";
 import {
   addRecurringTaskRule,
@@ -45,24 +46,6 @@ import {
   updateRecurringTaskRule,
   type UserRecurringTaskRule,
 } from "@/features/tasks/recurring-task-rules";
-
-interface ListState {
-  searchQuery: string;
-  viewMode: TaskViewMode;
-  showAddModal: boolean;
-  showRecurringModal: boolean;
-  taskToEdit: Task | null;
-  taskToComplete: Task | null;
-  taskToRecord: Task | null;
-  taskToDelete: Task | null;
-  todoToConvert: Todo | null;
-  showDone: boolean;
-  doneVisibleCount: number;
-}
-
-type TaskViewMode = "list" | "grid";
-
-const TASK_VIEW_MODE_STORAGE_KEY = "time-butler:task-view-mode:v1";
 
 type TaskDropPosition = "before" | "after";
 
@@ -80,6 +63,8 @@ interface TaskRowBounds {
 
 interface PointerDrag {
   taskId: number;
+  parentId: number | null;
+  siblingIds: number[];
   pointerId: number;
   startY: number;
   isDragging: boolean;
@@ -89,163 +74,57 @@ interface PointerDrag {
   rowBounds: TaskRowBounds[];
 }
 
-type ListAction =
-  | { type: "SET_SEARCH"; query: string }
-  | { type: "SET_VIEW_MODE"; mode: TaskViewMode }
-  | { type: "OPEN_ADD_MODAL"; taskToEdit?: Task | null }
-  | { type: "OPEN_RECURRING_MODAL" }
-  | { type: "CLOSE_RECURRING_MODAL" }
-  | { type: "OPEN_CONVERT_MODAL"; todo: Todo }
-  | { type: "CLOSE_ADD_MODAL" }
-  | { type: "OPEN_COMPLETE_MODAL"; task: Task }
-  | { type: "CLOSE_COMPLETE_MODAL" }
-  | { type: "OPEN_NOTE_MODAL"; task: Task }
-  | { type: "CLOSE_NOTE_MODAL" }
-  | { type: "OPEN_DELETE_DIALOG"; task: Task }
-  | { type: "CLOSE_DELETE_DIALOG" }
-  | { type: "TOGGLE_DONE" }
-  | { type: "SHOW_MORE_DONE" };
-
-const INITIAL_LIST_STATE: ListState = {
-  searchQuery: "",
-  viewMode: "list",
-  showAddModal: false,
-  showRecurringModal: false,
-  taskToEdit: null,
-  taskToComplete: null,
-  taskToRecord: null,
-  taskToDelete: null,
-  todoToConvert: null,
-  showDone: false,
-  doneVisibleCount: 20,
-};
-
-function loadTaskViewMode(): TaskViewMode {
-  if (typeof window === "undefined") return "list";
-
-  try {
-    const savedMode = window.localStorage.getItem(TASK_VIEW_MODE_STORAGE_KEY);
-    return savedMode === "grid" || savedMode === "list" ? savedMode : "list";
-  } catch (error) {
-    console.warn("[TasksList] Failed to restore task view mode:", error);
-    return "list";
-  }
-}
-
-function initializeListState(state: ListState): ListState {
-  return { ...state, viewMode: loadTaskViewMode() };
-}
-
-function persistTaskViewMode(viewMode: TaskViewMode): void {
-  if (typeof window === "undefined") return;
-
-  try {
-    window.localStorage.setItem(TASK_VIEW_MODE_STORAGE_KEY, viewMode);
-  } catch (error) {
-    console.warn("[TasksList] Failed to persist task view mode:", error);
-  }
-}
-
-function listReducer(state: ListState, action: ListAction): ListState {
-  switch (action.type) {
-    case "SET_SEARCH":
-      return { ...state, searchQuery: action.query };
-    case "SET_VIEW_MODE":
-      return { ...state, viewMode: action.mode };
-    case "OPEN_ADD_MODAL":
-      return {
-        ...state,
-        showAddModal: true,
-        taskToEdit: action.taskToEdit ?? null,
-        todoToConvert: null,
-      };
-    case "OPEN_RECURRING_MODAL":
-      return { ...state, showRecurringModal: true };
-    case "CLOSE_RECURRING_MODAL":
-      return { ...state, showRecurringModal: false };
-    case "OPEN_CONVERT_MODAL":
-      return {
-        ...state,
-        showAddModal: true,
-        taskToEdit: null,
-        todoToConvert: action.todo,
-      };
-    case "CLOSE_ADD_MODAL":
-      return {
-        ...state,
-        showAddModal: false,
-        taskToEdit: null,
-        todoToConvert: null,
-      };
-    case "OPEN_COMPLETE_MODAL":
-      return { ...state, taskToComplete: action.task };
-    case "CLOSE_COMPLETE_MODAL":
-      return { ...state, taskToComplete: null };
-    case "OPEN_NOTE_MODAL":
-      return { ...state, taskToRecord: action.task };
-    case "CLOSE_NOTE_MODAL":
-      return { ...state, taskToRecord: null };
-    case "OPEN_DELETE_DIALOG":
-      return { ...state, taskToDelete: action.task };
-    case "CLOSE_DELETE_DIALOG":
-      return { ...state, taskToDelete: null };
-    case "TOGGLE_DONE":
-      return { ...state, showDone: !state.showDone, doneVisibleCount: 20 };
-    case "SHOW_MORE_DONE":
-      return { ...state, doneVisibleCount: state.doneVisibleCount + 20 };
-    default:
-      return state;
-  }
+function isScheduledForFuture(task: Task): boolean {
+  if (!task.scheduled_for) return false;
+  const scheduledTime = new Date(task.scheduled_for).getTime();
+  return Number.isFinite(scheduledTime) && scheduledTime > Date.now();
 }
 
 export function TasksList() {
   const navigate = useNavigate();
-  const tasks = useTaskStore((s) => s.tasks);
-  const addTask = useTaskStore((s) => s.addTask);
-  const updateTask = useTaskStore((s) => s.updateTask);
-  const reorderTasks = useTaskStore((s) => s.reorderTasks);
-  const deleteTask = useTaskStore((s) => s.deleteTask);
-  const completeTask = useTaskStore((s) => s.completeTask);
-  const appendTaskNote = useTaskStore((s) => s.appendTaskNote);
-  const loadTasks = useTaskStore((s) => s.loadTasks);
-  const todos = useTodoStore((s) => s.todos);
-  const archiveTodo = useTodoStore((s) => s.archiveTodo);
-  const categories = useCategoriesStore((s) => s.categories);
-  const loadCategories = useCategoriesStore((s) => s.loadCategories);
+  const tasks = useTaskStore((state) => state.tasks);
+  const loading = useTaskStore((state) => state.loading);
+  const error = useTaskStore((state) => state.error);
+  const loadTasks = useTaskStore((state) => state.loadTasks);
+  const addTask = useTaskStore((state) => state.addTask);
+  const addTodo = useTaskStore((state) => state.addTodo);
+  const addSubtask = useTaskStore((state) => state.addSubtask);
+  const updateTask = useTaskStore((state) => state.updateTask);
+  const setCompleted = useTaskStore((state) => state.setCompleted);
+  const setItemType = useTaskStore((state) => state.setItemType);
+  const reorderTasks = useTaskStore((state) => state.reorderTasks);
+  const deleteTask = useTaskStore((state) => state.deleteTask);
+  const completeTask = useTaskStore((state) => state.completeTask);
+  const appendTaskNote = useTaskStore((state) => state.appendTaskNote);
+  const categories = useCategoriesStore((state) => state.categories);
+  const loadCategories = useCategoriesStore((state) => state.loadCategories);
 
-  const activeTaskId = useTimerStore((s) => s.activeTaskId);
-  const currentSessionTaskId = useTimerStore((s) => s.currentSessionTaskId);
-  const timerPhase = useTimerStore((s) => s.phase);
-  const timerStatus = useTimerStore((s) => s.status);
-  const setActiveTask = useTimerStore((s) => s.setActiveTask);
+  const activeTaskId = useTimerStore((state) => state.activeTaskId);
+  const currentSessionTaskId = useTimerStore((state) => state.currentSessionTaskId);
+  const timerPhase = useTimerStore((state) => state.phase);
+  const timerStatus = useTimerStore((state) => state.status);
+  const setActiveTask = useTimerStore((state) => state.setActiveTask);
 
-  const [listState, dispatch] = useReducer(
-    listReducer,
-    INITIAL_LIST_STATE,
-    initializeListState,
-  );
+  const [searchQuery, setSearchQuery] = useState("");
+  const [quickDraft, setQuickDraft] = useState("");
+  const [showAddFocusModal, setShowAddFocusModal] = useState(false);
+  const [showRecurringModal, setShowRecurringModal] = useState(false);
+  const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
+  const [taskToConvert, setTaskToConvert] = useState<Task | null>(null);
+  const [taskToComplete, setTaskToComplete] = useState<Task | null>(null);
+  const [taskToRecord, setTaskToRecord] = useState<Task | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+  const [showDone, setShowDone] = useState(false);
+  const [doneVisibleCount, setDoneVisibleCount] = useState(20);
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const [subtaskParentId, setSubtaskParentId] = useState<number | null>(null);
+  const [subtaskDraft, setSubtaskDraft] = useState("");
+  const [recurringRules, setRecurringRules] = useState<UserRecurringTaskRule[]>([]);
   const [draggingTaskId, setDraggingTaskId] = useState<number | null>(null);
   const [dropTarget, setDropTarget] = useState<TaskDropTarget | null>(null);
-  const [recurringRules, setRecurringRules] = useState<UserRecurringTaskRule[]>([]);
+  const initializedGroupsRef = useRef<Set<number>>(new Set());
   const pointerDragRef = useRef<PointerDrag | null>(null);
   const dropTargetRef = useRef<TaskDropTarget | null>(null);
-  const {
-    searchQuery,
-    viewMode,
-    showAddModal,
-    showRecurringModal,
-    taskToEdit,
-    taskToComplete,
-    taskToRecord,
-    taskToDelete,
-    todoToConvert,
-    showDone,
-    doneVisibleCount,
-  } = listState;
-
-  useEffect(() => {
-    persistTaskViewMode(viewMode);
-  }, [viewMode]);
 
   useEffect(() => {
     void loadCategories();
@@ -253,11 +132,9 @@ export function TasksList() {
 
   useEffect(() => {
     let disposed = false;
-
     const refreshTasks = () => {
       if (!disposed) void loadTasks();
     };
-
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") refreshTasks();
     };
@@ -265,7 +142,6 @@ export function TasksList() {
     refreshTasks();
     window.addEventListener("focus", refreshTasks);
     document.addEventListener("visibilitychange", handleVisibilityChange);
-
     return () => {
       disposed = true;
       window.removeEventListener("focus", refreshTasks);
@@ -273,38 +149,173 @@ export function TasksList() {
     };
   }, [loadTasks]);
 
-  const {
-    active: activeTasks,
-    scheduled: scheduledTasks,
-    done: doneTasks,
-  } = useTaskFilter(
-    tasks,
-    searchQuery,
+  const taskById = useMemo(
+    () => new Map(tasks.map((task) => [task.id, task])),
+    [tasks],
   );
-  const sortedDoneTasks = [...doneTasks].sort((a, b) => {
-    const aTime = a.completed_at ? new Date(a.completed_at).getTime() : 0;
-    const bTime = b.completed_at ? new Date(b.completed_at).getTime() : 0;
-    return bTime - aTime;
-  });
-  const visibleDoneTasks = sortedDoneTasks.slice(0, doneVisibleCount);
+  const childrenByParent = useMemo(() => {
+    const map = new Map<number, Task[]>();
+    tasks.forEach((task) => {
+      const parentId = task.parent_id ?? null;
+      if (parentId == null) return;
+      const children = map.get(parentId) ?? [];
+      children.push(task);
+      map.set(parentId, children);
+    });
+    return map;
+  }, [tasks]);
+  const rootTasks = useMemo(
+    () =>
+      tasks.filter((task) => {
+        const parentId = task.parent_id ?? null;
+        return parentId == null || !taskById.has(parentId);
+      }),
+    [taskById, tasks],
+  );
+
+  useEffect(() => {
+    const newlyDiscoveredOpenGroups = rootTasks.filter(
+      (task) =>
+        !task.completed_at
+        && (childrenByParent.get(task.id)?.length ?? 0) > 0
+        && !initializedGroupsRef.current.has(task.id),
+    );
+    if (newlyDiscoveredOpenGroups.length === 0) return;
+
+    newlyDiscoveredOpenGroups.forEach((task) => initializedGroupsRef.current.add(task.id));
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      newlyDiscoveredOpenGroups.forEach((task) => next.add(task.id));
+      return next;
+    });
+  }, [childrenByParent, rootTasks]);
+
   const normalizedSearch = searchQuery.trim().toLowerCase();
-  const hasTodoMatch = todos.some(
-    (todo) => !normalizedSearch || todo.title.toLowerCase().includes(normalizedSearch),
-  );
-  const canReorderActiveTasks =
-    viewMode === "list" && !searchQuery.trim() && activeTasks.length > 1;
+  const taskMatchesSearch = (task: Task) =>
+    !normalizedSearch
+    || task.name.toLowerCase().includes(normalizedSearch)
+    || (task.project ?? "").toLowerCase().includes(normalizedSearch);
+  const visibleRoots = rootTasks.filter((root) => {
+    if (taskMatchesSearch(root)) return true;
+    return (childrenByParent.get(root.id) ?? []).some(taskMatchesSearch);
+  });
+  const openRoots = visibleRoots.filter((task) => !task.completed_at);
+  const doneRoots = visibleRoots
+    .filter((task) => task.completed_at)
+    .sort(
+      (a, b) =>
+        new Date(b.completed_at ?? b.created_at).getTime()
+        - new Date(a.completed_at ?? a.created_at).getTime(),
+    );
+  const visibleDoneRoots = doneRoots.slice(0, doneVisibleCount);
+  const revealDone = showDone || Boolean(normalizedSearch);
   const categoryNameById = new Map(
     categories.map((category) => [category.id, category.name]),
   );
 
-  const handleFocus = async (taskId: number) => {
-    await setActiveTask(taskId);
+  const toggleExpanded = (taskId: number) => {
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  };
+
+  const handleQuickAdd = async (event: FormEvent) => {
+    event.preventDefault();
+    const created = await addTodo(quickDraft);
+    if (created) setQuickDraft("");
+  };
+
+  const handleTaskModalSubmit = async (data: AddTaskData) => {
+    if (taskToEdit) {
+      await updateTask(taskToEdit.id, data.name, data.estimatedPomos);
+      return true;
+    }
+    if (taskToConvert) {
+      if (data.name !== taskToConvert.name) {
+        await updateTask(taskToConvert.id, data.name);
+      }
+      return setItemType(taskToConvert.id, "focus", data.estimatedPomos);
+    }
+    return Boolean(await addTask(data.name, data.estimatedPomos));
+  };
+
+  const closeTaskModal = () => {
+    setShowAddFocusModal(false);
+    setTaskToEdit(null);
+    setTaskToConvert(null);
+  };
+
+  const handleFocus = async (task: Task) => {
+    await setActiveTask(task.id);
     navigate("/");
   };
 
-  const handleAddTask = async (data: AddTaskData) => {
-    const task = await addTask(data.name, data.estimatedPomos);
-    return Boolean(task);
+  const handleConvertToTodo = async (task: Task) => {
+    if (
+      timerStatus !== "idle"
+      && timerPhase === "work"
+      && currentSessionTaskId === task.id
+    ) {
+      return;
+    }
+    const converted = await setItemType(task.id, "todo");
+    if (converted && activeTaskId === task.id) await setActiveTask(null);
+  };
+
+  const handleCompleteTask = async (data: {
+    actualPomos: number;
+    review: string;
+  }) => {
+    if (!taskToComplete) return;
+    await completeTask(taskToComplete.id, data.actualPomos, data.review);
+    if (activeTaskId === taskToComplete.id) await setActiveTask(null);
+    setTaskToComplete(null);
+  };
+
+  const handleAppendTaskNote = async (content: string) => {
+    if (!taskToRecord) return false;
+    return appendTaskNote(taskToRecord.id, content, "task-card");
+  };
+
+  const handleDeleteTask = async () => {
+    if (!taskToDelete) return;
+    const childIds = new Set(
+      (childrenByParent.get(taskToDelete.id) ?? []).map((task) => task.id),
+    );
+    if (activeTaskId === taskToDelete.id || (activeTaskId != null && childIds.has(activeTaskId))) {
+      await setActiveTask(null);
+    }
+    await deleteTask(taskToDelete.id);
+    setTaskToDelete(null);
+  };
+
+  const beginAddSubtask = (task: Task) => {
+    setSubtaskParentId(task.id);
+    setSubtaskDraft("");
+    setExpandedIds((current) => new Set(current).add(task.id));
+  };
+
+  const handleAddSubtask = async (event: FormEvent, parent: Task) => {
+    event.preventDefault();
+    const created = await addSubtask(parent.id, subtaskDraft);
+    if (!created) return;
+
+    if (activeTaskId === parent.id) await setActiveTask(null);
+    setExpandedIds((current) => new Set(current).add(parent.id));
+    setSubtaskDraft("");
+    setSubtaskParentId(null);
+  };
+
+  const handleOpenRecurringModal = () => {
+    setShowRecurringModal(true);
+    void getRecurringTaskRules()
+      .then(setRecurringRules)
+      .catch((error) => {
+        console.error("[TasksList] Failed to load recurring rules:", error);
+      });
   };
 
   const handleAddRecurringTask = async (data: AddRecurringTaskData) => {
@@ -325,15 +336,6 @@ export function TasksList() {
       },
     });
     return true;
-  };
-
-  const handleOpenRecurringModal = () => {
-    dispatch({ type: "OPEN_RECURRING_MODAL" });
-    void getRecurringTaskRules()
-      .then(setRecurringRules)
-      .catch((error) => {
-        console.error("[TasksList] Failed to load recurring rules:", error);
-      });
   };
 
   const handleToggleRecurringRule = async (ruleId: number, enabled: boolean) => {
@@ -360,8 +362,7 @@ export function TasksList() {
     data: AddRecurringTaskData,
   ) => {
     await updateRecurringTaskRule(ruleId, data);
-    const rules = await getRecurringTaskRules();
-    setRecurringRules(rules);
+    setRecurringRules(await getRecurringTaskRules());
     await loadTasks();
     void recordAppEvent({
       eventName: "recurring_task_rule_updated",
@@ -378,52 +379,6 @@ export function TasksList() {
       },
     });
     return true;
-  };
-
-  const handleEditTask = async (data: AddTaskData) => {
-    if (!taskToEdit) return;
-    await updateTask(
-      taskToEdit.id,
-      data.name,
-      data.estimatedPomos,
-    );
-    return true;
-  };
-
-  const handleConvertTodo = async (data: AddTaskData) => {
-    if (!todoToConvert) return false;
-    const task = await addTask(data.name, data.estimatedPomos);
-    if (!task) return false;
-
-    return archiveTodo(todoToConvert.id, "todo_converted_to_task");
-  };
-
-  const handleCompleteTask = async (data: {
-    actualPomos: number;
-    review: string;
-  }) => {
-    if (!taskToComplete) return;
-    await completeTask(taskToComplete.id, data.actualPomos, data.review);
-    if (activeTaskId === taskToComplete.id) {
-      await setActiveTask(null);
-    }
-    dispatch({ type: "CLOSE_COMPLETE_MODAL" });
-  };
-
-  const handleCompleteTaskRequest = (task: Task) => {
-    dispatch({ type: "OPEN_COMPLETE_MODAL", task });
-  };
-
-  const handleAppendTaskNote = async (content: string) => {
-    if (!taskToRecord) return false;
-    return appendTaskNote(taskToRecord.id, content, "task-card");
-  };
-
-  const handleDeleteTask = async () => {
-    if (!taskToDelete) return;
-    await deleteTask(taskToDelete.id);
-    if (activeTaskId === taskToDelete.id) await setActiveTask(null);
-    dispatch({ type: "CLOSE_DELETE_DIALOG" });
   };
 
   const setCurrentDropTarget = (target: TaskDropTarget | null) => {
@@ -465,43 +420,11 @@ export function TasksList() {
     target instanceof Element
     && Boolean(target.closest("button, input, textarea, select, a, [data-task-drag-exempt]"));
 
-  const captureTaskRowBounds = (): TaskRowBounds[] => {
-    const activeTaskIds = new Set(activeTasks.map((task) => task.id));
-    return Array.from(document.querySelectorAll<HTMLElement>("[data-task-id]"))
-      .map((row) => {
-        const id = Number(row.dataset.taskId);
-        const bounds = row.getBoundingClientRect();
-        return {
-          id,
-          top: bounds.top,
-          bottom: bounds.bottom,
-          midpoint: bounds.top + bounds.height / 2,
-        };
-      })
-      .filter((row) => Number.isInteger(row.id) && activeTaskIds.has(row.id));
-  };
-
-  const getDropTargetAtY = (
-    clientY: number,
-    pointerDrag: PointerDrag,
-  ): TaskDropTarget | null => {
-    const row = pointerDrag.rowBounds.find(
-      (bounds) =>
-        bounds.id !== pointerDrag.taskId
-        && clientY >= bounds.top
-        && clientY <= bounds.bottom,
-    );
-    if (!row) return null;
-
-    return {
-      id: row.id,
-      position: clientY < row.midpoint ? "before" : "after",
-    };
-  };
-
-  const handleTaskPointerDown = (
+  const handlePointerDown = (
     event: PointerEvent<HTMLElement>,
     taskId: number,
+    parentId: number | null,
+    siblingIds: number[],
   ) => {
     if (event.button !== 0 || event.isPrimary === false || isTaskControl(event.target)) return;
 
@@ -509,6 +432,8 @@ export function TasksList() {
     event.currentTarget.setPointerCapture?.(event.pointerId);
     pointerDragRef.current = {
       taskId,
+      parentId,
+      siblingIds,
       pointerId: event.pointerId,
       startY: event.clientY,
       isDragging: false,
@@ -520,7 +445,7 @@ export function TasksList() {
     setCurrentDropTarget(null);
   };
 
-  const handleTaskPointerMove = (event: PointerEvent<HTMLElement>) => {
+  const handlePointerMove = (event: PointerEvent<HTMLElement>) => {
     const pointerDrag = pointerDragRef.current;
     if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
 
@@ -529,8 +454,22 @@ export function TasksList() {
 
     event.preventDefault();
     if (!pointerDrag.isDragging) {
+      const siblingIds = new Set(pointerDrag.siblingIds);
       pointerDrag.isDragging = true;
-      pointerDrag.rowBounds = captureTaskRowBounds();
+      pointerDrag.rowBounds = Array.from(
+        document.querySelectorAll<HTMLElement>("[data-task-id]"),
+      )
+        .map((row) => {
+          const id = Number(row.dataset.taskId);
+          const bounds = row.getBoundingClientRect();
+          return {
+            id,
+            top: bounds.top,
+            bottom: bounds.bottom,
+            midpoint: bounds.top + bounds.height / 2,
+          };
+        })
+        .filter((row) => Number.isInteger(row.id) && siblingIds.has(row.id));
       pointerDrag.rowElement.style.transition = "none";
       pointerDrag.rowElement.style.willChange = "transform";
       pointerDrag.rowElement.style.pointerEvents = "none";
@@ -549,10 +488,24 @@ export function TasksList() {
         applyPointerTransform(pointerDrag);
       }
     }
-    setCurrentDropTarget(getDropTargetAtY(event.clientY, pointerDrag));
+
+    const row = pointerDrag.rowBounds.find(
+      (bounds) =>
+        bounds.id !== pointerDrag.taskId
+        && event.clientY >= bounds.top
+        && event.clientY <= bounds.bottom,
+    );
+    setCurrentDropTarget(
+      row
+        ? {
+            id: row.id,
+            position: event.clientY < row.midpoint ? "before" : "after",
+          }
+        : null,
+    );
   };
 
-  const handleTaskPointerUp = (event: PointerEvent<HTMLElement>) => {
+  const handlePointerUp = (event: PointerEvent<HTMLElement>) => {
     const pointerDrag = pointerDragRef.current;
     if (!pointerDrag || pointerDrag.pointerId !== event.pointerId) return;
 
@@ -567,60 +520,255 @@ export function TasksList() {
     setCurrentDropTarget(null);
     if (!pointerDrag.isDragging || !target || pointerDrag.taskId === target.id) return;
 
-    const orderedIds = activeTasks.map((task) => task.id);
-    const sourceIndex = orderedIds.indexOf(pointerDrag.taskId);
-    const targetIndex = orderedIds.indexOf(target.id);
-    if (sourceIndex < 0 || targetIndex < 0) return;
-
-    const nextIds = [...orderedIds];
+    const nextIds = [...pointerDrag.siblingIds];
+    const sourceIndex = nextIds.indexOf(pointerDrag.taskId);
+    if (sourceIndex < 0 || !nextIds.includes(target.id)) return;
     nextIds.splice(sourceIndex, 1);
     const insertIndex = nextIds.indexOf(target.id) + (target.position === "after" ? 1 : 0);
     nextIds.splice(insertIndex, 0, pointerDrag.taskId);
-    void reorderTasks(nextIds);
+    if (pointerDrag.parentId == null) void reorderTasks(nextIds);
+    else void reorderTasks(nextIds, pointerDrag.parentId);
   };
 
+  const renderTask = (task: Task, depth: 0 | 1) => {
+    const allChildren = childrenByParent.get(task.id) ?? [];
+    const children = normalizedSearch && !taskMatchesSearch(task)
+      ? allChildren.filter(taskMatchesSearch)
+      : allChildren;
+    const completedChildCount = allChildren.filter((child) => child.completed_at).length;
+    const isGroup = allChildren.length > 0;
+    const isExpanded = Boolean(normalizedSearch) || expandedIds.has(task.id);
+    const parentId = task.parent_id ?? null;
+    const siblings = parentId == null
+      ? openRoots
+      : childrenByParent.get(parentId) ?? [];
+    const siblingIds = siblings.map((sibling) => sibling.id);
+    const canReorder = !normalizedSearch && siblings.length > 1 && !task.completed_at;
+    const taskIsCurrentRunningSession =
+      timerPhase === "work"
+      && timerStatus !== "idle"
+      && currentSessionTaskId === task.id;
+    const runtimeStatus =
+      taskIsCurrentRunningSession
+        ? timerStatus === "running" || timerStatus === "paused"
+          ? timerStatus
+          : null
+        : null;
+    const canFocus =
+      getTaskItemType(task) === "focus"
+      && !isGroup
+      && !task.completed_at
+      && !isScheduledForFuture(task);
+
+    return (
+      <div key={task.id} className={cn(depth === 0 && "space-y-1.5")}>
+        <TaskTreeRow
+          task={task}
+          depth={depth}
+          childCount={allChildren.length}
+          completedChildCount={completedChildCount}
+          expanded={isExpanded}
+          categoryName={
+            task.category_id == null
+              ? null
+              : categoryNameById.get(task.category_id)
+          }
+          isActive={activeTaskId === task.id}
+          runtimeStatus={runtimeStatus}
+          reorderable={canReorder}
+          dragging={draggingTaskId === task.id}
+          dropIndicator={dropTarget?.id === task.id ? dropTarget.position : null}
+          canAddSubtask={depth === 0 && !taskIsCurrentRunningSession}
+          onToggleExpanded={() => toggleExpanded(task.id)}
+          onToggleTodo={() => void setCompleted(task.id, !task.completed_at)}
+          onFocus={canFocus ? () => void handleFocus(task) : undefined}
+          onCompleteFocus={
+            getTaskItemType(task) === "focus" && !isGroup && !task.completed_at
+              ? () => setTaskToComplete(task)
+              : undefined
+          }
+          onConvertToFocus={
+            getTaskItemType(task) === "todo" && !isGroup && !task.completed_at
+              ? () => setTaskToConvert(task)
+              : undefined
+          }
+          onConvertToTodo={
+            getTaskItemType(task) === "focus"
+            && !isGroup
+            && !task.completed_at
+            && !taskIsCurrentRunningSession
+              ? () => void handleConvertToTodo(task)
+              : undefined
+          }
+          onAddSubtask={
+            depth === 0 && !taskIsCurrentRunningSession
+              ? () => beginAddSubtask(task)
+              : undefined
+          }
+          onRename={async (name) => {
+            await updateTask(task.id, name);
+            return true;
+          }}
+          onEditDetails={
+            getTaskItemType(task) === "focus" && !isGroup
+              ? () => setTaskToEdit(task)
+              : undefined
+          }
+          onRecord={
+            getTaskItemType(task) === "focus" && !isGroup
+              ? () => setTaskToRecord(task)
+              : undefined
+          }
+          onDelete={() => setTaskToDelete(task)}
+          onPointerDown={(event) =>
+            handlePointerDown(event, task.id, parentId, siblingIds)}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={clearPointerDrag}
+        />
+
+        {isGroup && isExpanded && (
+          <div className="ml-4 border-l border-sahara-border pl-3 md:ml-5 md:pl-4">
+            {children.map((child) => renderTask(child, 1))}
+            {subtaskParentId === task.id && (
+              <form
+                onSubmit={(event) => void handleAddSubtask(event, task)}
+                className="flex items-center gap-2 border-t border-sahara-border bg-sahara-surface px-3 py-2.5"
+              >
+                <Plus aria-hidden="true" className="size-4 shrink-0 text-sahara-text-muted" />
+                <input
+                  autoFocus
+                  type="text"
+                  name={`subtask-${task.id}`}
+                  value={subtaskDraft}
+                  onChange={(event) => setSubtaskDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      setSubtaskParentId(null);
+                      setSubtaskDraft("");
+                    }
+                  }}
+                  aria-label={`添加子任务：${task.name}`}
+                  placeholder="输入子任务，按回车保存…"
+                  className="h-8 min-w-0 flex-1 bg-transparent px-1 text-sm text-sahara-text outline-none placeholder:text-sahara-text-muted"
+                />
+                <Button
+                  type="submit"
+                  variant="ghost"
+                  intent="sahara"
+                  size="xs"
+                  disabled={!subtaskDraft.trim()}
+                >
+                  添加
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSubtaskParentId(null);
+                    setSubtaskDraft("");
+                  }}
+                  className="rounded-md px-2 py-1.5 text-xs text-sahara-text-secondary outline-none hover:bg-sahara-card hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus"
+                >
+                  取消
+                </button>
+              </form>
+            )}
+          </div>
+        )}
+
+        {!isGroup && subtaskParentId === task.id && (
+          <div className="ml-4 border-l border-sahara-border pl-3 md:ml-5 md:pl-4">
+            <form
+              onSubmit={(event) => void handleAddSubtask(event, task)}
+              className="flex items-center gap-2 border-t border-sahara-border bg-sahara-surface px-3 py-2.5"
+            >
+              <Plus aria-hidden="true" className="size-4 shrink-0 text-sahara-text-muted" />
+              <input
+                autoFocus
+                type="text"
+                name={`subtask-${task.id}`}
+                value={subtaskDraft}
+                onChange={(event) => setSubtaskDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    setSubtaskParentId(null);
+                    setSubtaskDraft("");
+                  }
+                }}
+                aria-label={`添加子任务：${task.name}`}
+                placeholder="输入子任务，按回车保存…"
+                className="h-8 min-w-0 flex-1 bg-transparent px-1 text-sm text-sahara-text outline-none placeholder:text-sahara-text-muted"
+              />
+              <Button
+                type="submit"
+                variant="ghost"
+                intent="sahara"
+                size="xs"
+                disabled={!subtaskDraft.trim()}
+              >
+                添加
+              </Button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSubtaskParentId(null);
+                  setSubtaskDraft("");
+                }}
+                className="rounded-md px-2 py-1.5 text-xs text-sahara-text-secondary outline-none hover:bg-sahara-card hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus"
+              >
+                取消
+              </button>
+            </form>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const deletingChildCount = taskToDelete
+    ? (childrenByParent.get(taskToDelete.id)?.length ?? 0)
+    : 0;
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       <PageHeader
         eyebrow="任务管理"
         title="我的任务"
-        description="小事直接勾掉，需要投入时再开始专注。"
+        description="在一棵任务树里拆解、勾选和专注推进。"
         className="mb-6 md:mb-8"
       />
 
-      {/* Shared search */}
       <div className="mb-7 border-b border-sahara-border pb-5 md:mb-9">
         <div className="relative flex-1 sm:max-w-xs">
-          <Search aria-hidden="true" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-sahara-text-muted" />
+          <Search
+            aria-hidden="true"
+            className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-sahara-text-muted"
+          />
           <input
-            type="text"
+            type="search"
             name="task-search"
             autoComplete="off"
-            aria-label="搜索待办和任务"
-            placeholder="搜索待办和任务…"
+            aria-label="搜索任务"
+            placeholder="搜索任务…"
             value={searchQuery}
-            onChange={(e) => dispatch({ type: "SET_SEARCH", query: e.target.value })}
+            onChange={(event) => setSearchQuery(event.target.value)}
             className="h-9 w-full rounded-md border border-sahara-border bg-sahara-surface pl-9 pr-3 text-sm text-sahara-text outline-none transition-colors duration-150 placeholder:text-sahara-text-muted focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
           />
         </div>
       </div>
 
       <AddTaskModal
-        open={showAddModal}
-        onClose={() => dispatch({ type: "CLOSE_ADD_MODAL" })}
-        onSubmit={
-          taskToEdit
-            ? handleEditTask
-            : todoToConvert
-              ? handleConvertTodo
-              : handleAddTask
-        }
-        initialName={todoToConvert?.title}
-        editTask={taskToEdit}
+        open={showAddFocusModal || Boolean(taskToEdit) || Boolean(taskToConvert)}
+        onClose={closeTaskModal}
+        onSubmit={handleTaskModalSubmit}
+        editTask={taskToEdit ?? taskToConvert}
+        mode={taskToEdit ? "edit" : taskToConvert ? "convert" : "create"}
       />
       <AddRecurringTaskModal
         open={showRecurringModal}
-        onClose={() => dispatch({ type: "CLOSE_RECURRING_MODAL" })}
+        onClose={() => setShowRecurringModal(false)}
         onSubmit={handleAddRecurringTask}
         projectOptions={tasks.map((task) => task.project ?? "")}
         rules={recurringRules}
@@ -628,85 +776,60 @@ export function TasksList() {
         onUpdateRule={handleUpdateRecurringRule}
       />
       <TaskCompletionReviewModal
-        open={!!taskToComplete}
+        open={Boolean(taskToComplete)}
         task={taskToComplete}
-        onClose={() => dispatch({ type: "CLOSE_COMPLETE_MODAL" })}
+        onClose={() => setTaskToComplete(null)}
         onSubmit={handleCompleteTask}
       />
       <TaskNoteModal
-        open={!!taskToRecord}
+        open={Boolean(taskToRecord)}
         task={taskToRecord}
-        onClose={() => dispatch({ type: "CLOSE_NOTE_MODAL" })}
+        onClose={() => setTaskToRecord(null)}
         onSubmit={handleAppendTaskNote}
       />
       <ConfirmDialog
-        open={!!taskToDelete}
-        title="删除任务？"
-        description={taskToDelete ? `“${taskToDelete.name}”将从任务列表中移除，此操作无法撤销。` : ""}
+        open={Boolean(taskToDelete)}
+        title={deletingChildCount > 0 ? "删除整组任务？" : "删除任务？"}
+        description={
+          taskToDelete
+            ? deletingChildCount > 0
+              ? `“${taskToDelete.name}”及其 ${deletingChildCount} 个子任务和关联专注记录将被删除，此操作无法撤销。`
+              : `“${taskToDelete.name}”及关联专注记录将被删除，此操作无法撤销。`
+            : ""
+        }
         confirmLabel="删除任务"
         destructive
-        onClose={() => dispatch({ type: "CLOSE_DELETE_DIALOG" })}
+        onClose={() => setTaskToDelete(null)}
         onConfirm={handleDeleteTask}
       />
 
-      <TodoSection
-        searchQuery={searchQuery}
-        onConvert={(todo) => dispatch({ type: "OPEN_CONVERT_MODAL", todo })}
-      />
-
-      <section
-        aria-label="专注任务"
-        aria-describedby={canReorderActiveTasks ? "task-reorder-help" : undefined}
-        className="border-t border-sahara-border pt-8 md:pt-9"
-      >
+      <section aria-label="任务">
         <SectionHeader
-          title="专注任务"
+          title="任务"
           meta={
             <span className="text-xs text-sahara-text-muted">
-              {activeTasks.length + scheduledTasks.length}
+              {openRoots.length}
             </span>
           }
           actions={
-            <div role="group" aria-label="专注任务操作" className="flex items-center gap-2">
-              <Button
-                variant={viewMode === "list" ? "solid" : "outline"}
-                intent={viewMode === "list" ? "sahara" : "default"}
-                size="icon"
-                aria-label="列表视图"
-                aria-pressed={viewMode === "list"}
-                onClick={() => dispatch({ type: "SET_VIEW_MODE", mode: "list" })}
-                className="min-h-10 min-w-10 border-sahara-border"
-              >
-                <ListTodo aria-hidden="true" className="size-4" />
-              </Button>
-              <Button
-                variant={viewMode === "grid" ? "solid" : "outline"}
-                intent={viewMode === "grid" ? "sahara" : "default"}
-                size="icon"
-                aria-label="网格视图"
-                aria-pressed={viewMode === "grid"}
-                onClick={() => dispatch({ type: "SET_VIEW_MODE", mode: "grid" })}
-                className="min-h-10 min-w-10 border-sahara-border"
-              >
-                <LayoutGrid aria-hidden="true" className="size-4" />
-              </Button>
+            <div role="group" aria-label="任务操作" className="flex items-center gap-2">
               <Button
                 variant="outline"
                 intent="default"
                 size="sm"
                 aria-label="添加循环任务"
                 onClick={handleOpenRecurringModal}
-                className="ml-1 min-h-10 gap-1.5 px-2.5 text-xs font-medium md:ml-2 md:px-3"
+                className="min-h-10 gap-1.5 px-2.5 text-xs font-medium md:px-3"
               >
                 <Repeat2 aria-hidden="true" className="size-3.5 md:size-4" />
-                <span className="hidden md:inline">添加循环任务</span>
+                <span className="hidden md:inline">循环任务</span>
               </Button>
               <Button
                 variant="solid"
                 intent="sahara"
                 size="sm"
                 aria-label="添加专注任务"
-                onClick={() => dispatch({ type: "OPEN_ADD_MODAL" })}
+                onClick={() => setShowAddFocusModal(true)}
                 className="min-h-10 gap-1.5 px-2.5 text-xs font-medium md:px-3"
               >
                 <Plus aria-hidden="true" className="size-3.5 md:size-4" />
@@ -714,211 +837,97 @@ export function TasksList() {
               </Button>
             </div>
           }
-          className="mb-5"
+          className="mb-3"
         />
 
-      {/* Task Sections */}
-      {activeTasks.length === 0 &&
-      scheduledTasks.length === 0 &&
-      doneTasks.length === 0 &&
-      searchQuery &&
-      !hasTodoMatch ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <Filter className="size-12 text-sahara-border mb-4" />
-          <p className="text-sm font-semibold text-sahara-text-secondary">
-            没有找到任务
+        <form
+          onSubmit={(event) => void handleQuickAdd(event)}
+          className="mb-3 flex items-center gap-2 rounded-md border border-sahara-border bg-sahara-surface px-3 py-2.5"
+        >
+          <Plus aria-hidden="true" className="size-4 shrink-0 text-sahara-text-muted" />
+          <input
+            type="text"
+            name="quick-task"
+            autoComplete="off"
+            value={quickDraft}
+            onChange={(event) => setQuickDraft(event.target.value)}
+            aria-label="添加任务"
+            placeholder="添加任务，按回车保存…"
+            className="h-8 min-w-0 flex-1 bg-transparent px-1 text-sm text-sahara-text outline-none placeholder:text-sahara-text-muted"
+          />
+          <Button
+            type="submit"
+            variant="ghost"
+            intent="sahara"
+            size="xs"
+            disabled={!quickDraft.trim()}
+          >
+            添加
+          </Button>
+        </form>
+
+        {error && (
+          <p role="alert" className="mb-3 text-xs text-red-600 dark:text-red-400">
+            任务保存失败，请重试。
           </p>
-          <p className="mt-1 text-xs text-sahara-text-secondary">
-            换个关键词试试
+        )}
+
+        {loading && tasks.length === 0 ? (
+          <p className="rounded-md border border-sahara-border px-4 py-8 text-center text-sm text-sahara-text-muted">
+            正在加载任务…
           </p>
-        </div>
-      ) : (
-        <div className="space-y-9">
-          {/* Active Tasks */}
-          {activeTasks.length > 0 && (
-            <div>
-              <SectionHeader
-                title="进行中"
-                meta={<span className="text-xs text-sahara-text-muted">{activeTasks.length}</span>}
-                className="mb-3"
-              />
-              <div
-                className={cn(
-                  viewMode === "grid"
-                    ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4"
-                    : "space-y-2.5 md:space-y-3",
-                )}
-              >
-                {activeTasks.map((task) => (
-                  <TaskListCard
-                    key={task.id}
-                    task={task}
-                    categoryName={
-                      task.category_id == null
-                        ? null
-                        : categoryNameById.get(task.category_id)
-                    }
-                    isActive={activeTaskId === task.id}
-                    runtimeStatus={
-                      timerPhase === "work"
-                      && currentSessionTaskId === task.id
-                      && timerStatus !== "idle"
-                        ? timerStatus
-                        : null
-                    }
-                    onToggleActive={() =>
-                      setActiveTask(activeTaskId === task.id ? null : task.id)
-                    }
-                    onFocus={() => handleFocus(task.id)}
-                    onRecord={() =>
-                      dispatch({ type: "OPEN_NOTE_MODAL", task })
-                    }
-                    onEdit={() =>
-                      dispatch({ type: "OPEN_ADD_MODAL", taskToEdit: task })
-                    }
-                    onDelete={() => dispatch({ type: "OPEN_DELETE_DIALOG", task })}
-                    onCompleteTask={() => handleCompleteTaskRequest(task)}
-                    layout={viewMode}
-                    reorderable={canReorderActiveTasks}
-                    dragging={draggingTaskId === task.id}
-                    dropIndicator={
-                      dropTarget?.id === task.id ? dropTarget.position : null
-                    }
-                    onPointerDown={(event) => handleTaskPointerDown(event, task.id)}
-                    onPointerMove={handleTaskPointerMove}
-                    onPointerUp={handleTaskPointerUp}
-                    onPointerCancel={clearPointerDrag}
-                  />
-                ))}
-              </div>
-              {canReorderActiveTasks && (
-                <p id="task-reorder-help" className="sr-only">
-                  按住任务空白处或点阵，拖到另一项任务的上方或下方以调整优先顺序。
-                </p>
+        ) : openRoots.length > 0 ? (
+          <div className="space-y-2.5">{openRoots.map((task) => renderTask(task, 0))}</div>
+        ) : normalizedSearch && doneRoots.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-14 text-center">
+            <Filter aria-hidden="true" className="mb-3 size-10 text-sahara-border" />
+            <p className="text-sm font-semibold text-sahara-text-secondary">没有找到任务</p>
+            <p className="mt-1 text-xs text-sahara-text-muted">换个关键词试试</p>
+          </div>
+        ) : (
+          <p className="rounded-md border border-dashed border-sahara-border px-4 py-8 text-center text-sm text-sahara-text-muted">
+            添加一件要做的事，需要投入时再设为专注。
+          </p>
+        )}
+
+        {doneRoots.length > 0 && (
+          <div className="mt-7 border-t border-sahara-border pt-5">
+            <button
+              type="button"
+              onClick={() => {
+                setShowDone((value) => !value);
+                setDoneVisibleCount(20);
+              }}
+              aria-expanded={revealDone}
+              className="mb-3 flex w-full items-center gap-2 rounded-md py-1 text-left text-sahara-text-secondary outline-none hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus"
+            >
+              {revealDone ? (
+                <ChevronDown aria-hidden="true" className="size-4 text-sahara-text-muted" />
+              ) : (
+                <ChevronRight aria-hidden="true" className="size-4 text-sahara-text-muted" />
               )}
-            </div>
-          )}
+              <CheckCircle2 aria-hidden="true" className="size-4 text-emerald-600 dark:text-emerald-400" />
+              <span className="text-xs font-semibold">已完成（{doneRoots.length}）</span>
+            </button>
 
-          {/* Active tasks empty state (when search yields results only in done) */}
-          {activeTasks.length === 0 &&
-            scheduledTasks.length === 0 &&
-            doneTasks.length > 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Target className="size-10 text-sahara-border mb-3" />
-              <p className="text-sm font-semibold text-sahara-text-secondary">
-                没有进行中的任务
-              </p>
-              <p className="mt-1 text-xs text-sahara-text-secondary">
-                所有任务都完成啦！
-              </p>
-            </div>
-          )}
-
-          {scheduledTasks.length > 0 && (
-            <div>
-              <div className="mb-3 flex items-center gap-2">
-                <CalendarClock className="size-4 text-amber-600" />
-                <span className="text-xs font-semibold text-sahara-text-secondary">
-                  稍后提醒（{scheduledTasks.length}）
-                </span>
-              </div>
-              <div
-                className={cn(
-                  viewMode === "grid"
-                    ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4"
-                    : "space-y-2.5 md:space-y-3",
+            {revealDone && (
+              <div className="space-y-2.5">
+                {visibleDoneRoots.map((task) => renderTask(task, 0))}
+                {doneVisibleCount < doneRoots.length && (
+                  <Button
+                    variant="outline"
+                    intent="default"
+                    size="sm"
+                    fullWidth
+                    onClick={() => setDoneVisibleCount((count) => count + 20)}
+                  >
+                    显示更多（还有 {doneRoots.length - doneVisibleCount} 条）
+                  </Button>
                 )}
-              >
-                {scheduledTasks.map((task) => (
-                  <TaskListCard
-                    key={task.id}
-                    task={task}
-                    categoryName={
-                      task.category_id == null
-                        ? null
-                        : categoryNameById.get(task.category_id)
-                    }
-                    isActive={false}
-                    isScheduled
-                    onToggleActive={() => undefined}
-                    onRecord={() =>
-                      dispatch({ type: "OPEN_NOTE_MODAL", task })
-                    }
-                    onEdit={() =>
-                      dispatch({ type: "OPEN_ADD_MODAL", taskToEdit: task })
-                    }
-                    onDelete={() => dispatch({ type: "OPEN_DELETE_DIALOG", task })}
-                    onCompleteTask={() => handleCompleteTaskRequest(task)}
-                    layout={viewMode}
-                  />
-                ))}
               </div>
-            </div>
-          )}
-
-          {/* Done Tasks */}
-          {doneTasks.length > 0 && (
-            <div>
-              <button
-                onClick={() => dispatch({ type: "TOGGLE_DONE" })}
-                aria-expanded={showDone}
-                className="mb-3 flex w-full items-center gap-2 rounded-md py-1 text-left text-sahara-text-secondary outline-none hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus"
-              >
-                {showDone ? (
-                  <ChevronDown className="size-4 text-sahara-text-muted" />
-                ) : (
-                  <ChevronRight className="size-4 text-sahara-text-muted" />
-                )}
-                <CheckCircle2 className="size-4 text-green-500" />
-                <span className="text-xs font-semibold">
-                  已完成（{doneTasks.length}）
-                </span>
-              </button>
-
-              {showDone && (
-                <div
-                  className={cn(
-                    viewMode === "grid"
-                      ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4"
-                      : "space-y-2.5 md:space-y-3",
-                  )}
-                >
-                  {visibleDoneTasks.map((task) => (
-                    <TaskListCard
-                      key={task.id}
-                      task={task}
-                      categoryName={
-                        task.category_id == null
-                          ? null
-                          : categoryNameById.get(task.category_id)
-                      }
-                      isActive={false}
-                      onToggleActive={() => setActiveTask(task.id)}
-                      onEdit={() =>
-                        dispatch({ type: "OPEN_ADD_MODAL", taskToEdit: task })
-                      }
-                      onDelete={() => dispatch({ type: "OPEN_DELETE_DIALOG", task })}
-                      onCompleteTask={() => handleCompleteTaskRequest(task)}
-                      layout={viewMode}
-                    />
-                  ))}
-                  {doneVisibleCount < sortedDoneTasks.length && (
-                    <Button
-                      variant="outline"
-                      intent="default"
-                      size="sm"
-                      onClick={() => dispatch({ type: "SHOW_MORE_DONE" })}
-                      className={cn(viewMode === "grid" ? "sm:col-span-2 lg:col-span-3" : "w-full")}
-                    >
-                      显示更多（还有 {sortedDoneTasks.length - doneVisibleCount} 条）
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
       </section>
     </div>
   );

@@ -11,7 +11,10 @@ export {
 export {
   getTasks,
   addTask,
+  addTodoTask,
   updateTask,
+  setTaskItemType,
+  setTaskCompleted,
   reorderTasks,
   deleteTask,
   toggleTaskArchived,

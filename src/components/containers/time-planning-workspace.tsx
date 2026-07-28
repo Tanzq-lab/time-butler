@@ -31,7 +31,10 @@ import type { TimePage } from "@/lib/db";
 import { addTaskActivityLog } from "@/lib/db";
 import { getWeekDateRangeFromKey, toLocalISODate } from "@/lib/time-pages";
 import { isTaskDone } from "@/features/tasks/task-completion";
-import type { Task } from "@/features/tasks/task-types";
+import {
+  getFocusableTasks,
+  type Task,
+} from "@/features/tasks/task-types";
 import { useTaskStore } from "@/features/tasks/use-task-store";
 import { useTimerStore } from "@/features/timer/use-timer-store";
 import { useTimePageStore } from "@/features/time-pages/use-time-page-store";
@@ -393,7 +396,8 @@ export function TimePlanningWorkspace() {
   const selectPage = useTimePageStore((state) => state.selectPage);
   const updatePageContent = useTimePageStore((state) => state.updatePageContent);
 
-  const tasks = useTaskStore((state) => state.tasks);
+  const allTasks = useTaskStore((state) => state.tasks);
+  const tasks = useMemo(() => getFocusableTasks(allTasks), [allTasks]);
   const loadTasks = useTaskStore((state) => state.loadTasks);
   const updateTask = useTaskStore((state) => state.updateTask);
   const deleteTask = useTaskStore((state) => state.deleteTask);

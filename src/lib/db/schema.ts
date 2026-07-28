@@ -266,9 +266,48 @@ export async function initDb(): Promise<void> {
       `CREATE UNIQUE INDEX IF NOT EXISTS idx_recurring_task_rules_key
         ON recurring_task_rules (rule_key)`,
     ],
+    18: [
+      "ALTER TABLE tasks ADD COLUMN item_type TEXT NOT NULL DEFAULT 'focus'",
+      "ALTER TABLE tasks ADD COLUMN parent_id INTEGER",
+      "ALTER TABLE tasks ADD COLUMN legacy_todo_id INTEGER",
+      `CREATE INDEX IF NOT EXISTS idx_tasks_tree_order
+        ON tasks (parent_id, archived, sort_order, created_at DESC)`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_legacy_todo
+        ON tasks (legacy_todo_id)
+        WHERE legacy_todo_id IS NOT NULL`,
+      `INSERT INTO tasks (
+        name,
+        estimated_pomos,
+        completed_pomos,
+        created_at,
+        archived,
+        completed_at,
+        sort_order,
+        item_type,
+        parent_id,
+        legacy_todo_id
+      )
+      SELECT
+        todo.title,
+        1,
+        0,
+        todo.created_at,
+        todo.archived,
+        todo.completed_at,
+        COALESCE((SELECT MIN(sort_order) FROM tasks), 0) - 100000 + todo.sort_order,
+        'todo',
+        NULL,
+        todo.id
+      FROM todos todo
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM tasks existing
+        WHERE existing.legacy_todo_id = todo.id
+      )`,
+    ],
   };
 
-  const targetVersion = 17;
+  const targetVersion = 18;
 
   for (let v = currentVersion + 1; v <= targetVersion; v++) {
     const statements = migrations[v];

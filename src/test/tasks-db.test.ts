@@ -1,5 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { addTask, getTasks, reorderTasks, updateTask } from "@/lib/db/tasks";
+import {
+  addTask,
+  addTodoTask,
+  getTasks,
+  reorderTasks,
+  setTaskCompleted,
+  setTaskItemType,
+  updateTask,
+} from "@/lib/db/tasks";
 import { getDb } from "@/lib/db/schema";
 
 vi.mock("@/lib/db/schema", () => ({
@@ -30,21 +38,75 @@ describe("task database boundaries", () => {
     await addTask("新任务", 2);
 
     expect(execute).toHaveBeenCalledWith(
-      expect.stringContaining("COALESCE((SELECT MIN(sort_order) FROM tasks WHERE archived = 0), 0) - 1"),
-      ["新任务", 2, null, null, null, null],
+      expect.stringContaining("AND parent_id IS $7"),
+      ["新任务", 2, null, null, null, null, null],
+    );
+  });
+
+  it("adds a trimmed todo in its sibling scope and reopens its parent", async () => {
+    await addTodoTask("  完成界面验收  ", 12);
+
+    expect(execute).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining("'todo'"),
+      ["完成界面验收", 12],
+    );
+    expect(execute).toHaveBeenNthCalledWith(
+      2,
+      "UPDATE tasks SET completed_at = NULL WHERE id = $1",
+      [12],
+    );
+  });
+
+  it("converts task type in place and validates focus estimates", async () => {
+    await setTaskItemType(8, "focus", 3);
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining("SET item_type = 'focus'"),
+      [8, 3],
+    );
+
+    await setTaskItemType(8, "todo");
+    expect(execute).toHaveBeenCalledWith(
+      "UPDATE tasks SET item_type = 'todo' WHERE id = $1",
+      [8],
+    );
+
+    await expect(setTaskItemType(8, "focus", 5)).rejects.toThrow(
+      "预计番茄数必须是 1 到 4 的整数",
+    );
+  });
+
+  it("derives parent completion from all visible children", async () => {
+    select
+      .mockResolvedValueOnce([{ parent_id: 12 }])
+      .mockResolvedValueOnce([
+        { id: 13, completed_at: "2026-07-28 12:00:00" },
+        { id: 14, completed_at: "2026-07-28 12:01:00" },
+      ]);
+
+    await expect(setTaskCompleted(13, true)).resolves.toBe(12);
+    expect(execute).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining("SET completed_at = CASE"),
+      [13, 1],
+    );
+    expect(execute).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining("WHERE id = $1"),
+      [12, 1],
     );
   });
 
   it("reads persisted task order and saves a requested order", async () => {
     await getTasks();
     expect(select).toHaveBeenCalledWith(
-      "SELECT * FROM tasks WHERE archived = 0 ORDER BY sort_order ASC, created_at DESC",
+      expect.stringContaining("CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END"),
     );
 
     await reorderTasks([7, 3]);
     expect(execute).toHaveBeenCalledWith(
       expect.stringContaining("SET sort_order = CASE id WHEN $1 THEN $2 WHEN $3 THEN $4"),
-      [7, 0, 3, 1],
+      [7, 0, 3, 1, null],
     );
   });
 });

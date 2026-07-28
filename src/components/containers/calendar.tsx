@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useReducer } from "react";
+import { useState, useEffect, useCallback, useRef, useReducer, useMemo } from "react";
 import { CalendarPlus, Loader2 } from "lucide-react";
 import {
   addCalendarEvent,
@@ -23,6 +23,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTaskStore } from "@/features/tasks/use-task-store";
+import { getFocusableTasks } from "@/features/tasks/task-types";
 
 const START_HOUR = 6;
 const END_HOUR = 22;
@@ -156,7 +157,8 @@ export function CalendarDashboard() {
   const [deletingEvent, setDeletingEvent] = useState(false);
   const [deleteEventError, setDeleteEventError] = useState("");
   const loadedRef = useRef<string | null>(null);
-  const tasks = useTaskStore((state) => state.tasks);
+  const allTasks = useTaskStore((state) => state.tasks);
+  const tasks = useMemo(() => getFocusableTasks(allTasks), [allTasks]);
   const loadTasks = useTaskStore((state) => state.loadTasks);
 
   const monday = getMonday(new Date(Date.now() + weekOffset * 7 * 86400000));

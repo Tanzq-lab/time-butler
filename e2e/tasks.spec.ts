@@ -8,28 +8,47 @@ test.describe("Tasks", () => {
 
   test("shows Tasks page with title and Add Focus Task button", async ({ page }) => {
     await expect(page.getByRole("heading", { name: "我的任务" })).toBeVisible();
-    const focusSection = page.getByRole("region", { name: "专注任务" });
-    const focusActions = focusSection.getByRole("group", { name: "专注任务操作" });
+    const taskSection = page.getByRole("region", { name: "任务" });
+    const taskActions = taskSection.getByRole("group", { name: "任务操作" });
 
-    await expect(focusActions.getByRole("button", { name: "添加专注任务" })).toBeVisible();
-    await expect(focusActions.getByRole("button", { name: "添加循环任务" })).toBeVisible();
-    await expect(focusActions.getByRole("button", { name: "列表视图" })).toBeVisible();
-    await expect(focusActions.getByRole("button", { name: "网格视图" })).toBeVisible();
+    await expect(taskActions.getByRole("button", { name: "添加专注任务" })).toBeVisible();
+    await expect(taskActions.getByRole("button", { name: "添加循环任务" })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "添加任务" })).toBeVisible();
   });
 
-  test("keeps the selected task view after navigating away and back", async ({ page }) => {
-    const gridViewButton = page.getByRole("button", { name: "网格视图" });
+  test("tracks child progress, completes the parent, and reopens it", async ({ page }) => {
+    const parent = "发布产品更新";
+    const firstChild = "完成回归测试";
+    const secondChild = "整理发布说明";
+    const quickInput = page.getByRole("textbox", { name: "添加任务" });
 
-    await gridViewButton.click();
-    await expect(gridViewButton).toHaveAttribute("aria-pressed", "true");
+    await quickInput.fill(parent);
+    await quickInput.press("Enter");
 
-    await page.getByRole("link", { name: "计时" }).click();
-    await page.getByRole("link", { name: "任务" }).click();
+    const parentRow = page.locator("article").filter({ hasText: parent }).first();
+    await parentRow.hover();
+    await parentRow.getByRole("button", { name: `添加子任务：${parent}` }).click();
+    await page.getByRole("textbox", { name: `添加子任务：${parent}` }).fill(firstChild);
+    await page.getByRole("textbox", { name: `添加子任务：${parent}` }).press("Enter");
 
-    await expect(page.getByRole("button", { name: "网格视图" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    await parentRow.hover();
+    await parentRow.getByRole("button", { name: `添加子任务：${parent}` }).click();
+    await page.getByRole("textbox", { name: `添加子任务：${parent}` }).fill(secondChild);
+    await page.getByRole("textbox", { name: `添加子任务：${parent}` }).press("Enter");
+
+    const progress = page.getByRole("progressbar", { name: `${parent} 子任务进度` });
+    await expect(progress).toHaveAttribute("aria-valuenow", "0");
+    await expect(progress).toHaveAttribute("aria-valuemax", "2");
+
+    await page.getByRole("checkbox", { name: `完成待办：${firstChild}` }).click();
+    await expect(progress).toHaveAttribute("aria-valuenow", "1");
+    await page.getByRole("checkbox", { name: `完成待办：${secondChild}` }).click();
+
+    await page.getByRole("button", { name: "已完成（1）" }).click();
+    await expect(progress).toHaveAttribute("aria-valuenow", "2");
+    await page.getByRole("checkbox", { name: `恢复待办：${secondChild}` }).click();
+    await expect(page.getByText(parent, { exact: true })).toBeVisible();
+    await expect(progress).toHaveAttribute("aria-valuenow", "1");
   });
 
   test("shows and edits the original recurring rules", async ({ page }) => {
@@ -176,38 +195,36 @@ test.describe("Tasks", () => {
     await expect(page.getByText("设计评审")).toBeVisible();
     await expect(page.getByText("代码重构")).toBeVisible();
 
-    await page.getByPlaceholder("搜索待办和任务…").fill("设计");
+    await page.getByRole("searchbox", { name: "搜索任务" }).fill("设计");
     await expect(page.getByText("设计评审")).toBeVisible();
     await expect(page.getByText("代码重构")).not.toBeVisible();
   });
 
-  test("clicking a task selects it without claiming focus has started", async ({ page }) => {
+  test("shows focus capability through icons without a type label", async ({ page }) => {
     await page.getByRole("button", { name: "添加专注任务" }).click();
     await page.getByPlaceholder("你现在要做什么？").fill("测试进行中任务");
     await page.getByRole("button", { name: "预计 4 个番茄" }).click();
     await page.getByRole("button", { name: "创建任务" }).click();
 
-    const taskButton = page.getByRole("button", {
-      name: "测试进行中任务 0/4 个番茄，未开始",
-    });
-    await taskButton.click();
-
-    await expect(taskButton).toHaveAttribute("aria-pressed", "true");
-    const taskCard = taskButton.locator("xpath=ancestor::article");
-    await expect(taskCard.getByText("未开始", { exact: true })).toBeVisible();
-    await expect(taskCard.getByText("进行中", { exact: true })).toHaveCount(0);
+    const taskRow = page.locator("article").filter({ hasText: "测试进行中任务" }).first();
+    await expect(taskRow).toHaveAttribute("data-task-kind", "focus");
+    await expect(taskRow.getByText("0/4", { exact: true })).toBeVisible();
+    await expect(
+      taskRow.getByRole("button", { name: "开始专注：测试进行中任务" }),
+    ).toBeVisible();
+    await expect(taskRow.getByText("专注任务", { exact: true })).toHaveCount(0);
   });
 
   test("quick-adds, completes, and reopens a todo", async ({ page }) => {
     const title = "购买 E2E 测试用品";
-    const input = page.getByPlaceholder("添加待办，按回车保存…");
+    const input = page.getByRole("textbox", { name: "添加任务" });
 
     await input.fill(title);
     await input.press("Enter");
     await expect(page.getByText(title)).toBeVisible();
 
     await page.getByRole("checkbox", { name: `完成待办：${title}` }).click();
-    await page.getByRole("button", { name: "已完成待办（1）" }).click();
+    await page.getByRole("button", { name: "已完成（1）" }).click();
     await page.getByRole("checkbox", { name: `恢复待办：${title}` }).click();
 
     await expect(
@@ -219,13 +236,16 @@ test.describe("Tasks", () => {
     const original = "购买旧名称";
     const updated = "购买人体工学键盘";
 
-    await page.getByPlaceholder("添加待办，按回车保存…").fill(original);
-    await page.getByPlaceholder("添加待办，按回车保存…").press("Enter");
-    await page.getByRole("button", { name: `编辑待办：${original}` }).click();
-    await page.getByRole("textbox", { name: `编辑待办：${original}` }).fill(updated);
-    await page.getByRole("button", { name: `保存待办：${original}` }).click();
+    const quickInput = page.getByRole("textbox", { name: "添加任务" });
+    await quickInput.fill(original);
+    await quickInput.press("Enter");
+    const taskRow = page.locator("article").filter({ hasText: original }).first();
+    await taskRow.hover();
+    await taskRow.getByRole("button", { name: `编辑任务：${original}` }).click();
+    await page.getByRole("textbox", { name: `编辑任务：${original}` }).fill(updated);
+    await page.getByRole("button", { name: `保存任务名称：${original}` }).click();
 
-    await page.getByPlaceholder("搜索待办和任务…").fill("人体工学");
+    await page.getByRole("searchbox", { name: "搜索任务" }).fill("人体工学");
     await expect(page.getByText(updated)).toBeVisible();
     await expect(page.getByText(original)).not.toBeVisible();
   });
@@ -233,40 +253,67 @@ test.describe("Tasks", () => {
   test("converts a todo only after focus-task creation succeeds", async ({ page }) => {
     const title = "整理书桌并规划收纳";
 
-    await page.getByPlaceholder("添加待办，按回车保存…").fill(title);
-    await page.getByPlaceholder("添加待办，按回车保存…").press("Enter");
-    await page.getByRole("button", { name: `转为专注任务：${title}` }).click();
+    const quickInput = page.getByRole("textbox", { name: "添加任务" });
+    await quickInput.fill(title);
+    await quickInput.press("Enter");
+    await page.getByRole("button", { name: `设为专注任务：${title}` }).click();
 
     const taskName = page.getByLabel("任务名称");
     await expect(taskName).toHaveValue(title);
     await page.getByRole("button", { name: "取消" }).click();
     await expect(page.getByRole("checkbox", { name: `完成待办：${title}` })).toBeVisible();
 
-    await page.getByRole("button", { name: `转为专注任务：${title}` }).click();
+    await page.getByRole("button", { name: `设为专注任务：${title}` }).click();
     await page.getByRole("button", { name: "预计 1 个番茄" }).click();
-    await page.getByRole("button", { name: /创建任务/ }).click();
+    await page
+      .getByRole("dialog", { name: "设为专注任务" })
+      .getByRole("button", { name: "设为专注", exact: true })
+      .click();
 
     await expect(page.getByRole("checkbox", { name: `完成待办：${title}` })).not.toBeVisible();
-    await expect(page.getByText(title)).toBeVisible();
+    await expect(page.locator("article").filter({ hasText: title }).first())
+      .toHaveAttribute("data-task-kind", "focus");
+  });
+
+  test("converts a focus task back to a todo in place", async ({ page }) => {
+    const title = "暂时不需要计时的任务";
+    await page.getByRole("button", { name: "添加专注任务" }).click();
+    await page.getByPlaceholder("你现在要做什么？").fill(title);
+    await page.getByRole("button", { name: "预计 2 个番茄" }).click();
+    await page.getByRole("button", { name: "创建任务" }).click();
+
+    const taskRow = page.locator("article").filter({ hasText: title }).first();
+    await taskRow.hover();
+    await taskRow.getByRole("button", { name: `改为普通待办：${title}` }).click();
+
+    await expect(taskRow).toHaveAttribute("data-task-kind", "todo");
+    await expect(
+      taskRow.getByRole("checkbox", { name: `完成待办：${title}` }),
+    ).toBeVisible();
   });
 
   test("offers todo actions from the mobile menu", async ({ page }) => {
     const title = "移动端待办菜单";
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.getByPlaceholder("添加待办，按回车保存…").fill(title);
-    await page.getByPlaceholder("添加待办，按回车保存…").press("Enter");
+    const quickInput = page.getByRole("textbox", { name: "添加任务" });
+    await quickInput.fill(title);
+    await quickInput.press("Enter");
 
-    await page.getByRole("button", { name: `更多待办操作：${title}` }).click();
-    await expect(page.getByRole("dialog", { name: `待办操作：${title}` })).toBeVisible();
-    await expect(page.getByRole("button", { name: "编辑待办" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "转为专注任务" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "删除待办" })).toBeVisible();
+    await page.getByRole("button", { name: `更多操作：${title}` }).click();
+    await expect(page.getByRole("dialog", { name: `任务操作：${title}` })).toBeVisible();
+    const actionDialog = page.getByRole("dialog", { name: `任务操作：${title}` });
+    await expect(actionDialog.getByRole("button", { name: "编辑名称" })).toBeVisible();
+    await expect(
+      actionDialog.getByRole("button", { name: "设为专注任务", exact: true }),
+    ).toBeVisible();
+    await expect(actionDialog.getByRole("button", { name: "删除" })).toBeVisible();
   });
 
   test("keeps todos out of the timer task selector", async ({ page }) => {
     const title = "不应进入计时器的待办";
-    await page.getByPlaceholder("添加待办，按回车保存…").fill(title);
-    await page.getByPlaceholder("添加待办，按回车保存…").press("Enter");
+    const quickInput = page.getByRole("textbox", { name: "添加任务" });
+    await quickInput.fill(title);
+    await quickInput.press("Enter");
     await expect(page.getByText(title)).toBeVisible();
 
     await page.getByRole("link", { name: "计时" }).click();

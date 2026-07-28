@@ -168,23 +168,24 @@ test.describe("Responsive and accessibility", () => {
     await page.getByRole("button", { name: "预计 4 个番茄" }).click();
     await page.getByRole("button", { name: "创建任务" }).click();
     await page
-      .getByRole("button", {
-        name: "跨页面专注状态测试 0/4 个番茄，未开始",
-      })
+      .getByRole("button", { name: "开始专注：跨页面专注状态测试" })
       .click();
 
-    await page.getByRole("button", { name: "开始专注", exact: true }).click();
+    await page
+      .locator("#main-content")
+      .getByRole("button", { name: "开始专注", exact: true })
+      .click();
     await expect(page).toHaveURL(/\/#\/$/);
+    await page.getByRole("button", { name: "退出专注模式" }).first().click();
     await page.getByRole("link", { name: "任务" }).click();
 
     const runningCard = page.locator("article").filter({
       hasText: "跨页面专注状态测试",
     });
-    await expect(runningCard.getByRole("button", {
-      name: "跨页面专注状态测试 0/4 个番茄，进行中",
-    })).toBeVisible();
-    await expect(runningCard.getByText("进行中", { exact: true })).toBeVisible();
-    await expect(runningCard.getByText("未开始", { exact: true })).toHaveCount(0);
+    await expect(
+      runningCard.getByRole("button", { name: "回到专注：跨页面专注状态测试" }),
+    ).toBeVisible();
+    await expect(runningCard.getByLabel("专注进行中")).toBeVisible();
 
     const sidebarStatus = page.getByRole("region", { name: "当前专注状态" });
     await expect(sidebarStatus.getByText("跨页面专注状态测试")).toBeVisible();
@@ -194,8 +195,7 @@ test.describe("Responsive and accessibility", () => {
 
     await sidebarStatus.getByRole("button", { name: "暂停专注" }).click();
     await expect(sidebarStatus.getByRole("button", { name: "继续专注" })).toBeVisible();
-    await expect(runningCard.getByText("已暂停", { exact: true })).toBeVisible();
-    await expect(runningCard.getByText("进行中", { exact: true })).toHaveCount(0);
+    await expect(runningCard.getByLabel("专注已暂停")).toBeVisible();
     await expect(page).toHaveURL(/\/#\/tasks/);
   });
 
@@ -206,9 +206,8 @@ test.describe("Responsive and accessibility", () => {
     await page.getByRole("button", { name: "预计 4 个番茄" }).click();
     await page.getByRole("button", { name: "创建任务" }).click();
     await page.getByRole("button", {
-      name: "选择态对比度任务 0/4 个番茄，未开始",
+      name: "开始专注：选择态对比度任务",
     }).click();
-    await page.getByRole("link", { name: "计时" }).click();
     await expect(page).toHaveURL(/\/#\/$/);
     await expect(page.getByRole("textbox", { name: "设置计时时长" })).toBeVisible();
 
@@ -340,6 +339,7 @@ test.describe("Responsive and accessibility", () => {
 
     await page.getByRole("link", { name: "计时" }).click();
     await page.getByRole("link", { name: "任务" }).click();
+    await expect(page.getByRole("heading", { name: "我的任务" })).toBeVisible();
 
     const restoredMain = page.locator("#main-content");
     await restoredMain.evaluate((element) => {

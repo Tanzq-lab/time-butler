@@ -3,7 +3,7 @@ import {
   useEffect,
 } from "react";
 import type React from "react";
-import { Edit3, Plus } from "lucide-react";
+import { Edit3, Focus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModalOverlay } from "@/components/ui/modal-overlay";
 import type { Task } from "@/features/tasks/task-types";
@@ -22,6 +22,7 @@ interface AddTaskModalProps {
   onSubmit: (data: AddTaskData) => boolean | void | Promise<boolean | void>;
   editTask?: Task | null;
   initialName?: string;
+  mode?: "create" | "edit" | "convert";
 }
 
 interface FormState {
@@ -75,8 +76,11 @@ export function AddTaskModal({
   onSubmit,
   editTask,
   initialName,
+  mode,
 }: AddTaskModalProps) {
-  const isEditing = !!editTask;
+  const resolvedMode = mode ?? (editTask ? "edit" : "create");
+  const isEditing = resolvedMode === "edit";
+  const isConverting = resolvedMode === "convert";
   const [form, dispatch] = useReducer(
     formReducer,
     initialStateForTask(editTask, initialName),
@@ -108,23 +112,39 @@ export function AddTaskModal({
       onClose={onClose}
       maxWidth="max-w-lg"
       showCloseButton
-      ariaLabel={isEditing ? "编辑任务" : "新建任务"}
+      ariaLabel={
+        isEditing
+          ? "编辑任务"
+          : isConverting
+            ? "设为专注任务"
+            : "新建任务"
+      }
     >
       <div className="p-5 md:p-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="flex size-9 items-center justify-center rounded-md bg-sahara-primary text-sahara-bg">
             {isEditing ? (
               <Edit3 className="size-5" />
+            ) : isConverting ? (
+              <Focus className="size-5" />
             ) : (
               <Plus className="size-5" />
             )}
           </div>
           <div>
             <h3 className="text-lg font-semibold text-sahara-text">
-              {isEditing ? "编辑任务" : "新建任务"}
+              {isEditing
+                ? "编辑任务"
+                : isConverting
+                  ? "设为专注任务"
+                  : "新建任务"}
             </h3>
             <p className="text-xs text-sahara-text-muted mt-0.5">
-              {isEditing ? "更新任务详情" : "添加一个要专注推进的任务"}
+              {isEditing
+                ? "更新任务详情"
+                : isConverting
+                  ? "选择预计投入，再开始记录专注进度"
+                  : "添加一个要专注推进的任务"}
             </p>
           </div>
         </div>
@@ -217,6 +237,10 @@ export function AddTaskModal({
               {isEditing ? (
                 <>
                   <Edit3 className="size-4" /> 保存修改
+                </>
+              ) : isConverting ? (
+                <>
+                  <Focus className="size-4" /> 设为专注
                 </>
               ) : (
                 <>

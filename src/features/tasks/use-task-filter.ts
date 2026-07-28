@@ -1,6 +1,9 @@
 import { useMemo } from "react";
 import { isTaskDone } from "@/features/tasks/task-completion";
-import type { Task } from "@/features/tasks/task-types";
+import {
+  getFocusableTasks,
+  type Task,
+} from "@/features/tasks/task-types";
 
 function isScheduledForFuture(task: Task): boolean {
   if (!task.scheduled_for) return false;
@@ -11,7 +14,7 @@ function isScheduledForFuture(task: Task): boolean {
 
 export function useTaskFilter(tasks: Task[], searchQuery: string) {
   return useMemo(() => {
-    const filtered = tasks.filter(
+    const filtered = getFocusableTasks(tasks).filter(
       (t) =>
         t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (t.project || "").toLowerCase().includes(searchQuery.toLowerCase()),
