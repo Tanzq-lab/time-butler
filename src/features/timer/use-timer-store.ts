@@ -172,9 +172,27 @@ function getDeadlineFromSaved(saved: PersistedTimerState): number {
   return saved.savedAt + saved.secondsRemaining * 1000;
 }
 
-function scheduleNativeDeadline(deadlineAtMs: number | null): void {
+function getNativeMenubarFocusTitle(): string | null {
+  const state = useTimerStore.getState();
+  if (state.phase !== "work") return null;
+
+  const taskId = state.currentSessionTaskId ?? state.activeTaskId;
+  const taskName = taskId == null
+    ? null
+    : useTaskStore.getState().tasks.find((task) => task.id === taskId)?.name.trim();
+  return taskName || "专注中";
+}
+
+function scheduleNativeDeadline(
+  deadlineAtMs: number | null,
+  totalSeconds = useTimerStore.getState().totalSeconds,
+): void {
   if (!deadlineAtMs || !isTauri()) return;
-  invokeTimerScheduleDeadline(deadlineAtMs).catch((err) => {
+  invokeTimerScheduleDeadline(
+    deadlineAtMs,
+    getNativeMenubarFocusTitle(),
+    totalSeconds,
+  ).catch((err) => {
     console.warn("[TimerStore] Failed to schedule native timer deadline:", err);
   });
 }
@@ -451,7 +469,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
 
       const deadlineAtMs = Date.now() + secs * 1000;
       engine.start(secs, deadlineAtMs);
-      scheduleNativeDeadline(deadlineAtMs);
+      scheduleNativeDeadline(deadlineAtMs, secs);
 
       set({
         phase: resolvedPhase,
@@ -908,7 +926,7 @@ export const useTimerStore = create<TimerStore>((set, get) => {
         state.status === "running" ? Date.now() + secondsRemaining * 1000 : null;
 
       engine.addTime(addedSec);
-      if (deadlineAtMs) scheduleNativeDeadline(deadlineAtMs);
+      if (deadlineAtMs) scheduleNativeDeadline(deadlineAtMs, state.totalSeconds + addedSec);
       set({
         totalSeconds: state.totalSeconds + addedSec,
         secondsRemaining,

@@ -48,6 +48,7 @@ pub fn run() {
             commands::private_data::private_data_root_path,
             commands::sessions::reassign_completed_pomo,
             commands::timer::timer_schedule_deadline,
+            commands::timer::timer_set_menubar_focus_title,
             commands::timer::timer_cancel_deadline,
         ])
         .manage(NativeAudioState::new())
