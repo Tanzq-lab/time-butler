@@ -15,7 +15,12 @@ import {
 } from "lucide-react";
 import type { Task } from "@/features/tasks/task-types";
 import { getTaskItemType } from "@/features/tasks/task-types";
-import type { TaskPomoRingTone } from "@/lib/task-pomo-progress";
+import {
+  getTaskChildProgressTone,
+  getTaskPomoCompletionTone,
+  TASK_PROGRESS_TONE_CLASS_NAMES,
+  type TaskProgressTone,
+} from "@/lib/task-pomo-progress";
 import { cn } from "@/lib/cn";
 
 interface TaskTreeRowProps {
@@ -23,8 +28,6 @@ interface TaskTreeRowProps {
   childCount?: number;
   completedChildCount?: number;
   focusChildCount?: number;
-  focusChildCompletedPomos?: number;
-  focusChildEstimatedPomos?: number;
   expanded?: boolean;
   depth?: 0 | 1;
   categoryName?: string | null;
@@ -51,47 +54,6 @@ interface TaskTreeRowProps {
   onPointerCancel?: (event: PointerEvent<HTMLElement>) => void;
 }
 
-type FocusPomoTone = "not-started" | "complete" | TaskPomoRingTone;
-
-const BUDGET_TONES: Exclude<TaskPomoRingTone, "overrun">[] = [
-  "start",
-  "progress",
-  "caution",
-  "final-in-budget",
-];
-
-const POMO_TONE_CLASS_NAMES: Record<FocusPomoTone, string> = {
-  "not-started": "task-pomo-not-started",
-  "complete": "task-pomo-complete",
-  "start": "timer-task-pomo-start",
-  "progress": "timer-task-pomo-progress",
-  "caution": "timer-task-pomo-caution",
-  "final-in-budget": "timer-task-pomo-final-in-budget",
-  "overrun": "timer-task-pomo-overrun",
-};
-
-function getFocusPomoTone(
-  completedPomos: number,
-  estimatedPomos: number,
-  completed: boolean,
-): FocusPomoTone {
-  if (completed) return "complete";
-
-  const safeCompletedPomos = Math.max(0, Math.floor(completedPomos));
-  const safeEstimatedPomos = Math.max(0, Math.floor(estimatedPomos));
-  if (safeCompletedPomos === 0 || safeEstimatedPomos === 0) return "not-started";
-  if (safeCompletedPomos > safeEstimatedPomos) return "overrun";
-  if (safeCompletedPomos === safeEstimatedPomos || safeEstimatedPomos === 1) {
-    return "final-in-budget";
-  }
-
-  const budgetPosition = (safeCompletedPomos - 1) / (safeEstimatedPomos - 1);
-  const toneIndex = Math.round(
-    budgetPosition * (BUDGET_TONES.length - 1),
-  );
-  return BUDGET_TONES[toneIndex];
-}
-
 function formatScheduledFor(value?: string | null): string {
   if (!value) return "";
   const date = new Date(value);
@@ -110,8 +72,6 @@ export function TaskTreeRow({
   childCount = 0,
   completedChildCount = 0,
   focusChildCount = 0,
-  focusChildCompletedPomos = 0,
-  focusChildEstimatedPomos = 0,
   expanded = false,
   depth = 0,
   categoryName,
@@ -145,20 +105,27 @@ export function TaskTreeRow({
   const isFocus = isFocusTask && !isGroup;
   const hasFocusContext = isFocusTask || focusChildCount > 0;
   const completed = Boolean(task.completed_at);
-  const focusPomoTone = hasFocusContext
-    ? getFocusPomoTone(
-        focusChildCount > 0 ? focusChildCompletedPomos : task.completed_pomos,
-        focusChildCount > 0 ? focusChildEstimatedPomos : task.estimated_pomos,
-        completed,
-      )
+  const groupProgressTone = getTaskChildProgressTone(
+    completedChildCount,
+    childCount,
+  );
+  const focusPomoTone: TaskProgressTone | null = hasFocusContext
+    ? isGroup
+      ? groupProgressTone
+      : getTaskPomoCompletionTone(
+          task.completed_pomos,
+          task.estimated_pomos,
+          completed,
+        )
     : null;
   const focusPomoToneClassName = focusPomoTone
-    ? POMO_TONE_CLASS_NAMES[focusPomoTone]
+    ? TASK_PROGRESS_TONE_CLASS_NAMES[focusPomoTone]
     : null;
+  const groupProgressToneClassName =
+    TASK_PROGRESS_TONE_CLASS_NAMES[groupProgressTone];
   const groupProgress = childCount === 0
     ? 0
-    : Math.round((completedChildCount / childCount) * 100);
-  const groupComplete = childCount > 0 && completedChildCount === childCount;
+    : Math.min(100, Math.round((completedChildCount / childCount) * 100));
   const leafCompletionAction = completed
     ? onToggleTodo
     : isFocus
@@ -221,6 +188,7 @@ export function TaskTreeRow({
       data-task-depth={depth}
       data-task-kind={isGroup ? "group" : isFocus ? "focus" : "todo"}
       data-pomo-tone={focusPomoTone ?? undefined}
+      data-progress-tone={isGroup ? groupProgressTone : undefined}
       onPointerDown={reorderable ? onPointerDown : undefined}
       onPointerMove={reorderable ? onPointerMove : undefined}
       onPointerUp={reorderable ? onPointerUp : undefined}
@@ -365,7 +333,9 @@ export function TaskTreeRow({
                       role="status"
                       className={cn(
                         "size-1.5 shrink-0 rounded-full",
-                        runtimeStatus === "running" ? "bg-blue-500" : "bg-amber-500",
+                        runtimeStatus === "running"
+                          ? "bg-sahara-text"
+                          : "bg-sahara-text-muted",
                       )}
                       title={runtimeStatus === "running" ? "专注进行中" : "专注已暂停"}
                       aria-label={runtimeStatus === "running" ? "专注进行中" : "专注已暂停"}
@@ -387,19 +357,16 @@ export function TaskTreeRow({
                       <div
                         className={cn(
                           "h-full origin-left rounded-full transition-[transform,background-color] duration-200 motion-reduce:transition-none",
-                          groupComplete
-                            ? "bg-[var(--color-timer-complete)]"
-                            : "bg-sahara-primary",
+                          groupProgressToneClassName,
+                          "bg-[var(--timer-task-pomo-color)]",
                         )}
                         style={{ transform: `scaleX(${groupProgress / 100})` }}
                       />
                     </div>
                     <span
                       className={cn(
-                        "shrink-0 font-mono text-[11px] font-semibold tabular-nums",
-                        groupComplete
-                          ? "text-[var(--color-timer-complete)]"
-                          : "text-sahara-text-secondary",
+                        "task-pomo-label shrink-0 font-mono text-[11px] font-semibold tabular-nums",
+                        groupProgressToneClassName,
                       )}
                     >
                       {completedChildCount}/{childCount}
@@ -419,7 +386,7 @@ export function TaskTreeRow({
                       {task.completed_pomos}/{task.estimated_pomos}
                     </span>
                     {task.scheduled_for && (
-                      <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300">
+                      <span className="inline-flex items-center gap-1 text-sahara-text-secondary">
                         <CalendarClock aria-hidden="true" className="size-3" />
                         {formatScheduledFor(task.scheduled_for)}
                       </span>
@@ -454,9 +421,9 @@ export function TaskTreeRow({
                 className={cn(
                   "flex size-10 touch-manipulation items-center justify-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-sahara-focus md:size-8",
                   runtimeStatus === "running"
-                    ? "bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/35 dark:text-blue-300 dark:hover:bg-blue-950/55"
+                    ? "bg-sahara-card text-sahara-text hover:bg-sahara-primary-light"
                     : runtimeStatus === "paused"
-                      ? "bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/35 dark:text-amber-300 dark:hover:bg-amber-950/55"
+                      ? "bg-sahara-card text-sahara-text-secondary hover:bg-sahara-primary-light hover:text-sahara-text"
                       : "text-sahara-text-secondary hover:bg-sahara-card hover:text-sahara-text",
                 )}
               >

@@ -62,13 +62,16 @@ describe("TaskListCard", () => {
 
     const card = screen.getByText("补齐任务记录入口").closest("article");
     expect(card).toHaveAttribute("data-progress-state", "not-started");
-    expect(screen.getByText("未开始")).toHaveClass("text-sahara-text-secondary");
+    expect(card).toHaveAttribute("data-progress-tone", "not-started");
+    expect(screen.getByText("未开始")).toHaveClass(
+      "task-pomo-not-started",
+    );
     expect(
       screen.getByRole("progressbar", { name: "补齐任务记录入口 任务进度" }),
     ).toHaveAttribute("aria-valuetext", "0/2 个番茄，未开始");
   });
 
-  it("shows a compact blue runtime state while keeping zero progress neutral", () => {
+  it("keeps the running state neutral while keeping zero progress neutral", () => {
     render(
       <TaskListCard
         task={task}
@@ -83,18 +86,18 @@ describe("TaskListCard", () => {
 
     expect(screen.queryByText("未开始")).not.toBeInTheDocument();
     expect(screen.getByText("进行中")).toHaveClass(
-      "bg-blue-50",
-      "text-blue-700",
+      "bg-sahara-card",
+      "text-sahara-text",
     );
     expect(screen.getByText("0/2").parentElement).toHaveClass(
-      "text-sahara-text-secondary",
+      "task-pomo-not-started",
     );
     expect(
       screen.getByRole("progressbar", { name: "补齐任务记录入口 任务进度" }),
     ).toHaveAttribute("aria-valuetext", "0/2 个番茄，进行中");
   });
 
-  it("shows a compact amber runtime state when focus is paused", () => {
+  it("keeps the paused state neutral while preserving the task stage", () => {
     render(
       <TaskListCard
         task={{ ...task, completed_pomos: 1 }}
@@ -109,11 +112,11 @@ describe("TaskListCard", () => {
 
     expect(screen.queryByText("正常进度")).not.toBeInTheDocument();
     expect(screen.getByText("已暂停")).toHaveClass(
-      "bg-amber-50",
-      "text-amber-700",
+      "bg-sahara-card",
+      "text-sahara-text-secondary",
     );
     expect(screen.getByText("1/2").parentElement).toHaveClass(
-      "text-emerald-700",
+      "timer-task-pomo-start",
     );
     expect(
       screen.getByRole("progressbar", { name: "补齐任务记录入口 任务进度" }),
@@ -134,7 +137,10 @@ describe("TaskListCard", () => {
 
     const card = screen.getByText("补齐任务记录入口").closest("article");
     expect(card).toHaveAttribute("data-progress-state", "on-track");
-    expect(screen.getByText("正常进度")).toHaveClass("text-emerald-700");
+    expect(card).toHaveAttribute("data-progress-tone", "final-in-budget");
+    expect(screen.getByText("正常进度")).toHaveClass(
+      "timer-task-pomo-final-in-budget",
+    );
     expect(
       screen.getByRole("progressbar", { name: "补齐任务记录入口 任务进度" }),
     ).toHaveAttribute("aria-valuetext", "2/2 个番茄，正常进度");
@@ -154,13 +160,16 @@ describe("TaskListCard", () => {
 
     const card = screen.getByText("补齐任务记录入口").closest("article");
     expect(card).toHaveAttribute("data-progress-state", "overrun");
-    expect(screen.getByText("超额 1 个")).toHaveClass("text-red-700");
+    expect(card).toHaveAttribute("data-progress-tone", "overrun");
+    expect(screen.getByText("超额 1 个")).toHaveClass(
+      "timer-task-pomo-overrun",
+    );
     expect(
       screen.getByRole("progressbar", { name: "补齐任务记录入口 任务进度" }),
     ).toHaveAttribute("aria-valuetext", "3/2 个番茄，超额 1 个");
   });
 
-  it("keeps completed tasks outside the active progress colour semantics", () => {
+  it("uses the completion tone when a task is complete", () => {
     render(
       <TaskListCard
         task={{
@@ -178,6 +187,7 @@ describe("TaskListCard", () => {
 
     const card = screen.getByText("补齐任务记录入口").closest("article");
     expect(card).not.toHaveAttribute("data-progress-state");
+    expect(card).toHaveAttribute("data-progress-tone", "complete");
     expect(screen.queryByText("超额 1 个")).not.toBeInTheDocument();
   });
 

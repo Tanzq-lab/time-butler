@@ -17,6 +17,10 @@ import type { PointerEvent } from "react";
 import type { Task } from "@/features/tasks/task-types";
 import { isTaskDone } from "@/features/tasks/task-completion";
 import { cn } from "@/lib/cn";
+import {
+  getTaskPomoCompletionTone,
+  TASK_PROGRESS_TONE_CLASS_NAMES,
+} from "@/lib/task-pomo-progress";
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
 import { Button } from "@/components/ui/button";
 import { ModalOverlay } from "@/components/ui/modal-overlay";
@@ -81,6 +85,13 @@ export function TaskListCard({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isDone = isTaskDone(task);
   const canActivate = !isDone && !isScheduled;
+  const taskProgressTone = getTaskPomoCompletionTone(
+    task.completed_pomos,
+    task.estimated_pomos,
+    isDone,
+  );
+  const taskProgressToneClassName =
+    TASK_PROGRESS_TONE_CLASS_NAMES[taskProgressTone];
   const progressState = canActivate
     ? task.completed_pomos === 0
       ? "not-started"
@@ -114,6 +125,7 @@ export function TaskListCard({
     <article
       data-task-id={task.id}
       data-progress-state={progressState ?? undefined}
+      data-progress-tone={taskProgressTone}
       data-runtime-status={visibleRuntimeStatus ?? undefined}
       onPointerDown={reorderable ? onPointerDown : undefined}
       onPointerMove={reorderable ? onPointerMove : undefined}
@@ -124,8 +136,6 @@ export function TaskListCard({
         layout === "grid" ? "rounded-[10px] p-4" : "rounded-md px-3 py-2.5 md:px-4",
         isDone
           ? "opacity-65 hover:opacity-90"
-          : isScheduled
-            ? "border-amber-300/60"
           : "hover:border-sahara-text-muted",
         isActive && !isDone &&
           "border-sahara-text-muted bg-sahara-card",
@@ -151,11 +161,8 @@ export function TaskListCard({
           aria-hidden="true"
           className={cn(
             "pointer-events-none absolute inset-y-2 left-0 w-0.5 rounded-full",
-            progressState === "not-started"
-              ? "bg-sahara-text-muted"
-              : progressState === "overrun"
-                ? "bg-red-500 dark:bg-red-400"
-                : "bg-emerald-500 dark:bg-emerald-400",
+            taskProgressToneClassName,
+            "bg-[var(--timer-task-pomo-color)]",
           )}
         />
       )}
@@ -267,12 +274,8 @@ export function TaskListCard({
           <span className="mt-1.5 flex flex-wrap items-center gap-2">
             <span
               className={cn(
-                "inline-flex items-center gap-1.5 text-xs font-medium",
-                progressState === "not-started"
-                  ? "text-sahara-text-secondary"
-                  : progressState === "overrun"
-                    ? "text-red-700 dark:text-red-300"
-                    : "text-emerald-700 dark:text-emerald-300",
+                "task-pomo-label inline-flex items-center gap-1.5 text-xs font-medium",
+                taskProgressToneClassName,
               )}
             >
               <Target aria-hidden="true" className="size-3.5" />
@@ -282,14 +285,13 @@ export function TaskListCard({
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ring-1 ring-inset",
                 visibleRuntimeStatus === "running"
-                  ? "bg-blue-50 text-blue-700 ring-blue-200/80 dark:bg-blue-950/40 dark:text-blue-300 dark:ring-blue-800/80"
+                  ? "bg-sahara-card text-sahara-text ring-sahara-border"
                   : visibleRuntimeStatus === "paused"
-                    ? "bg-amber-50 text-amber-700 ring-amber-200/80 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-800/80"
-                    : progressState === "not-started"
-                      ? "bg-sahara-card text-sahara-text-secondary ring-sahara-border"
-                      : progressState === "overrun"
-                        ? "bg-red-50 text-red-700 ring-red-200/80 dark:bg-red-950/40 dark:text-red-300 dark:ring-red-800/80"
-                        : "bg-emerald-50 text-emerald-700 ring-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-800/80",
+                    ? "bg-sahara-card text-sahara-text-secondary ring-sahara-border"
+                    : cn(
+                        "task-pomo-label bg-sahara-card ring-sahara-border",
+                        taskProgressToneClassName,
+                      ),
               )}
             >
               {visibleRuntimeStatus === "running" ? (
@@ -318,8 +320,13 @@ export function TaskListCard({
       )}
 
       {!canActivate && <div className="mt-2 flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-1.5 text-xs text-sahara-text-secondary">
-          <Target className="size-3 md:w-3.5 md:h-3.5 text-sahara-primary" />
+        <div
+          className={cn(
+            "task-pomo-label flex items-center gap-1.5 text-xs",
+            taskProgressToneClassName,
+          )}
+        >
+          <Target className="size-3 text-[var(--timer-task-pomo-color)] md:h-3.5 md:w-3.5" />
           <span className="font-mono tabular-nums">
             {task.completed_pomos}/{task.estimated_pomos}{" "}
             <span className="font-sans text-sahara-text-muted">
@@ -329,7 +336,7 @@ export function TaskListCard({
         </div>
 
         {isScheduled && task.scheduled_for && (
-          <div className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+          <div className="inline-flex items-center gap-1 rounded-md bg-sahara-card px-2 py-0.5 text-[10px] font-medium text-sahara-text-secondary">
             <CalendarClock className="size-2.5 md:w-3 md:h-3" />
             {formatScheduledFor(task.scheduled_for)}
           </div>
@@ -356,15 +363,8 @@ export function TaskListCard({
           <div
             className={cn(
               "h-full rounded-full transition-[width,background-color] duration-200 motion-reduce:transition-none",
-              isDone
-                ? "bg-green-500"
-                : progressState === "not-started"
-                  ? "bg-sahara-text-muted"
-                  : progressState === "overrun"
-                    ? "bg-red-500 dark:bg-red-400"
-                    : progressState === "on-track"
-                      ? "bg-emerald-500 dark:bg-emerald-400"
-                      : "bg-sahara-primary",
+              taskProgressToneClassName,
+              "bg-[var(--timer-task-pomo-color)]",
             )}
             style={{
               width: `${Math.min(

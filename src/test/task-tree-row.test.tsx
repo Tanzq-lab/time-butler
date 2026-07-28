@@ -296,7 +296,8 @@ describe("TaskTreeRow", () => {
     });
     expect(title).not.toHaveClass("line-through");
     expect(progress.firstElementChild).toHaveClass(
-      "bg-[var(--color-timer-complete)]",
+      "task-pomo-complete",
+      "bg-[var(--timer-task-pomo-color)]",
     );
     expect(
       screen.queryByRole("group", {
@@ -305,15 +306,13 @@ describe("TaskTreeRow", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("uses the parent title as focus context for focus subtasks", () => {
+  it("uses child completion stages for every parent progress bar", () => {
     render(
       <TaskTreeRow
         task={{ ...focusTask, name: "AI 生成 2D 游戏", item_type: "todo" }}
-        childCount={2}
-        completedChildCount={0}
-        focusChildCount={2}
-        focusChildCompletedPomos={1}
-        focusChildEstimatedPomos={3}
+        childCount={5}
+        completedChildCount={4}
+        focusChildCount={5}
         onRename={vi.fn(() => true)}
         onDelete={vi.fn()}
       />,
@@ -321,8 +320,37 @@ describe("TaskTreeRow", () => {
 
     const row = screen.getByTitle("AI 生成 2D 游戏").closest("article");
     const prefix = screen.getByText("专注：");
+    const progress = screen.getByRole("progressbar", {
+      name: "AI 生成 2D 游戏 子任务进度",
+    });
     expect(row).toHaveAttribute("data-task-kind", "group");
-    expect(row).toHaveAttribute("data-pomo-tone", "start");
-    expect(prefix).toHaveClass("timer-task-pomo-start");
+    expect(row).toHaveAttribute("data-progress-tone", "final-in-budget");
+    expect(prefix).toHaveClass("timer-task-pomo-final-in-budget");
+    expect(progress.firstElementChild).toHaveClass(
+      "timer-task-pomo-final-in-budget",
+      "bg-[var(--timer-task-pomo-color)]",
+    );
+  });
+
+  it("uses the same child-progress tone without focus subtasks", () => {
+    render(
+      <TaskTreeRow
+        task={{ ...focusTask, name: "整理房间", item_type: "todo" }}
+        childCount={5}
+        completedChildCount={4}
+        onRename={vi.fn(() => true)}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    const row = screen.getByTitle("整理房间").closest("article");
+    const progress = screen.getByRole("progressbar", {
+      name: "整理房间 子任务进度",
+    });
+    expect(row).toHaveAttribute("data-progress-tone", "final-in-budget");
+    expect(progress.firstElementChild).toHaveClass(
+      "timer-task-pomo-final-in-budget",
+      "bg-[var(--timer-task-pomo-color)]",
+    );
   });
 });

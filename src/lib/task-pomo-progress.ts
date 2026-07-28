@@ -5,6 +5,21 @@ export type TaskPomoRingTone =
   | "final-in-budget"
   | "overrun";
 
+export type TaskProgressTone =
+  | "not-started"
+  | "complete"
+  | TaskPomoRingTone;
+
+export const TASK_PROGRESS_TONE_CLASS_NAMES: Record<TaskProgressTone, string> = {
+  "not-started": "task-pomo-not-started",
+  "complete": "task-pomo-complete",
+  "start": "timer-task-pomo-start",
+  "progress": "timer-task-pomo-progress",
+  "caution": "timer-task-pomo-caution",
+  "final-in-budget": "timer-task-pomo-final-in-budget",
+  "overrun": "timer-task-pomo-overrun",
+};
+
 export interface TaskPomoProgressVisual {
   completedPomos: number;
   estimatedPomos: number;
@@ -34,6 +49,63 @@ function getRingTone(
   if (estimatedPomos === 1) return "start";
 
   const budgetPosition = (currentPomo - 1) / (estimatedPomos - 1);
+  const toneIndex = Math.round(
+    budgetPosition * (BUDGET_RING_TONES.length - 1),
+  );
+  return BUDGET_RING_TONES[toneIndex];
+}
+
+/**
+ * Colors task-tree focus labels from completed pomodoros. A finished task
+ * always uses the success color, while additional pomodoros stay red.
+ */
+export function getTaskPomoCompletionTone(
+  completedPomos: number,
+  estimatedPomos: number,
+  completed: boolean,
+): TaskProgressTone {
+  if (completed) return "complete";
+
+  const safeCompletedPomos = asNonNegativeInteger(completedPomos);
+  const safeEstimatedPomos = asNonNegativeInteger(estimatedPomos);
+  if (safeCompletedPomos === 0 || safeEstimatedPomos === 0) {
+    return "not-started";
+  }
+  if (safeCompletedPomos > safeEstimatedPomos) return "overrun";
+  if (
+    safeCompletedPomos === safeEstimatedPomos
+    || safeEstimatedPomos === 1
+  ) {
+    return "final-in-budget";
+  }
+
+  const budgetPosition =
+    (safeCompletedPomos - 1) / (safeEstimatedPomos - 1);
+  const toneIndex = Math.round(
+    budgetPosition * (BUDGET_RING_TONES.length - 1),
+  );
+  return BUDGET_RING_TONES[toneIndex];
+}
+
+/**
+ * Every parent task uses the same stage colour for its child-completion bar,
+ * regardless of whether the children are todos or focus tasks. The bar never
+ * reaches red because a child count cannot exceed its total.
+ */
+export function getTaskChildProgressTone(
+  completedChildren: number,
+  totalChildren: number,
+): Exclude<TaskProgressTone, "overrun"> {
+  const safeCompletedChildren = asNonNegativeInteger(completedChildren);
+  const safeTotalChildren = asNonNegativeInteger(totalChildren);
+  if (safeTotalChildren === 0 || safeCompletedChildren === 0) {
+    return "not-started";
+  }
+  if (safeCompletedChildren >= safeTotalChildren) return "complete";
+  if (safeTotalChildren === 2) return "final-in-budget";
+
+  const budgetPosition =
+    (safeCompletedChildren - 1) / (safeTotalChildren - 2);
   const toneIndex = Math.round(
     budgetPosition * (BUDGET_RING_TONES.length - 1),
   );

@@ -539,14 +539,6 @@ export function TasksList() {
     const focusChildren = allChildren.filter(
       (child) => getTaskItemType(child) === "focus",
     );
-    const focusChildCompletedPomos = focusChildren.reduce(
-      (total, child) => total + child.completed_pomos,
-      0,
-    );
-    const focusChildEstimatedPomos = focusChildren.reduce(
-      (total, child) => total + child.estimated_pomos,
-      0,
-    );
     const isGroup = allChildren.length > 0;
     const isExpanded = Boolean(normalizedSearch) || expandedIds.has(task.id);
     const parentId = task.parent_id ?? null;
@@ -579,8 +571,6 @@ export function TasksList() {
           childCount={allChildren.length}
           completedChildCount={completedChildCount}
           focusChildCount={focusChildren.length}
-          focusChildCompletedPomos={focusChildCompletedPomos}
-          focusChildEstimatedPomos={focusChildEstimatedPomos}
           expanded={isExpanded}
           categoryName={
             task.category_id == null

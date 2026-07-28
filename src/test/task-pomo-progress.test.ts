@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { getTaskPomoProgressVisual } from "@/lib/task-pomo-progress";
+import {
+  getTaskChildProgressTone,
+  getTaskPomoProgressVisual,
+} from "@/lib/task-pomo-progress";
 
 describe("getTaskPomoProgressVisual", () => {
   it("identifies the active pomodoro without counting it as completed", () => {
@@ -70,4 +73,20 @@ describe("getTaskPomoProgressVisual", () => {
   it("does not show a budget signal when a task has no valid estimate", () => {
     expect(getTaskPomoProgressVisual(0, 0)).toBeNull();
   });
+
+  it.each([
+    [0, 5, "not-started"],
+    [1, 5, "start"],
+    [2, 5, "progress"],
+    [3, 5, "caution"],
+    [4, 5, "final-in-budget"],
+    [5, 5, "complete"],
+  ] as const)(
+    "maps %s/%s completed children to the shared %s progress tone",
+    (completedChildren, totalChildren, tone) => {
+      expect(getTaskChildProgressTone(completedChildren, totalChildren)).toBe(
+        tone,
+      );
+    },
+  );
 });
