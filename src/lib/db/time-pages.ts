@@ -102,15 +102,17 @@ export async function getTimePages(): Promise<TimePage[]> {
 export async function updateTimePageContent(
   id: number,
   content: string,
-): Promise<void> {
+): Promise<boolean> {
   const database = await getDb();
-  await database.execute(
+  const result = await database.execute(
     `UPDATE time_pages
      SET content = $1,
          updated_at = datetime('now', 'localtime')
-     WHERE id = $2`,
+     WHERE id = $2
+       AND content <> $1`,
     [content, id],
   );
+  return result.rowsAffected === 1;
 }
 
 export async function addTaskActivityLog(

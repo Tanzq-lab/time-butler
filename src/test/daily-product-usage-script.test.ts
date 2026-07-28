@@ -57,8 +57,8 @@ describe("daily product usage analyzer", () => {
         ('task_deleted', '/tasks', 'task', '98', '${metadata({ appSessionId: "session-1", appSessionSequence: 6, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:14.000Z" })}', '2026-07-14 01:00:14'),
         ('task_deleted', '/tasks', 'task', '99', '${metadata({ appSessionId: "session-1", appSessionSequence: 7, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:15.000Z" })}', '2026-07-14 01:00:15'),
         ('time_page_selected', '/notes', 'time_page', '37', '${metadata({ appSessionId: "session-1", appSessionSequence: 8, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:16.000Z", pageType: "day", dateKey: "2026-07-14" })}', '2026-07-14 01:00:16'),
-        ('time_page_content_updated', '/notes', 'time_page', '37', '${metadata({ appSessionId: "session-1", appSessionSequence: 9, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:17.000Z", pageType: "day", dateKey: "2026-07-14", deltaLength: 0 })}', '2026-07-14 01:00:17'),
-        ('time_page_content_updated', '/notes', 'time_page', '37', '${metadata({ appSessionId: "session-1", appSessionSequence: 10, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:18.000Z", pageType: "day", dateKey: "2026-07-14", deltaLength: 2 })}', '2026-07-14 01:00:18'),
+        ('time_page_content_updated', '/notes', 'time_page', '37', '${metadata({ appSessionId: "session-1", appSessionSequence: 9, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:17.000Z", pageType: "day", dateKey: "2026-07-14", deltaLength: 0, removedCharacters: 1, insertedCharacters: 1, changedCharacters: 2 })}', '2026-07-14 01:00:17'),
+        ('time_page_content_updated', '/notes', 'time_page', '37', '${metadata({ appSessionId: "session-1", appSessionSequence: 10, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:18.000Z", pageType: "day", dateKey: "2026-07-14", deltaLength: 2, removedCharacters: 0, insertedCharacters: 2, changedCharacters: 2 })}', '2026-07-14 01:00:18'),
         ('notification_audio_prepare_result', '/', NULL, NULL, '${metadata({ appSessionId: "session-1", appSessionSequence: 11, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:19.000Z", trigger: "timer_start", phase: "short_break", outcome: "failed", errorName: "ReferenceError", errorMessage: "Missing audio buffer" })}', '2026-07-14 01:00:19'),
         ('app_usage_session_ended', '/tasks', NULL, NULL, '${metadata({ appSessionId: "session-1", appSessionSequence: 12, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:20.000Z" })}', '2026-07-14 01:00:20');
       INSERT INTO sessions VALUES (1, '2026-07-14 09:00:00', 1500, 1);
@@ -119,8 +119,10 @@ describe("daily product usage analyzer", () => {
       selected: 1,
       updated: 2,
       pagesTouched: 1,
-      zeroDeltaUpdates: 1,
-      tinyDeltaUpdates: 2,
+      sameLengthUpdates: 1,
+      measuredEditUpdates: 2,
+      smallEditUpdates: 2,
+      unmeasuredEditUpdates: 0,
       netDelta: 2,
     });
     expect(report.hypotheses).not.toContainEqual(
@@ -147,7 +149,7 @@ describe("daily product usage analyzer", () => {
       "App 会话事件：开始 1 条，结束 1 条（跨日或异常退出可能不成对）",
     );
     expect(markdownResult.stdout).toContain(
-      "时间页：选择 1，内容更新 2，涉及 1 个页面；零长度变化 1，长度变化不超过 2 字符 2",
+      "时间页：选择 1，内容更新 2，涉及 1 个页面；等长编辑 1，可测编辑 2（其中真实改动不超过 2 字符 2），旧埋点幅度不可测 0",
     );
   });
 

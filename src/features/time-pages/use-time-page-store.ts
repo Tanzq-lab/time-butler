@@ -23,6 +23,41 @@ interface TimePageStore {
   updatePageContent: (id: number, content: string) => Promise<void>;
 }
 
+function measureTextChange(previous: string, next: string) {
+  let sharedPrefixLength = 0;
+  const maxPrefixLength = Math.min(previous.length, next.length);
+  while (
+    sharedPrefixLength < maxPrefixLength
+    && previous[sharedPrefixLength] === next[sharedPrefixLength]
+  ) {
+    sharedPrefixLength += 1;
+  }
+
+  let sharedSuffixLength = 0;
+  const maxSuffixLength = Math.min(
+    previous.length - sharedPrefixLength,
+    next.length - sharedPrefixLength,
+  );
+  while (
+    sharedSuffixLength < maxSuffixLength
+    && previous[previous.length - 1 - sharedSuffixLength]
+      === next[next.length - 1 - sharedSuffixLength]
+  ) {
+    sharedSuffixLength += 1;
+  }
+
+  const removedCharacters =
+    previous.length - sharedPrefixLength - sharedSuffixLength;
+  const insertedCharacters =
+    next.length - sharedPrefixLength - sharedSuffixLength;
+
+  return {
+    removedCharacters,
+    insertedCharacters,
+    changedCharacters: removedCharacters + insertedCharacters,
+  };
+}
+
 export const useTimePageStore = create<TimePageStore>((set, get) => ({
   pages: [],
   activePageId: null,
@@ -80,14 +115,25 @@ export const useTimePageStore = create<TimePageStore>((set, get) => ({
   updatePageContent: async (id, content) => {
     try {
       const previousPage = get().pages.find((page) => page.id === id);
-      await dbUpdateTimePageContent(id, content);
+      if (!previousPage || previousPage.content === content) return;
+
+      const textChange = measureTextChange(previousPage.content, content);
+      const contentChanged = await dbUpdateTimePageContent(id, content);
       const updatedAt = new Date().toISOString();
       set((state) => ({
         pages: state.pages.map((page) =>
-          page.id === id ? { ...page, content, updated_at: updatedAt } : page,
+          page.id === id
+            ? {
+                ...page,
+                content,
+                updated_at: contentChanged ? updatedAt : page.updated_at,
+              }
+            : page,
         ),
         error: null,
       }));
+      if (!contentChanged) return;
+
       void recordAppEvent({
         eventName: "time_page_content_updated",
         route: "/notes",
@@ -99,6 +145,7 @@ export const useTimePageStore = create<TimePageStore>((set, get) => ({
           previousLength: previousPage?.content.length ?? null,
           nextLength: content.length,
           deltaLength: previousPage ? content.length - previousPage.content.length : null,
+          ...textChange,
         },
       });
     } catch (err) {

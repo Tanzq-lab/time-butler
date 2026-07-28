@@ -411,15 +411,27 @@ function buildTimePageFlow(events, getCount) {
       pageType,
       dateKey,
       updates: 0,
-      zeroDeltaUpdates: 0,
-      tinyDeltaUpdates: 0,
+      sameLengthUpdates: 0,
+      measuredEditUpdates: 0,
+      smallEditUpdates: 0,
+      unmeasuredEditUpdates: 0,
       netDelta: 0,
     };
     current.updates += 1;
     if (Number.isFinite(delta)) {
-      if (delta === 0) current.zeroDeltaUpdates += 1;
-      if (Math.abs(delta) <= 2) current.tinyDeltaUpdates += 1;
+      if (delta === 0) current.sameLengthUpdates += 1;
       current.netDelta += delta;
+    }
+    const changedCharacters = event.metadata.changedCharacters;
+    if (
+      typeof changedCharacters === "number"
+      && Number.isFinite(changedCharacters)
+      && changedCharacters > 0
+    ) {
+      current.measuredEditUpdates += 1;
+      if (changedCharacters <= 2) current.smallEditUpdates += 1;
+    } else {
+      current.unmeasuredEditUpdates += 1;
     }
     pages.set(key, current);
   }
@@ -431,8 +443,12 @@ function buildTimePageFlow(events, getCount) {
     selected: getCount("time_page_selected"),
     updated: pageUpdates.length,
     pagesTouched: pageSummaries.length,
-    zeroDeltaUpdates: sum(pageSummaries.map((page) => page.zeroDeltaUpdates)),
-    tinyDeltaUpdates: sum(pageSummaries.map((page) => page.tinyDeltaUpdates)),
+    sameLengthUpdates: sum(pageSummaries.map((page) => page.sameLengthUpdates)),
+    measuredEditUpdates: sum(pageSummaries.map((page) => page.measuredEditUpdates)),
+    smallEditUpdates: sum(pageSummaries.map((page) => page.smallEditUpdates)),
+    unmeasuredEditUpdates: sum(
+      pageSummaries.map((page) => page.unmeasuredEditUpdates),
+    ),
     netDelta: sum(pageSummaries.map((page) => page.netDelta)),
     pages: pageSummaries,
   };
@@ -550,15 +566,15 @@ function buildHypotheses({
     });
   }
 
-  const tinyEditRate = timePages.updated
-    ? timePages.tinyDeltaUpdates / timePages.updated
+  const tinyEditRate = timePages.measuredEditUpdates
+    ? timePages.smallEditUpdates / timePages.measuredEditUpdates
     : 0;
-  if (timePages.updated >= 10 && tinyEditRate >= 0.8) {
+  if (timePages.measuredEditUpdates >= 10 && tinyEditRate >= 0.8) {
     push({
       priority: "observe",
       code: "time_page_micro_edit_cluster",
       userPath: "进入时间页 → 编辑内容 → 连续保存微小变化",
-      evidence: `${timePages.updated} 次内容更新中，${timePages.tinyDeltaUpdates} 次长度变化不超过 2 个字符（${percent(timePages.tinyDeltaUpdates, timePages.updated)}%）`,
+      evidence: `${timePages.measuredEditUpdates} 次可测内容更新中，${timePages.smallEditUpdates} 次真实改动不超过 2 个字符（${percent(timePages.smallEditUpdates, timePages.measuredEditUpdates)}%）`,
       need: "顺畅记录和修改计划，不因保存机制或编辑反馈反复确认。",
       keyAssumption: "连续微小更新可能来自编辑或保存摩擦，而不是正常逐字输入。",
       smallestChange: "先结合页面停留、选择次数和跨日重复情况观察，不改编辑器行为。",
@@ -653,7 +669,7 @@ function buildMarkdown(report) {
     `- 计时：开始 ${report.flows.timer.started}，完成 ${report.flows.timer.finished}，放弃 ${report.flows.timer.abandoned}，跳过 ${report.flows.timer.skipped}`,
     `- 任务：创建 ${report.flows.tasks.added}，更新 ${report.flows.tasks.updated}，完成 ${report.flows.tasks.completed}，删除 ${report.flows.tasks.deleted}，归档 ${report.flows.tasks.archived}；当天新增后删除 ${report.flows.tasks.createdThenDeleted}，其中 10 分钟内删除 ${report.flows.tasks.deletedWithin10Minutes}`,
     `- 超额复核：展示 ${report.flows.tasks.overrunReviewShown}，取消 ${report.flows.tasks.overrunReviewCancelled}，确认 ${report.flows.tasks.overrunReviewConfirmed}；取消后 3 分钟内重开并确认 ${report.flows.tasks.overrunCancelReopenConfirmedWithin3Minutes} 次，涉及 ${report.flows.tasks.overrunCancelReopenConfirmedTasks} 个任务`,
-    `- 时间页：选择 ${report.flows.timePages.selected}，内容更新 ${report.flows.timePages.updated}，涉及 ${report.flows.timePages.pagesTouched} 个页面；零长度变化 ${report.flows.timePages.zeroDeltaUpdates}，长度变化不超过 2 字符 ${report.flows.timePages.tinyDeltaUpdates}`,
+    `- 时间页：选择 ${report.flows.timePages.selected}，内容更新 ${report.flows.timePages.updated}，涉及 ${report.flows.timePages.pagesTouched} 个页面；等长编辑 ${report.flows.timePages.sameLengthUpdates}，可测编辑 ${report.flows.timePages.measuredEditUpdates}（其中真实改动不超过 2 字符 ${report.flows.timePages.smallEditUpdates}），旧埋点幅度不可测 ${report.flows.timePages.unmeasuredEditUpdates}`,
     `- 音频通知：请求 ${report.flows.audio.deliveryRequested}，播放启动/已播放 ${report.flows.audio.playbackObserved}，失败 ${report.flows.audio.failures}，缺口 ${report.flows.audio.deliveryGaps}`,
   );
 
