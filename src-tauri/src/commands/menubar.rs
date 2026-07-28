@@ -30,6 +30,18 @@ fn fill_row(rgba: &mut [u8], y: u32, left: u32, right: u32) {
     }
 }
 
+fn fill_upper_sand(rgba: &mut [u8], rows: u32) {
+    for step in 0..rows.min(6) {
+        fill_row(rgba, 8 + step, 10 + step, 21 - step);
+    }
+}
+
+fn fill_lower_sand(rgba: &mut [u8], rows: u32) {
+    for step in 0..rows.min(6) {
+        fill_row(rgba, 23 - step, 10 + step, 21 - step);
+    }
+}
+
 fn menubar_progress_icon(progress: MenubarTimerProgress) -> Image<'static> {
     let mut rgba = vec![0; (MENUBAR_ICON_SIZE * MENUBAR_ICON_SIZE * 4) as usize];
 
@@ -50,20 +62,14 @@ fn menubar_progress_icon(progress: MenubarTimerProgress) -> Image<'static> {
         set_pixel(&mut rgba, 15 + step, lower_y);
     }
 
-    let filled_rows = match progress {
-        MenubarTimerProgress::Full => 6,
-        MenubarTimerProgress::ThreeQuarters => 4,
-        MenubarTimerProgress::Half => 2,
-        MenubarTimerProgress::Empty => 0,
+    let (upper_sand_rows, lower_sand_rows) = match progress {
+        MenubarTimerProgress::Full => (6, 0),
+        MenubarTimerProgress::ThreeQuarters => (4, 2),
+        MenubarTimerProgress::Half => (2, 4),
+        MenubarTimerProgress::Empty => (0, 6),
     };
-    for step in 0..filled_rows {
-        let y = 8 + step;
-        let left = 10 + step;
-        let right = 21 - step;
-        if left <= right {
-            fill_row(&mut rgba, y, left, right);
-        }
-    }
+    fill_upper_sand(&mut rgba, upper_sand_rows);
+    fill_lower_sand(&mut rgba, lower_sand_rows);
 
     Image::new_owned(rgba, MENUBAR_ICON_SIZE, MENUBAR_ICON_SIZE)
 }
@@ -210,23 +216,24 @@ pub fn setup_menubar_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Er
 mod tests {
     use super::{menubar_progress_icon, MenubarTimerProgress};
 
-    fn opaque_pixel_count(progress: MenubarTimerProgress) -> usize {
-        menubar_progress_icon(progress)
-            .rgba()
-            .chunks_exact(4)
-            .filter(|pixel| pixel[3] > 0)
-            .count()
+    fn is_opaque(progress: MenubarTimerProgress, x: u32, y: u32) -> bool {
+        let image = menubar_progress_icon(progress);
+        let index = ((y * image.width() + x) * 4) as usize;
+        image.rgba()[index + 3] > 0
     }
 
     #[test]
     fn draws_four_distinct_hourglass_fill_levels() {
-        let full = opaque_pixel_count(MenubarTimerProgress::Full);
-        let three_quarters = opaque_pixel_count(MenubarTimerProgress::ThreeQuarters);
-        let half = opaque_pixel_count(MenubarTimerProgress::Half);
-        let empty = opaque_pixel_count(MenubarTimerProgress::Empty);
+        assert!(is_opaque(MenubarTimerProgress::Full, 15, 11));
+        assert!(is_opaque(MenubarTimerProgress::ThreeQuarters, 15, 11));
+        assert!(!is_opaque(MenubarTimerProgress::Half, 15, 11));
+        assert!(!is_opaque(MenubarTimerProgress::Empty, 15, 11));
 
-        assert!(full > three_quarters);
-        assert!(three_quarters > half);
-        assert!(half > empty);
+        assert!(!is_opaque(MenubarTimerProgress::ThreeQuarters, 15, 21));
+        assert!(is_opaque(MenubarTimerProgress::Half, 15, 21));
+        assert!(is_opaque(MenubarTimerProgress::Empty, 15, 21));
+
+        assert!(!is_opaque(MenubarTimerProgress::Half, 15, 18));
+        assert!(is_opaque(MenubarTimerProgress::Empty, 15, 18));
     }
 }
