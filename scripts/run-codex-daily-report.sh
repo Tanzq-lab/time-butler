@@ -108,7 +108,7 @@ PROMPT=$(cat <<PROMPT
 - 读取 AGENTS.md、README.md、docs/codex-mistake-notebook.md、../time-butler-data/README.md 和 SQLite schema。
 - 从 ../time-butler-data/Time-butler.db 与 ../time-butler-data/data/pomodoro-estimation-log.jsonl 读取 TARGET_DATE=$TARGET_DATE 的数据，包括 sessions、tasks、completion_review、time_pages、task_activity_log 和 app_events。
 - 读取本次临时生成的本地产品路径分析 $PRODUCT_INSIGHT_JSON；这个文件只作为本次运行证据，脚本结束时会删除。文件不可读或分析失败时，直接检查 app_events 并明确报告覆盖缺口，不要创建长期产品建议报告文件。
-- 按 skill 的“AI知识库项目的 Git 收尾与目标日提交”规则执行：用 Finder 的“AI知识库”标签动态发现目录，不得硬编码当前项目清单；逐仓库理解现有修改、按独立意图和明确文件路径安全拆分本地 commit，并运行最小验证。Git 收尾默认要把所有可以安全解释、隔离和验证的现有修改提交掉；一组失败不得阻止其他独立组。不得推送远端，不得提交凭据、数据库、备份、日志、构建产物或其他私密运行数据。
+- 按 skill 的“AI知识库项目的 Git 收尾与目标日提交”规则执行：用 Finder 的“AI知识库”标签动态发现目录，不得硬编码当前项目清单；逐仓库理解现有修改、按独立意图和明确文件路径安全拆分本地 commit，并运行最小验证。Git 收尾默认要把所有可以安全解释、隔离和验证的现有修改提交掉；一组失败不得阻止其他独立组。不得推送远端，不得提交凭据、备份、运行日志、构建产物或其他私密运行数据。唯一例外是 `../time-butler-data`：它是用户许可的私有数据仓库；完成写入和验证后，允许且应当单独提交本次可解释的 `Time-butler.db`，并在本次允许的数据操作确实改变时提交 `data/pomodoro-estimation-log.jsonl`。绝不提交 `backups/`、`logs/`、`*.db-wal`、`*.db-shm`、密钥或无关数据。
 - 只有冲突、历史操作进行中、强制验证失败、修改未完成或归属确实不清的具体修改组可以跳过。每个跳过项必须列出仓库、明确文件、已确认意图、阻塞原因和一个用户可直接回答的问题；不得只写笼统的“未提交”。
 - 读取所有发现仓库在 Asia/Shanghai 的 TARGET_DATE=$TARGET_DATE 时间窗内的本地分支提交；不能只看提交标题，必须检查 commit stat，必要时检查 diff，再按仓库和工作主题归纳具体完成内容。本次运行今天新建的收尾 commit 不得倒填到目标日日报。
 - 路径分析必须检查 App 使用会话覆盖率、常见路径、页面有效停留、前后台切换、计时/任务关键动作和通知音频诊断；用 sessions、tasks、completion_review、时间页手写反馈等本地信号交叉验证，不能只凭单一埋点推断用户心理。
@@ -135,7 +135,7 @@ PROMPT=$(cat <<PROMPT
 
 禁止修改 tasks、sessions、pomodoro-estimation-log.jsonl。
 禁止重启 Tauri dev server。
-禁止提交数据库备份、日志、构建产物或私密数据。
+禁止提交数据库备份、运行日志、构建产物或不应入库的私密数据；但上述 `../time-butler-data/Time-butler.db` 与必要的 `data/pomodoro-estimation-log.jsonl` 是用户许可的私有追踪数据，可在范围验证后单独提交。
 禁止执行 git push、改写历史、强制操作，或为了凑提交而修改其他项目。
 禁止删除用户原有日报内容。
 如果 marker 不完整、数据库不可写、或写入后疑似被打开中的 App 旧缓存覆盖，停止并在最终结果中明确报告。
