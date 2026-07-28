@@ -833,32 +833,6 @@ export function TasksList() {
       />
 
       <section aria-label="任务">
-        <form
-          onSubmit={(event) => void handleQuickAdd(event)}
-          className="mb-3 flex items-center gap-2 rounded-md border border-sahara-border bg-sahara-surface px-3 py-2.5"
-        >
-          <Plus aria-hidden="true" className="size-4 shrink-0 text-sahara-text-muted" />
-          <input
-            type="text"
-            name="quick-task"
-            autoComplete="off"
-            value={quickDraft}
-            onChange={(event) => setQuickDraft(event.target.value)}
-            aria-label="添加任务"
-            placeholder="添加任务，按回车保存…"
-            className="h-8 min-w-0 flex-1 bg-transparent px-1 text-sm text-sahara-text outline-none placeholder:text-sahara-text-muted"
-          />
-          <Button
-            type="submit"
-            variant="ghost"
-            intent="sahara"
-            size="xs"
-            disabled={!quickDraft.trim()}
-          >
-            添加
-          </Button>
-        </form>
-
         {error && (
           <p role="alert" className="mb-3 text-xs text-red-600 dark:text-red-400">
             任务保存失败，请重试。
@@ -884,6 +858,32 @@ export function TasksList() {
             添加一件要做的事，需要投入时再设为专注。
           </p>
         )}
+
+        <form
+          onSubmit={(event) => void handleQuickAdd(event)}
+          className="mt-3 flex items-center gap-2 rounded-md border border-sahara-border bg-sahara-surface px-3 py-2.5"
+        >
+          <Plus aria-hidden="true" className="size-4 shrink-0 text-sahara-text-muted" />
+          <input
+            type="text"
+            name="quick-task"
+            autoComplete="off"
+            value={quickDraft}
+            onChange={(event) => setQuickDraft(event.target.value)}
+            aria-label="添加任务"
+            placeholder="添加任务，按回车保存…"
+            className="h-8 min-w-0 flex-1 bg-transparent px-1 text-sm text-sahara-text outline-none placeholder:text-sahara-text-muted"
+          />
+          <Button
+            type="submit"
+            variant="ghost"
+            intent="sahara"
+            size="xs"
+            disabled={!quickDraft.trim()}
+          >
+            添加
+          </Button>
+        </form>
 
         {doneRoots.length > 0 && (
           <div className="mt-7 border-t border-sahara-border pt-5">

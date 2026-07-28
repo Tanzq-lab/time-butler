@@ -258,7 +258,16 @@ test.describe("Tasks", () => {
 
     await input.fill(title);
     await input.press("Enter");
-    await expect(page.getByText(title)).toBeVisible();
+    const taskRow = page.locator("article").filter({ hasText: title }).first();
+    await expect(taskRow).toBeVisible();
+
+    const [taskBounds, inputBounds] = await Promise.all([
+      taskRow.boundingBox(),
+      input.boundingBox(),
+    ]);
+    expect(taskBounds).not.toBeNull();
+    expect(inputBounds).not.toBeNull();
+    expect(taskBounds!.y).toBeLessThan(inputBounds!.y);
 
     await page.getByRole("checkbox", { name: `完成待办：${title}` }).click();
     await page.getByRole("button", { name: "已完成（1）" }).click();
