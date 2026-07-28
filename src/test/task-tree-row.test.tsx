@@ -61,6 +61,16 @@ describe("TaskTreeRow", () => {
       "task-pomo-complete",
     );
     expect(screen.getByText("专注：")).toHaveClass("task-pomo-complete");
+    const completedControl = screen.getByRole("checkbox", {
+      name: "重新打开专注任务：整理任务树视觉",
+    }).firstElementChild;
+    expect(completedControl).toHaveClass(
+      "border-[var(--color-timer-complete)]",
+      "bg-[var(--color-timer-complete)]",
+    );
+    expect(screen.getByTitle("整理任务树视觉")).not.toHaveClass(
+      "line-through",
+    );
   });
 
   it("uses the shared checkbox to open the focus completion flow", () => {
@@ -105,6 +115,8 @@ describe("TaskTreeRow", () => {
 
   it("reopens a completed focus task through the shared checkbox", () => {
     const onToggleTodo = vi.fn();
+    const onEditDetails = vi.fn();
+    const onDelete = vi.fn();
     render(
       <TaskTreeRow
         task={{
@@ -112,8 +124,13 @@ describe("TaskTreeRow", () => {
           completed_at: "2026-07-28T12:00:00.000Z",
         }}
         onToggleTodo={onToggleTodo}
+        onFocus={vi.fn()}
+        onRecord={vi.fn()}
+        onEditDetails={onEditDetails}
+        onConvertToTodo={vi.fn()}
+        onAddSubtask={vi.fn()}
         onRename={vi.fn(() => true)}
-        onDelete={vi.fn()}
+        onDelete={onDelete}
       />,
     );
 
@@ -121,8 +138,73 @@ describe("TaskTreeRow", () => {
       name: "重新打开专注任务：整理任务树视觉",
     });
     expect(checkbox).toBeChecked();
+    expect(
+      screen.queryByRole("group", {
+        name: "任务操作：整理任务树视觉",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: "编辑任务：整理任务树视觉",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: "删除任务：整理任务树视觉",
+      }),
+    ).not.toBeInTheDocument();
     fireEvent.click(checkbox);
     expect(onToggleTodo).toHaveBeenCalledOnce();
+    expect(onEditDetails).not.toHaveBeenCalled();
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+
+  it("exits editing and removes task actions when a task becomes complete", () => {
+    const onDelete = vi.fn();
+    const row = (task: Task) => (
+      <TaskTreeRow
+        task={task}
+        onToggleTodo={vi.fn()}
+        onRename={vi.fn(() => true)}
+        onDelete={onDelete}
+      />
+    );
+    const { rerender } = render(row(focusTask));
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "编辑任务：整理任务树视觉",
+      }),
+    );
+    expect(
+      screen.getByRole("textbox", {
+        name: "编辑任务：整理任务树视觉",
+      }),
+    ).toBeVisible();
+
+    rerender(
+      row({
+        ...focusTask,
+        completed_at: "2026-07-28T12:00:00.000Z",
+      }),
+    );
+    expect(
+      screen.queryByRole("textbox", {
+        name: "编辑任务：整理任务树视觉",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: "删除任务：整理任务树视觉",
+      }),
+    ).not.toBeInTheDocument();
+
+    rerender(row(focusTask));
+    expect(
+      screen.queryByRole("textbox", {
+        name: "编辑任务：整理任务树视觉",
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it("exposes unique secondary actions inline without a more menu", () => {
@@ -196,5 +278,10 @@ describe("TaskTreeRow", () => {
     expect(progress.firstElementChild).toHaveClass(
       "bg-[var(--color-timer-complete)]",
     );
+    expect(
+      screen.queryByRole("group", {
+        name: "任务操作：发布 Time Butler",
+      }),
+    ).not.toBeInTheDocument();
   });
 });

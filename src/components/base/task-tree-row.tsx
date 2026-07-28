@@ -158,6 +158,12 @@ export function TaskTreeRow({
     if (!editing) setEditingName(task.name);
   }, [editing, task.name]);
 
+  useEffect(() => {
+    if (!completed) return;
+    setEditing(false);
+    setActionsExpanded(false);
+  }, [completed]);
+
   const commitRename = async () => {
     const cleanName = editingName.trim();
     if (!cleanName) return;
@@ -170,6 +176,26 @@ export function TaskTreeRow({
     else setEditing(true);
   };
   const actionPanelId = `task-actions-${task.id}`;
+  const taskTitleClassName = cn(
+    "min-w-0 truncate text-sm leading-6",
+    isGroup && "font-semibold",
+    completed ? "text-sahara-text-secondary" : "text-sahara-text",
+  );
+  const taskTitle = (
+    <>
+      {isFocus && (
+        <span
+          className={cn(
+            "task-pomo-label font-medium",
+            focusPomoToneClassName,
+          )}
+        >
+          专注：
+        </span>
+      )}
+      {task.name}
+    </>
+  );
 
   return (
     <article
@@ -189,7 +215,6 @@ export function TaskTreeRow({
             : "bg-sahara-surface hover:bg-sahara-card/40"
           : "border-t border-sahara-border/80 bg-sahara-surface hover:bg-sahara-card/35",
         isActive && !completed && "bg-sahara-card/70",
-        completed && !isGroup && "opacity-65 hover:opacity-90",
         reorderable && "cursor-grab select-none",
         dragging && "z-20 cursor-grabbing rounded-md bg-sahara-surface shadow-lg ring-1 ring-sahara-primary/25",
         dropIndicator && "bg-sahara-card/60",
@@ -243,9 +268,9 @@ export function TaskTreeRow({
                 <span
                   aria-hidden="true"
                   className={cn(
-                    "flex size-5 items-center justify-center rounded-[5px] border transition-[background-color,border-color,color,transform] duration-150 active:scale-95 motion-reduce:transform-none",
+                    "flex size-5 items-center justify-center rounded-[5px] border transition-transform duration-150 active:scale-95 motion-reduce:transform-none",
                     completed
-                      ? "border-sahara-primary bg-sahara-primary text-sahara-bg"
+                      ? "border-[var(--color-timer-complete)] bg-[var(--color-timer-complete)] text-sahara-bg"
                       : "border-sahara-text-muted/55 bg-sahara-surface text-transparent hover:border-sahara-text",
                   )}
                 >
@@ -256,7 +281,7 @@ export function TaskTreeRow({
           </div>
 
           <div className="min-w-0 flex-1">
-            {editing ? (
+            {editing && !completed ? (
               <div className="flex items-center gap-1.5">
                 <input
                   autoFocus
@@ -297,32 +322,26 @@ export function TaskTreeRow({
             ) : (
               <>
                 <div className="flex min-w-0 items-center gap-2">
-                  <button
-                    type="button"
-                    aria-expanded={actionsExpanded}
-                    aria-controls={actionPanelId}
-                    aria-label={`${actionsExpanded ? "收起" : "显示"}任务操作：${task.name}`}
-                    onClick={() => setActionsExpanded((value) => !value)}
-                    className={cn(
-                      "min-w-0 truncate rounded-sm text-left text-sm leading-6 text-sahara-text outline-none focus-visible:ring-2 focus-visible:ring-sahara-focus",
-                      isGroup && "font-semibold",
-                      completed && !isGroup && "text-sahara-text-muted line-through decoration-sahara-text-muted/55",
-                      completed && isGroup && "text-sahara-text-secondary",
-                    )}
-                    title={task.name}
-                  >
-                    {isFocus && (
-                      <span
-                        className={cn(
-                          "task-pomo-label font-medium",
-                          focusPomoToneClassName,
-                        )}
-                      >
-                        专注：
-                      </span>
-                    )}
-                    {task.name}
-                  </button>
+                  {completed ? (
+                    <p className={taskTitleClassName} title={task.name}>
+                      {taskTitle}
+                    </p>
+                  ) : (
+                    <button
+                      type="button"
+                      aria-expanded={actionsExpanded}
+                      aria-controls={actionPanelId}
+                      aria-label={`${actionsExpanded ? "收起" : "显示"}任务操作：${task.name}`}
+                      onClick={() => setActionsExpanded((value) => !value)}
+                      className={cn(
+                        taskTitleClassName,
+                        "rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-sahara-focus",
+                      )}
+                      title={task.name}
+                    >
+                      {taskTitle}
+                    </button>
+                  )}
                   {runtimeStatus && !completed && (
                     <span
                       role="status"
@@ -398,7 +417,7 @@ export function TaskTreeRow({
             )}
           </div>
 
-        {!editing && (
+        {!editing && !completed && (
           <div
             id={actionPanelId}
             role="group"

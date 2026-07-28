@@ -41,6 +41,28 @@ test.describe("Tasks", () => {
 
     await page.getByRole("checkbox", { name: `完成待办：${firstChild}` }).click();
     await expect(progress).toHaveAttribute("aria-valuenow", "1");
+    const completedChildRow = page
+      .locator("article")
+      .filter({ hasText: firstChild })
+      .first();
+    await expect(
+      completedChildRow.getByRole("checkbox", {
+        name: `恢复待办：${firstChild}`,
+      }),
+    ).toBeVisible();
+    await expect(
+      completedChildRow.getByRole("button", {
+        name: `编辑任务：${firstChild}`,
+      }),
+    ).toHaveCount(0);
+    await expect(
+      completedChildRow.getByRole("button", {
+        name: `删除任务：${firstChild}`,
+      }),
+    ).toHaveCount(0);
+    await expect(completedChildRow.getByTitle(firstChild)).not.toHaveClass(
+      /line-through/,
+    );
     await page.getByRole("checkbox", { name: `完成待办：${secondChild}` }).click();
 
     await page.getByRole("button", { name: "已完成（1）" }).click();
