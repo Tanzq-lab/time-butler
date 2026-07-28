@@ -76,17 +76,22 @@ describe("getTaskPomoProgressVisual", () => {
 
   it.each([
     [0, 5, "not-started"],
-    [1, 5, "start"],
-    [2, 5, "progress"],
-    [3, 5, "caution"],
-    [4, 5, "final-in-budget"],
+    [1, 5, "final-in-budget"],
+    [2, 5, "caution"],
+    [3, 5, "progress"],
+    [4, 5, "start"],
     [5, 5, "complete"],
   ] as const)(
-    "maps %s/%s completed children to the shared %s progress tone",
+    "maps %s/%s completed children from warm to green progress tones",
     (completedChildren, totalChildren, tone) => {
       expect(getTaskChildProgressTone(completedChildren, totalChildren)).toBe(
         tone,
       );
     },
   );
+
+  it("keeps a two-child parent warm until the final completion", () => {
+    expect(getTaskChildProgressTone(1, 2)).toBe("final-in-budget");
+    expect(getTaskChildProgressTone(2, 2)).toBe("complete");
+  });
 });

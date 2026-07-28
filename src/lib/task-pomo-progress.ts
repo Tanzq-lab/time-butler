@@ -36,6 +36,13 @@ const BUDGET_RING_TONES: Exclude<TaskPomoRingTone, "overrun">[] = [
   "final-in-budget",
 ];
 
+const CHILD_COMPLETION_TONES: Exclude<TaskPomoRingTone, "overrun">[] = [
+  "final-in-budget",
+  "caution",
+  "progress",
+  "start",
+];
+
 function asNonNegativeInteger(value: number): number {
   return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
 }
@@ -88,9 +95,10 @@ export function getTaskPomoCompletionTone(
 }
 
 /**
- * Every parent task uses the same stage colour for its child-completion bar,
- * regardless of whether the children are todos or focus tasks. The bar never
- * reaches red because a child count cannot exceed its total.
+ * Parent progress represents accumulated results, so it deliberately runs in
+ * the opposite direction from pomodoro-budget consumption: orange at the
+ * first completed child, then yellow and lime, then green near completion.
+ * It is the same for todo and focus children, and never reaches red.
  */
 export function getTaskChildProgressTone(
   completedChildren: number,
@@ -107,9 +115,9 @@ export function getTaskChildProgressTone(
   const budgetPosition =
     (safeCompletedChildren - 1) / (safeTotalChildren - 2);
   const toneIndex = Math.round(
-    budgetPosition * (BUDGET_RING_TONES.length - 1),
+    budgetPosition * (CHILD_COMPLETION_TONES.length - 1),
   );
-  return BUDGET_RING_TONES[toneIndex];
+  return CHILD_COMPLETION_TONES[toneIndex];
 }
 
 /**

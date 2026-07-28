@@ -324,10 +324,10 @@ describe("TaskTreeRow", () => {
       name: "AI 生成 2D 游戏 子任务进度",
     });
     expect(row).toHaveAttribute("data-task-kind", "group");
-    expect(row).toHaveAttribute("data-progress-tone", "final-in-budget");
-    expect(prefix).toHaveClass("timer-task-pomo-final-in-budget");
+    expect(row).toHaveAttribute("data-progress-tone", "start");
+    expect(prefix).toHaveClass("timer-task-pomo-start");
     expect(progress.firstElementChild).toHaveClass(
-      "timer-task-pomo-final-in-budget",
+      "timer-task-pomo-start",
       "bg-[var(--timer-task-pomo-color)]",
     );
   });
@@ -347,9 +347,9 @@ describe("TaskTreeRow", () => {
     const progress = screen.getByRole("progressbar", {
       name: "整理房间 子任务进度",
     });
-    expect(row).toHaveAttribute("data-progress-tone", "final-in-budget");
+    expect(row).toHaveAttribute("data-progress-tone", "start");
     expect(progress.firstElementChild).toHaveClass(
-      "timer-task-pomo-final-in-budget",
+      "timer-task-pomo-start",
       "bg-[var(--timer-task-pomo-color)]",
     );
   });
