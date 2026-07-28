@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { TaskTreeRow } from "@/components/base/task-tree-row";
 import type { Task } from "@/features/tasks/task-types";
@@ -123,6 +123,58 @@ describe("TaskTreeRow", () => {
     expect(checkbox).toBeChecked();
     fireEvent.click(checkbox);
     expect(onToggleTodo).toHaveBeenCalledOnce();
+  });
+
+  it("exposes unique secondary actions inline without a more menu", () => {
+    const onFocus = vi.fn();
+    const onRecord = vi.fn();
+    const onEditDetails = vi.fn();
+    const onConvertToTodo = vi.fn();
+    const onAddSubtask = vi.fn();
+    const onDelete = vi.fn();
+    render(
+      <TaskTreeRow
+        task={focusTask}
+        onFocus={onFocus}
+        onRecord={onRecord}
+        onEditDetails={onEditDetails}
+        onConvertToTodo={onConvertToTodo}
+        onAddSubtask={onAddSubtask}
+        onCompleteFocus={vi.fn()}
+        onRename={vi.fn(() => true)}
+        onDelete={onDelete}
+      />,
+    );
+
+    const actions = within(
+      screen.getByRole("group", {
+        name: "任务操作：整理任务树视觉",
+      }),
+    );
+    expect(
+      actions.queryByRole("button", { name: /更多操作/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      actions.queryByRole("button", { name: /完成任务/ }),
+    ).not.toBeInTheDocument();
+
+    for (const name of [
+      "开始专注：整理任务树视觉",
+      "添加子任务：整理任务树视觉",
+      "记录任务：整理任务树视觉",
+      "编辑任务：整理任务树视觉",
+      "改为普通待办：整理任务树视觉",
+      "删除任务：整理任务树视觉",
+    ]) {
+      fireEvent.click(actions.getByRole("button", { name }));
+    }
+
+    expect(onFocus).toHaveBeenCalledOnce();
+    expect(onAddSubtask).toHaveBeenCalledOnce();
+    expect(onRecord).toHaveBeenCalledOnce();
+    expect(onEditDetails).toHaveBeenCalledOnce();
+    expect(onConvertToTodo).toHaveBeenCalledOnce();
+    expect(onDelete).toHaveBeenCalledOnce();
   });
 
   it("turns a complete child-progress bar green without striking the group title", () => {

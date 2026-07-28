@@ -129,9 +129,12 @@ describe("TasksList active task ordering", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getAllByTitle("按住任务空白处或点阵拖动调整顺序")).toHaveLength(2);
-    const firstRow = (await screen.findByText("先做这个")).closest("[data-task-id]")!;
-    const secondRow = screen.getByText("再做那个").closest("[data-task-id]")!;
+    const firstRow = (await screen.findByText("先做这个"))
+      .closest("[data-task-id]")!;
+    const secondRow = screen.getByText("再做那个")
+      .closest("[data-task-id]")!;
+    expect(firstRow).toHaveClass("cursor-grab");
+    expect(secondRow).toHaveClass("cursor-grab");
     vi.spyOn(firstRow, "getBoundingClientRect").mockReturnValue({
       top: 0,
       bottom: 48,
@@ -159,6 +162,6 @@ describe("TasksList active task ordering", () => {
     fireEvent.change(screen.getByRole("searchbox", { name: "搜索任务" }), {
       target: { value: "先做" },
     });
-    expect(screen.queryAllByTitle("按住任务空白处或点阵拖动调整顺序")).toHaveLength(0);
+    expect(firstRow).not.toHaveClass("cursor-grab");
   });
 });

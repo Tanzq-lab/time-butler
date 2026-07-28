@@ -240,23 +240,33 @@ test.describe("Responsive and accessibility", () => {
     await expect(drawer).not.toBeVisible();
   });
 
-  test("mobile task actions have names and can be cancelled with the keyboard", async ({ page }) => {
+  test("mobile task actions have names and support keyboard activation", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload();
     await page.getByRole("navigation", { name: "移动端导航" }).getByRole("link", { name: "任务" }).click();
     await page.getByRole("button", { name: "添加专注任务" }).click();
-    await page.getByPlaceholder("你现在要做什么？").fill("手机任务菜单测试");
+    await page.getByPlaceholder("你现在要做什么？").fill("手机任务操作测试");
     await page.getByRole("button", { name: "预计 1 个番茄" }).click();
     await page.getByRole("button", { name: "创建任务" }).click();
 
-    const moreButton = page.getByRole("button", { name: "更多操作：手机任务菜单测试" });
-    await expect(moreButton).toBeVisible();
-    await moreButton.click();
-    const menu = page.getByRole("dialog", { name: "任务操作：手机任务菜单测试" });
-    await expect(menu).toBeVisible();
+    await page
+      .getByRole("button", { name: "显示任务操作：手机任务操作测试" })
+      .click();
+    const actions = page.getByRole("group", { name: "任务操作：手机任务操作测试" });
+    await expect(actions).toBeVisible();
+    const recordButton = actions.getByRole("button", {
+      name: "记录任务：手机任务操作测试",
+    });
+    await recordButton.focus();
+    await page.keyboard.press("Enter");
+    const recordDialog = page.getByRole("dialog", { name: "记录任务" });
+    await expect(recordDialog).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(menu).not.toBeVisible();
-    await expect(moreButton).toBeFocused();
+    await expect(recordDialog).not.toBeVisible();
+    await expect(recordButton).toBeFocused();
+    await expect(
+      page.getByRole("button", { name: "更多操作：手机任务操作测试" }),
+    ).toHaveCount(0);
   });
 
   test("reduced-motion preference minimizes transitions and animations", async ({ page }) => {
