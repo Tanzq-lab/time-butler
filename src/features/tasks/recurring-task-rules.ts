@@ -10,6 +10,12 @@ export type RecurringTaskFrequency =
 
 type LegacyRecurringTaskFrequency = "daily" | "weekly" | "monthly";
 
+export interface RecurringTaskTemplateSubtask {
+  name: string;
+  itemType: TaskItemType;
+  estimatedPomos: number;
+}
+
 export interface RecurringTaskRuleInput {
   name: string;
   itemType: TaskItemType;
@@ -19,6 +25,7 @@ export interface RecurringTaskRuleInput {
   frequency: RecurringTaskFrequency;
   startDate: string;
   scheduledTime: string;
+  subtasks?: RecurringTaskTemplateSubtask[];
 }
 
 export interface UserRecurringTaskRule {
@@ -34,6 +41,7 @@ export interface UserRecurringTaskRule {
   rule_key?: string | null;
   start_date: string;
   scheduled_time: string;
+  subtasks_json?: string | null;
   enabled: number;
   created_at: string;
   updated_at: string;
@@ -69,6 +77,56 @@ export function getRecurringTaskItemType(
   return rule.item_type === "todo" ? "todo" : "focus";
 }
 
+function normalizeRecurringTaskSubtasks(
+  subtasks: RecurringTaskTemplateSubtask[] = [],
+): RecurringTaskTemplateSubtask[] {
+  return subtasks.map((subtask) => {
+    const name = subtask.name.trim();
+    if (!name) throw new Error("子任务名称不能为空");
+    if (subtask.itemType !== "todo" && subtask.itemType !== "focus") {
+      throw new Error("子任务类型无效");
+    }
+    if (
+      subtask.itemType === "focus"
+      && (
+        !Number.isInteger(subtask.estimatedPomos)
+        || subtask.estimatedPomos < 1
+        || subtask.estimatedPomos > 4
+      )
+    ) {
+      throw new Error("子任务预计番茄数必须是 1 到 4 的整数");
+    }
+    return {
+      name,
+      itemType: subtask.itemType,
+      estimatedPomos: subtask.itemType === "focus"
+        ? subtask.estimatedPomos
+        : 1,
+    };
+  });
+}
+
+function serializeRecurringTaskSubtasks(
+  subtasks: RecurringTaskTemplateSubtask[] = [],
+): string {
+  return JSON.stringify(normalizeRecurringTaskSubtasks(subtasks));
+}
+
+export function getRecurringTaskSubtasks(
+  rule: Pick<UserRecurringTaskRule, "subtasks_json">,
+): RecurringTaskTemplateSubtask[] {
+  if (!rule.subtasks_json) return [];
+  try {
+    const parsed = JSON.parse(rule.subtasks_json);
+    if (!Array.isArray(parsed)) return [];
+    return normalizeRecurringTaskSubtasks(
+      parsed as RecurringTaskTemplateSubtask[],
+    );
+  } catch {
+    return [];
+  }
+}
+
 export function isCustomRecurringTaskRule(
   rule: Pick<UserRecurringTaskRule, "rule_key">,
 ): boolean {
@@ -99,6 +157,7 @@ function assertRuleInput(input: RecurringTaskRuleInput): void {
   if (!SCHEDULE_TYPES.includes(input.frequency)) {
     throw new Error("循环频率无效");
   }
+  normalizeRecurringTaskSubtasks(input.subtasks);
 }
 
 export async function addRecurringTaskRule(
@@ -116,8 +175,9 @@ export async function addRecurringTaskRule(
       frequency,
       schedule_type,
       start_date,
-      scheduled_time
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      scheduled_time,
+      subtasks_json
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
     [
       input.name.trim(),
       input.itemType,
@@ -128,6 +188,7 @@ export async function addRecurringTaskRule(
       input.frequency,
       input.startDate,
       input.scheduledTime,
+      serializeRecurringTaskSubtasks(input.subtasks),
     ],
   );
   const ruleId = result.lastInsertId as number;
@@ -159,8 +220,9 @@ export async function updateRecurringTaskRule(
          schedule_type = $7,
          start_date = $8,
          scheduled_time = $9,
+         subtasks_json = $10,
          updated_at = CURRENT_TIMESTAMP
-     WHERE id = $10`,
+     WHERE id = $11`,
     [
       input.name.trim(),
       input.itemType,
@@ -171,6 +233,7 @@ export async function updateRecurringTaskRule(
       input.frequency,
       input.startDate,
       input.scheduledTime,
+      serializeRecurringTaskSubtasks(input.subtasks),
       id,
     ],
   );

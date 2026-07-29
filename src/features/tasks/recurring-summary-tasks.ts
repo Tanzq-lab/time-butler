@@ -1,10 +1,12 @@
-import { addTask, addTodoTask, getDb } from "@/lib/db";
+import { addTask, addTodoTask, getDb, reorderTasks } from "@/lib/db";
 import { BUILT_IN_RECURRING_TASK_RULES } from "@/lib/db/default-recurring-task-rules";
 import { appendPomodoroEstimationLog } from "@/features/tasks/pomodoro-estimation-log";
 import {
   getRecurringTaskSchedule,
   getRecurringTaskItemType,
+  getRecurringTaskSubtasks,
   getEnabledRecurringTaskRules,
+  type RecurringTaskTemplateSubtask,
   type UserRecurringTaskRule,
 } from "@/features/tasks/recurring-task-rules";
 import type { TaskItemType } from "@/features/tasks/task-types";
@@ -21,6 +23,7 @@ export interface RecurringTaskOccurrence {
   project: string;
   categoryName: string;
   categoryId?: number | null;
+  subtasks: RecurringTaskTemplateSubtask[];
   reason: string;
 }
 
@@ -205,6 +208,7 @@ export function buildUserRecurringTaskOccurrences(
         project: rule.project?.trim() || "",
         categoryName: rule.category_name?.trim() || "",
         categoryId: rule.category_id,
+        subtasks: getRecurringTaskSubtasks(rule),
         reason: getRecurringTaskItemType(rule) === "focus"
           ? `用户配置的${
               schedule === "daily"
@@ -284,7 +288,7 @@ async function findExistingTaskId(
 ): Promise<number | null> {
   const database = await getDb();
   const rows = await database.select<{ id: number }[]>(
-    "SELECT id FROM tasks WHERE archived = 0 AND name = $1 AND scheduled_for = $2 AND item_type = $3 LIMIT 1",
+    "SELECT id FROM tasks WHERE archived = 0 AND parent_id IS NULL AND name = $1 AND scheduled_for = $2 AND item_type = $3 LIMIT 1",
     [name, scheduledFor, itemType],
   );
   return rows[0]?.id ?? null;
@@ -315,6 +319,76 @@ async function logCreatedOccurrence(
     reason: occurrence.reason,
     needsBreakdown: false,
   });
+}
+
+async function createMissingOccurrenceSubtasks(
+  occurrence: RecurringTaskOccurrence,
+  parentId: number,
+): Promise<void> {
+  if (occurrence.subtasks.length === 0) return;
+
+  const database = await getDb();
+  const unmatchedChildren = await database.select<
+    {
+      id: number;
+      name: string;
+      item_type: TaskItemType;
+      estimated_pomos: number;
+    }[]
+  >(
+    `SELECT id, name, item_type, estimated_pomos
+     FROM tasks
+     WHERE parent_id = $1
+       AND archived = 0`,
+    [parentId],
+  );
+  const orderedChildIds: number[] = [];
+
+  for (const subtask of occurrence.subtasks) {
+    const existingIndex = unmatchedChildren.findIndex(
+      (child) =>
+        child.name === subtask.name
+        && child.item_type === subtask.itemType
+        && (
+          subtask.itemType === "todo"
+          || child.estimated_pomos === subtask.estimatedPomos
+        ),
+    );
+    if (existingIndex >= 0) {
+      const [existingChild] = unmatchedChildren.splice(existingIndex, 1);
+      orderedChildIds.push(existingChild.id);
+      continue;
+    }
+
+    if (subtask.itemType === "focus") {
+      const childId = await addTask(
+        subtask.name,
+        subtask.estimatedPomos,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        parentId,
+      );
+      orderedChildIds.push(childId);
+      await appendPomodoroEstimationLog({
+        event: "created",
+        createdAt: new Date().toISOString(),
+        taskName: subtask.name,
+        project: occurrence.project,
+        category: occurrence.categoryName,
+        estimatedPomos: subtask.estimatedPomos,
+        confidence: "high",
+        reason: `循环任务“${occurrence.name}”的专注子任务，沿用模板中设置的 ${subtask.estimatedPomos} 个番茄预估。`,
+        needsBreakdown: false,
+      });
+      continue;
+    }
+
+    orderedChildIds.push(await addTodoTask(subtask.name, parentId));
+  }
+
+  await reorderTasks(orderedChildIds, parentId);
 }
 
 const inFlightRecurringTaskGenerations = new Map<string, Promise<number>>();
@@ -353,6 +427,7 @@ async function createMissingRecurringSummaryTasks(
       occurrence.itemType,
     );
     if (existingTask) {
+      await createMissingOccurrenceSubtasks(occurrence, existingTask);
       await recordOccurrence(occurrence, existingTask);
       continue;
     }
@@ -374,6 +449,7 @@ async function createMissingRecurringSummaryTasks(
           categoryId,
           scheduledFor: occurrence.scheduledFor,
         });
+    await createMissingOccurrenceSubtasks(occurrence, taskId);
     await recordOccurrence(occurrence, taskId);
     if (occurrence.itemType === "focus") {
       await logCreatedOccurrence(occurrence);

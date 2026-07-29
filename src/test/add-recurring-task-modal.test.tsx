@@ -104,6 +104,7 @@ describe("AddRecurringTaskModal", () => {
       frequency: "weekly",
       startDate: "2026-07-22",
       scheduledTime: "09:30",
+      subtasks: [],
     });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -141,6 +142,67 @@ describe("AddRecurringTaskModal", () => {
           name: "整理季度复盘",
           itemType: "focus",
           estimatedPomos: 2,
+        }),
+      ),
+    );
+  });
+
+  it("adds todo and focus subtasks through the template subview", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(true);
+    render(
+      <AddRecurringTaskModal
+        open
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("任务名称"), {
+      target: { value: "完成每日阅读" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: /编辑模板子任务/ }),
+    );
+
+    expect(
+      screen.getByRole("dialog", { name: "设置模板子任务" }),
+    ).toBeVisible();
+    const subtaskDraft = screen.getByLabelText("新增模板子任务");
+    fireEvent.change(subtaskDraft, { target: { value: "准备材料" } });
+    fireEvent.click(screen.getByRole("button", { name: "添加" }));
+    fireEvent.change(subtaskDraft, { target: { value: "深度阅读" } });
+    fireEvent.click(screen.getByRole("button", { name: "添加" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "设为专注：深度阅读" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "子任务 深度阅读 预计 2 个番茄",
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "完成子任务设置" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "创建循环任务" }),
+    );
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "完成每日阅读",
+          subtasks: [
+            {
+              name: "准备材料",
+              itemType: "todo",
+              estimatedPomos: 1,
+            },
+            {
+              name: "深度阅读",
+              itemType: "focus",
+              estimatedPomos: 2,
+            },
+          ],
         }),
       ),
     );
@@ -358,6 +420,13 @@ describe("AddRecurringTaskModal", () => {
             frequency: "daily",
             start_date: "2026-07-22",
             scheduled_time: "09:00",
+            subtasks_json: JSON.stringify([
+              {
+                name: "清空未读",
+                itemType: "todo",
+                estimatedPomos: 1,
+              },
+            ]),
             enabled: 1,
             created_at: "2026-07-22T09:00:00",
             updated_at: "2026-07-22T09:00:00",
@@ -377,6 +446,13 @@ describe("AddRecurringTaskModal", () => {
       screen.getByRole("dialog", { name: "编辑循环任务" }),
     ).toBeVisible();
     expect(screen.getByLabelText("任务名称")).toHaveValue("每日整理收件箱");
+    fireEvent.click(
+      screen.getByRole("button", { name: /编辑模板子任务，1 个子任务/ }),
+    );
+    expect(screen.getByLabelText("子任务 1 名称")).toHaveValue("清空未读");
+    fireEvent.click(
+      screen.getByRole("button", { name: "完成子任务设置" }),
+    );
     fireEvent.click(
       screen.getByRole("button", { name: /编辑任务属性/ }),
     );
@@ -430,6 +506,13 @@ describe("AddRecurringTaskModal", () => {
         frequency: "weekly",
         startDate: "2026-07-22",
         scheduledTime: "10:30",
+        subtasks: [
+          {
+            name: "清空未读",
+            itemType: "todo",
+            estimatedPomos: 1,
+          },
+        ],
       }),
     );
     expect(onClose).not.toHaveBeenCalled();

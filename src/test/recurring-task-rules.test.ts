@@ -40,6 +40,18 @@ describe("recurring task rules database", () => {
         frequency: "daily",
         startDate: "2026-07-22",
         scheduledTime: "09:00",
+        subtasks: [
+          {
+            name: "  清空未读  ",
+            itemType: "todo",
+            estimatedPomos: 4,
+          },
+          {
+            name: "  深度回复  ",
+            itemType: "focus",
+            estimatedPomos: 2,
+          },
+        ],
       }),
     ).resolves.toBe(31);
 
@@ -55,6 +67,18 @@ describe("recurring task rules database", () => {
         "daily",
         "2026-07-22",
         "09:00",
+        JSON.stringify([
+          {
+            name: "清空未读",
+            itemType: "todo",
+            estimatedPomos: 1,
+          },
+          {
+            name: "深度回复",
+            itemType: "focus",
+            estimatedPomos: 2,
+          },
+        ]),
       ],
     );
     expect(dbMocks.execute).toHaveBeenCalledWith(
@@ -144,6 +168,7 @@ describe("recurring task rules database", () => {
         "weekly",
         "2026-07-29",
         "10:30",
+        "[]",
         31,
       ],
     );
@@ -176,6 +201,7 @@ describe("recurring task rules database", () => {
         "monthly_first_day_off",
         "2026-01-01",
         "09:00",
+        "[]",
         7,
       ],
     );

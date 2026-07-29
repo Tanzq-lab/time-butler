@@ -143,6 +143,52 @@ test.describe("Tasks", () => {
     ).toBeVisible();
   });
 
+  test("copies template subtasks into a generated recurring task group", async ({ page }) => {
+    await page.getByRole("button", { name: "添加循环任务" }).click();
+    const dialog = page.getByRole("dialog", { name: "添加循环任务" });
+    await dialog.getByLabel("任务名称").fill("每日阅读流程");
+    await dialog.getByRole("button", { name: /编辑模板子任务/ }).click();
+
+    const subtasksDialog = page.getByRole("dialog", {
+      name: "设置模板子任务",
+    });
+    const subtaskDraft = subtasksDialog.getByLabel("新增模板子任务");
+    await subtaskDraft.fill("准备材料");
+    await subtasksDialog.getByRole("button", { name: "添加" }).click();
+    await subtaskDraft.fill("深度阅读");
+    await subtasksDialog.getByRole("button", { name: "添加" }).click();
+    await subtasksDialog
+      .getByRole("button", { name: "设为专注：深度阅读" })
+      .click();
+    await subtasksDialog
+      .getByRole("button", {
+        name: "子任务 深度阅读 预计 2 个番茄",
+      })
+      .click();
+    await subtasksDialog
+      .getByRole("button", { name: "完成子任务设置" })
+      .click();
+    await page
+      .getByRole("dialog", { name: "添加循环任务" })
+      .getByRole("button", { name: "创建循环任务" })
+      .click();
+
+    const parentRow = page
+      .locator('[data-task-depth="0"]')
+      .filter({ hasText: "每日阅读流程" });
+    await expect(parentRow).toBeVisible();
+    await expect(
+      page
+        .locator('[data-task-depth="1"][data-task-kind="todo"]')
+        .filter({ hasText: "准备材料" }),
+    ).toBeVisible();
+    const focusChild = page
+      .locator('[data-task-depth="1"][data-task-kind="focus"]')
+      .filter({ hasText: "深度阅读" });
+    await expect(focusChild).toBeVisible();
+    await expect(focusChild).toContainText("0/2");
+  });
+
   test("creates, edits, pauses, and deletes a recurring task from the task list", async ({ page }) => {
     await page.getByRole("button", { name: "添加循环任务" }).click();
 

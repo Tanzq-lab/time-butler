@@ -377,6 +377,10 @@ export function TasksList() {
         hasCategory: data.categoryId != null,
         startDate: data.startDate,
         scheduledTime: data.scheduledTime,
+        subtaskCount: data.subtasks?.length ?? 0,
+        focusSubtaskCount:
+          data.subtasks?.filter((subtask) => subtask.itemType === "focus")
+            .length ?? 0,
       },
     });
     return true;
@@ -421,6 +425,10 @@ export function TasksList() {
         hasCategory: data.categoryId != null,
         startDate: data.startDate,
         scheduledTime: data.scheduledTime,
+        subtaskCount: data.subtasks?.length ?? 0,
+        focusSubtaskCount:
+          data.subtasks?.filter((subtask) => subtask.itemType === "focus")
+            .length ?? 0,
       },
     });
     return true;

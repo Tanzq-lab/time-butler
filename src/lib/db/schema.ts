@@ -379,9 +379,13 @@ export async function initDb(): Promise<void> {
        ADD COLUMN item_type TEXT NOT NULL DEFAULT 'focus'
        CHECK (item_type IN ('todo', 'focus'))`,
     ],
+    21: [
+      `ALTER TABLE recurring_task_rules
+       ADD COLUMN subtasks_json TEXT NOT NULL DEFAULT '[]'`,
+    ],
   };
 
-  const targetVersion = 20;
+  const targetVersion = 21;
 
   for (let v = currentVersion + 1; v <= targetVersion; v++) {
     const statements = migrations[v];

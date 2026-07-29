@@ -5,6 +5,7 @@ const dbMocks = vi.hoisted(() => ({
   addTodoTask: vi.fn(),
   execute: vi.fn(),
   getDb: vi.fn(),
+  reorderTasks: vi.fn(),
   select: vi.fn(),
 }));
 
@@ -16,6 +17,7 @@ vi.mock("@/lib/db", () => ({
   addTask: dbMocks.addTask,
   addTodoTask: dbMocks.addTodoTask,
   getDb: dbMocks.getDb,
+  reorderTasks: dbMocks.reorderTasks,
 }));
 
 vi.mock("@/features/tasks/pomodoro-estimation-log", () => ({
@@ -88,6 +90,7 @@ beforeEach(() => {
     return [];
   });
   dbMocks.execute.mockResolvedValue(undefined);
+  dbMocks.reorderTasks.mockResolvedValue(undefined);
   pomodoroLogMocks.appendPomodoroEstimationLog.mockResolvedValue(undefined);
 
   let nextTaskId = 1;
@@ -244,6 +247,53 @@ describe("recurring summary tasks", () => {
       },
     );
     expect(pomodoroLogMocks.appendPomodoroEstimationLog).not.toHaveBeenCalled();
+  });
+
+  it("copies todo and focus subtasks into each generated task group", async () => {
+    selectedRecurringRules = [
+      userRule({
+        start_date: "2026-07-23",
+        subtasks_json: JSON.stringify([
+          {
+            name: "准备材料",
+            itemType: "todo",
+            estimatedPomos: 1,
+          },
+          {
+            name: "深度阅读",
+            itemType: "focus",
+            estimatedPomos: 3,
+          },
+        ]),
+      }),
+    ];
+
+    await expect(
+      ensureRecurringSummaryTasks(new Date(2026, 6, 23)),
+    ).resolves.toBe(1);
+
+    expect(dbMocks.addTask).toHaveBeenNthCalledWith(
+      1,
+      "整理循环任务",
+      2,
+      "时间管家",
+      "medium",
+      50,
+      "2026-07-23T09:30:00",
+    );
+    expect(dbMocks.addTodoTask).toHaveBeenCalledWith("准备材料", 1);
+    expect(dbMocks.addTask).toHaveBeenNthCalledWith(
+      2,
+      "深度阅读",
+      3,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      1,
+    );
+    expect(dbMocks.reorderTasks).toHaveBeenCalledWith([2, 3], 1);
+    expect(pomodoroLogMocks.appendPomodoroEstimationLog).toHaveBeenCalledTimes(2);
   });
 
   it("creates weekly summaries for Mondays in the next week", () => {

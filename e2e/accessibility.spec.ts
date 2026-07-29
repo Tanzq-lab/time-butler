@@ -103,6 +103,21 @@ test.describe("Responsive and accessibility", () => {
     }));
     expect(overflow.scrollWidth).toBe(overflow.clientWidth);
 
+    await dialog.getByRole("button", { name: /编辑模板子任务/ }).click();
+    const subtasksDialog = page.getByRole("dialog", {
+      name: "设置模板子任务",
+    });
+    await subtasksDialog.getByLabel("新增模板子任务").fill("准备每日材料");
+    await subtasksDialog.getByRole("button", { name: "添加" }).click();
+    const subtaskOverflow = await subtasksDialog.evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+    expect(subtaskOverflow.scrollWidth).toBe(subtaskOverflow.clientWidth);
+    await subtasksDialog
+      .getByRole("button", { name: "完成子任务设置" })
+      .click();
+
     const scheduleButton = dialog.getByRole("button", {
       name: /编辑循环设置/,
     });

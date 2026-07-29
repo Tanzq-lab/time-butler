@@ -11,6 +11,7 @@ import {
   CalendarDays,
   ChevronRight,
   Focus,
+  ListTree,
   ListTodo,
   Pencil,
   Plus,
@@ -26,17 +27,19 @@ import { useCategoriesStore } from "@/features/categories/use-categories-store";
 import type {
   RecurringTaskFrequency,
   RecurringTaskRuleInput,
+  RecurringTaskTemplateSubtask,
   UserRecurringTaskRule,
 } from "@/features/tasks/recurring-task-rules";
 import {
   getRecurringTaskItemType,
   getRecurringTaskSchedule,
+  getRecurringTaskSubtasks,
   isCustomRecurringTaskRule,
 } from "@/features/tasks/recurring-task-rules";
 
 const POMODORO_OPTIONS = [1, 2, 3, 4] as const;
 type PomodoroEstimate = (typeof POMODORO_OPTIONS)[number];
-type ChildView = "focus" | "attributes" | "schedule" | "rules";
+type ChildView = "focus" | "subtasks" | "attributes" | "schedule" | "rules";
 type ModalView = "main" | ChildView | "delete";
 
 export type AddRecurringTaskData = RecurringTaskRuleInput;
@@ -70,6 +73,7 @@ interface FormState {
   frequency: RecurringTaskFrequency;
   startDate: string;
   scheduledTime: string;
+  subtasks: RecurringTaskTemplateSubtask[];
 }
 
 type FormAction =
@@ -115,6 +119,7 @@ const FREQUENCY_OPTIONS: {
 
 const CHILD_VIEW_LABELS: Record<ChildView, string> = {
   focus: "设置专注任务",
+  subtasks: "设置模板子任务",
   attributes: "设置任务属性",
   schedule: "设置循环时间",
   rules: "管理循环规则",
@@ -137,6 +142,7 @@ function initialFormState(): FormState {
     frequency: "daily",
     startDate: toDateInputValue(new Date()),
     scheduledTime: "09:00",
+    subtasks: [],
   };
 }
 
@@ -151,6 +157,7 @@ function formStateFromRule(rule: UserRecurringTaskRule): FormState {
     frequency: getRecurringTaskSchedule(rule),
     startDate: rule.start_date,
     scheduledTime: rule.scheduled_time,
+    subtasks: getRecurringTaskSubtasks(rule),
   };
 }
 
@@ -294,12 +301,14 @@ export function AddRecurringTaskModal({
   const [deletingRuleId, setDeletingRuleId] = useState<number | null>(null);
   const [rulePendingDelete, setRulePendingDelete] =
     useState<UserRecurringTaskRule | null>(null);
+  const [subtaskDraft, setSubtaskDraft] = useState("");
   const [editingRuleId, setEditingRuleId] = useState<number | null>(null);
   const [activeView, setActiveView] = useState<ModalView>("main");
   const nameInputRef = useRef<HTMLInputElement>(null);
   const backButtonRef = useRef<HTMLButtonElement>(null);
   const rulesButtonRef = useRef<HTMLButtonElement>(null);
   const focusButtonRef = useRef<HTMLButtonElement>(null);
+  const subtasksButtonRef = useRef<HTMLButtonElement>(null);
   const attributesButtonRef = useRef<HTMLButtonElement>(null);
   const scheduleButtonRef = useRef<HTMLButtonElement>(null);
   const lastMainTriggerRef = useRef<ChildView | null>(null);
@@ -318,6 +327,7 @@ export function AddRecurringTaskModal({
     setTogglingRuleId(null);
     setDeletingRuleId(null);
     setRulePendingDelete(null);
+    setSubtaskDraft("");
     setEditingRuleId(null);
     setActiveView("main");
     lastMainTriggerRef.current = null;
@@ -340,6 +350,7 @@ export function AddRecurringTaskModal({
       const lastTrigger = lastMainTriggerRef.current;
       if (lastTrigger === "rules") rulesButtonRef.current?.focus();
       if (lastTrigger === "focus") focusButtonRef.current?.focus();
+      if (lastTrigger === "subtasks") subtasksButtonRef.current?.focus();
       if (lastTrigger === "attributes") attributesButtonRef.current?.focus();
       if (lastTrigger === "schedule") scheduleButtonRef.current?.focus();
     });
@@ -350,6 +361,7 @@ export function AddRecurringTaskModal({
     Boolean(form.name.trim())
     && Boolean(form.startDate)
     && Boolean(form.scheduledTime)
+    && form.subtasks.every((subtask) => Boolean(subtask.name.trim()))
     && !submitting;
   const isEditing = editingRuleId !== null;
   const ruleSummary = formatRecurringRuleSummary(
@@ -368,6 +380,14 @@ export function AddRecurringTaskModal({
     form.project.trim() ? `项目：${form.project.trim()}` : "",
     categoryName ? `分类：${categoryName}` : "",
   ].filter(Boolean).join(" · ") || "未设置项目或分类";
+  const focusSubtaskCount = form.subtasks.filter(
+    (subtask) => subtask.itemType === "focus",
+  ).length;
+  const subtaskSummary = form.subtasks.length === 0
+    ? "未添加子任务"
+    : `${form.subtasks.length} 个子任务${
+        focusSubtaskCount > 0 ? ` · ${focusSubtaskCount} 个专注` : ""
+      }`;
   const mainDialogLabel = isEditing ? "编辑循环任务" : "添加循环任务";
 
   const openChildView = (view: ChildView) => {
@@ -432,6 +452,10 @@ export function AddRecurringTaskModal({
         frequency: form.frequency,
         startDate: form.startDate,
         scheduledTime: form.scheduledTime,
+        subtasks: form.subtasks.map((subtask) => ({
+          ...subtask,
+          name: subtask.name.trim(),
+        })),
       };
       const submitted = isEditing && onUpdateRule
         ? await onUpdateRule(editingRuleId, data)
@@ -478,6 +502,45 @@ export function AddRecurringTaskModal({
     } finally {
       setTogglingRuleId(null);
     }
+  };
+
+  const addTemplateSubtask = (event: React.FormEvent) => {
+    event.preventDefault();
+    const name = subtaskDraft.trim();
+    if (!name) return;
+    dispatch({
+      type: "SET_FIELD",
+      field: "subtasks",
+      value: [
+        ...form.subtasks,
+        {
+          name,
+          itemType: "todo",
+          estimatedPomos: 1,
+        },
+      ],
+    });
+    setSubtaskDraft("");
+  };
+
+  const updateTemplateSubtask = (
+    index: number,
+    patch: Partial<RecurringTaskTemplateSubtask>,
+  ) => {
+    dispatch({
+      type: "SET_FIELD",
+      field: "subtasks",
+      value: form.subtasks.map((subtask, subtaskIndex) =>
+        subtaskIndex === index ? { ...subtask, ...patch } : subtask),
+    });
+  };
+
+  const removeTemplateSubtask = (index: number) => {
+    dispatch({
+      type: "SET_FIELD",
+      field: "subtasks",
+      value: form.subtasks.filter((_, subtaskIndex) => subtaskIndex !== index),
+    });
   };
 
   const beginDeleting = (rule: UserRecurringTaskRule) => {
@@ -627,6 +690,15 @@ export function AddRecurringTaskModal({
           aria-label="循环任务设置摘要"
           className="overflow-hidden rounded-[10px] border border-sahara-border bg-sahara-surface"
         >
+          <SettingsRow
+            buttonRef={subtasksButtonRef}
+            icon={<ListTree aria-hidden="true" className="size-4" />}
+            title="子任务"
+            summary={subtaskSummary}
+            ariaLabel={`编辑模板子任务，${subtaskSummary}`}
+            onClick={() => openChildView("subtasks")}
+          />
+          <div className="mx-3 border-t border-sahara-border sm:mx-4" />
           <SettingsRow
             buttonRef={attributesButtonRef}
             icon={
@@ -811,6 +883,187 @@ export function AddRecurringTaskModal({
             完成专注设置
           </Button>
         </div>
+      </section>
+    </>
+  );
+
+  const renderSubtasksView = () => (
+    <>
+      <DialogHeader
+        title="子任务"
+        description="每次生成主任务时，会一起复制这一层子任务。"
+        onBack={returnToMain}
+        onClose={closeDialog}
+        backButtonRef={backButtonRef}
+      />
+
+      <section className="space-y-5" aria-label="编辑模板子任务">
+        <form
+          onSubmit={addTemplateSubtask}
+          className="flex items-center gap-2 rounded-[10px] border border-sahara-border bg-sahara-surface p-2"
+        >
+          <label htmlFor="recurring-subtask-draft" className="sr-only">
+            新增模板子任务
+          </label>
+          <input
+            id="recurring-subtask-draft"
+            name="recurring-subtask-draft"
+            type="text"
+            autoComplete="off"
+            value={subtaskDraft}
+            onChange={(event) => setSubtaskDraft(event.target.value)}
+            placeholder="输入子任务名称…"
+            className="h-9 min-w-0 flex-1 bg-transparent px-2 text-sm text-sahara-text outline-none placeholder:text-sahara-text-muted focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-sahara-focus"
+          />
+          <Button
+            type="submit"
+            variant="solid"
+            intent={subtaskDraft.trim() ? "sahara" : "default"}
+            size="sm"
+            disabled={!subtaskDraft.trim()}
+            className="shrink-0 touch-manipulation"
+          >
+            添加
+          </Button>
+        </form>
+
+        {form.subtasks.length === 0 ? (
+          <div className="rounded-[10px] border border-dashed border-sahara-border bg-sahara-card/45 px-4 py-8 text-center">
+            <ListTree
+              aria-hidden="true"
+              className="mx-auto size-5 text-sahara-text-muted"
+            />
+            <p className="mt-2 text-xs font-medium text-sahara-text">
+              还没有子任务
+            </p>
+            <p className="mt-1 text-[11px] leading-4 text-sahara-text-muted">
+              新增后默认是待办，也可以设为专注任务。
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {form.subtasks.map((subtask, index) => (
+              <article
+                key={`${index}-${subtask.itemType}`}
+                className="rounded-[10px] border border-sahara-border bg-sahara-surface p-3"
+              >
+                <div className="flex min-w-0 items-start gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="mt-1.5 flex size-5 shrink-0 rounded-[5px] border border-sahara-text-muted/55 bg-sahara-surface"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <label
+                      htmlFor={`recurring-subtask-${index}`}
+                      className="sr-only"
+                    >
+                      子任务 {index + 1} 名称
+                    </label>
+                    <div className="flex min-w-0 items-center">
+                      {subtask.itemType === "focus" && (
+                        <span className="task-pomo-label task-pomo-not-started shrink-0 text-sm font-medium">
+                          专注：
+                        </span>
+                      )}
+                      <input
+                        id={`recurring-subtask-${index}`}
+                        name={`recurring-subtask-${index}`}
+                        type="text"
+                        autoComplete="off"
+                        value={subtask.name}
+                        onChange={(event) =>
+                          updateTemplateSubtask(index, {
+                            name: event.target.value,
+                          })}
+                        className="h-8 min-w-0 flex-1 bg-transparent px-0.5 text-sm text-sahara-text outline-none focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-sahara-focus"
+                      />
+                    </div>
+                    {subtask.itemType === "focus" && (
+                      <p className="task-pomo-label task-pomo-not-started mt-0.5 font-mono text-[11px] font-semibold tabular-nums">
+                        0/{subtask.estimatedPomos}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    intent="default"
+                    size="xs"
+                    aria-label={`${
+                      subtask.itemType === "focus" ? "改为待办" : "设为专注"
+                    }：${subtask.name}`}
+                    onClick={() =>
+                      updateTemplateSubtask(index, {
+                        itemType: subtask.itemType === "focus"
+                          ? "todo"
+                          : "focus",
+                        estimatedPomos: 1,
+                      })}
+                    className="min-h-10 shrink-0 touch-manipulation"
+                  >
+                    {subtask.itemType === "focus" ? "改为待办" : "设为专注"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    intent="red"
+                    size="icon-sm"
+                    aria-label={`删除模板子任务：${subtask.name}`}
+                    title={`删除模板子任务：${subtask.name}`}
+                    onClick={() => removeTemplateSubtask(index)}
+                    className="min-h-10 min-w-10 shrink-0 touch-manipulation"
+                  >
+                    <Trash2 aria-hidden="true" className="size-3.5" />
+                  </Button>
+                </div>
+
+                {subtask.itemType === "focus" && (
+                  <div
+                    role="group"
+                    aria-label={`设置子任务番茄数：${subtask.name}`}
+                    className="mt-3 grid grid-cols-4 gap-2 border-t border-sahara-border pt-3"
+                  >
+                    {POMODORO_OPTIONS.map((pomos) => {
+                      const selected = subtask.estimatedPomos === pomos;
+                      return (
+                        <button
+                          key={pomos}
+                          type="button"
+                          aria-label={`子任务 ${subtask.name} 预计 ${pomos} 个番茄`}
+                          aria-pressed={selected}
+                          onClick={() =>
+                            updateTemplateSubtask(index, {
+                              estimatedPomos: pomos,
+                            })}
+                          className={`h-10 touch-manipulation rounded-md border text-sm font-semibold tabular-nums outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-sahara-focus ${
+                            selected
+                              ? "border-sahara-text bg-sahara-card text-sahara-text"
+                              : "border-sahara-border bg-sahara-surface text-sahara-text-secondary hover:bg-sahara-card"
+                          }`}
+                        >
+                          {pomos}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </article>
+            ))}
+          </div>
+        )}
+
+        <Button
+          type="button"
+          variant="solid"
+          intent="sahara"
+          size="md"
+          fullWidth
+          onClick={returnToMain}
+          disabled={form.subtasks.some((subtask) => !subtask.name.trim())}
+          className="touch-manipulation"
+        >
+          完成子任务设置
+        </Button>
       </section>
     </>
   );
@@ -1269,6 +1522,7 @@ export function AddRecurringTaskModal({
       <div className="max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain p-5 md:p-6">
         {activeView === "main" && renderMainView()}
         {activeView === "focus" && renderFocusView()}
+        {activeView === "subtasks" && renderSubtasksView()}
         {activeView === "attributes" && renderAttributesView()}
         {activeView === "schedule" && renderScheduleView()}
         {activeView === "rules" && renderRulesView()}
