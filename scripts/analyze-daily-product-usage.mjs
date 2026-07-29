@@ -2,6 +2,7 @@
 
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -107,6 +108,44 @@ function queryJson(db, sql) {
 
   const output = result.stdout.trim();
   return output ? JSON.parse(output) : [];
+}
+
+function createReadOnlySnapshot(db) {
+  const snapshotDirectory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "time-butler-product-usage-"),
+  );
+  const snapshotDb = path.join(snapshotDirectory, "Time-butler.snapshot.db");
+
+  try {
+    const result = spawnSync(
+      "sqlite3",
+      [
+        "-cmd",
+        ".timeout 5000",
+        db,
+        `VACUUM INTO ${sqlQuote(snapshotDb)};`,
+      ],
+      {
+        encoding: "utf8",
+        env: process.env,
+      },
+    );
+
+    if (result.status !== 0) {
+      const details = [result.stderr, result.stdout].filter(Boolean).join("\n");
+      throw new Error(`sqlite3 snapshot failed:\n${details}`);
+    }
+
+    return {
+      db: snapshotDb,
+      cleanup: () => {
+        fs.rmSync(snapshotDirectory, { recursive: true, force: true });
+      },
+    };
+  } catch (error) {
+    fs.rmSync(snapshotDirectory, { recursive: true, force: true });
+    throw error;
+  }
 }
 
 function parseMetadata(value) {
@@ -712,38 +751,40 @@ function analyze(options) {
     throw new Error(`Time Butler database does not exist: ${options.db}`);
   }
 
-  const dateSql = sqlQuote(options.date);
-  const rawEvents = queryJson(
-    options.db,
-    `SELECT id, event_name, route, entity_type, entity_id, metadata, created_at
-     FROM app_events
-     WHERE COALESCE(
-       json_extract(metadata, '$.clientLocalDate'),
-       date(created_at, 'localtime')
-     ) = ${dateSql}
-     ORDER BY id ASC;`,
-  );
-  const events = rawEvents.map((event) => ({
-    ...event,
-    metadata: parseMetadata(event.metadata),
-  }));
+  const snapshot = createReadOnlySnapshot(options.db);
+  try {
+    const dateSql = sqlQuote(options.date);
+    const rawEvents = queryJson(
+      snapshot.db,
+      `SELECT id, event_name, route, entity_type, entity_id, metadata, created_at
+       FROM app_events
+       WHERE COALESCE(
+         json_extract(metadata, '$.clientLocalDate'),
+         date(created_at, 'localtime')
+       ) = ${dateSql}
+       ORDER BY id ASC;`,
+    );
+    const events = rawEvents.map((event) => ({
+      ...event,
+      metadata: parseMetadata(event.metadata),
+    }));
 
-  const sessionRows = queryJson(
-    options.db,
-    `SELECT
-       SUM(CASE WHEN completed = 1 THEN 1 ELSE 0 END) AS completed,
-       SUM(CASE WHEN completed = 0 THEN 1 ELSE 0 END) AS incomplete,
-       SUM(CASE WHEN completed = 1 THEN duration_sec ELSE 0 END) AS completed_seconds
-     FROM sessions
-     WHERE date(started_at) = ${dateSql};`,
-  );
-  const taskRows = queryJson(
-    options.db,
-    `SELECT
-       SUM(CASE WHEN date(created_at, 'localtime') = ${dateSql} THEN 1 ELSE 0 END) AS created,
-       SUM(CASE WHEN date(completed_at) = ${dateSql} THEN 1 ELSE 0 END) AS completed
-     FROM tasks;`,
-  );
+    const sessionRows = queryJson(
+      snapshot.db,
+      `SELECT
+         SUM(CASE WHEN completed = 1 THEN 1 ELSE 0 END) AS completed,
+         SUM(CASE WHEN completed = 0 THEN 1 ELSE 0 END) AS incomplete,
+         SUM(CASE WHEN completed = 1 THEN duration_sec ELSE 0 END) AS completed_seconds
+       FROM sessions
+       WHERE date(started_at) = ${dateSql};`,
+    );
+    const taskRows = queryJson(
+      snapshot.db,
+      `SELECT
+         SUM(CASE WHEN date(created_at, 'localtime') = ${dateSql} THEN 1 ELSE 0 END) AS created,
+         SUM(CASE WHEN date(completed_at) = ${dateSql} THEN 1 ELSE 0 END) AS completed
+       FROM tasks;`,
+    );
 
   const eventCounts = Object.fromEntries(
     countBy(events, (event) => event.event_name).map(({ key, count }) => [key, count]),
@@ -827,45 +868,48 @@ function analyze(options) {
     },
   };
 
-  const report = {
-    schemaVersion: 5,
-    date: options.date,
-    generatedAt: new Date().toISOString(),
-    privacy: {
-      localOnly: true,
-      excludedContent: [
-        "task names",
-        "notes content",
-        "daily/weekly/monthly page content",
-        "completion review content",
-      ],
-    },
-    coverage,
-    eventCounts,
-    paths: {
-      top: pathData.topPaths.map((item) => ({ path: item.key, count: item.count })),
-      sessions: pathData.sessions,
-    },
-    transitions: buildTransitions(events).map((item) => ({
-      transition: item.key,
-      count: item.count,
-    })),
-    routes: routeStats,
-    flows: { timer, tasks, timePages, audio },
-    databaseSignals,
-  };
-  report.hypotheses = buildHypotheses({
-    events,
-    routeStats,
-    priorRouteReports,
-    timer,
-    tasks,
-    timePages,
-    audio,
-    coverage,
-  });
-  report.markdown = buildMarkdown(report);
-  return report;
+    const report = {
+      schemaVersion: 5,
+      date: options.date,
+      generatedAt: new Date().toISOString(),
+      privacy: {
+        localOnly: true,
+        excludedContent: [
+          "task names",
+          "notes content",
+          "daily/weekly/monthly page content",
+          "completion review content",
+        ],
+      },
+      coverage,
+      eventCounts,
+      paths: {
+        top: pathData.topPaths.map((item) => ({ path: item.key, count: item.count })),
+        sessions: pathData.sessions,
+      },
+      transitions: buildTransitions(events).map((item) => ({
+        transition: item.key,
+        count: item.count,
+      })),
+      routes: routeStats,
+      flows: { timer, tasks, timePages, audio },
+      databaseSignals,
+    };
+    report.hypotheses = buildHypotheses({
+      events,
+      routeStats,
+      priorRouteReports,
+      timer,
+      tasks,
+      timePages,
+      audio,
+      coverage,
+    });
+    report.markdown = buildMarkdown(report);
+    return report;
+  } finally {
+    snapshot.cleanup();
+  }
 }
 
 try {

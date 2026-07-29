@@ -1,7 +1,15 @@
 /// <reference types="node" />
 
-import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import { once } from "node:events";
+import {
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -151,6 +159,116 @@ describe("daily product usage analyzer", () => {
     expect(markdownResult.stdout).toContain(
       "时间页：选择 1，内容更新 2，涉及 1 个页面；等长编辑 1，可测编辑 2（其中真实改动不超过 2 字符 2），旧埋点幅度不可测 0",
     );
+  });
+
+  it("analyzes a live WAL database through a cleaned read-only snapshot", async () => {
+    const directory = mkdtempSync(path.join(tmpdir(), "time-butler-usage-"));
+    temporaryDirectories.push(directory);
+    const database = path.join(directory, "fixture.db");
+    const setup = spawnSync(
+      "sqlite3",
+      [
+        database,
+        `
+          PRAGMA journal_mode=WAL;
+          CREATE TABLE app_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_name TEXT NOT NULL,
+            route TEXT,
+            entity_type TEXT,
+            entity_id TEXT,
+            metadata TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          );
+          CREATE TABLE sessions (
+            id INTEGER PRIMARY KEY,
+            started_at TEXT,
+            duration_sec INTEGER,
+            completed INTEGER
+          );
+          CREATE TABLE tasks (
+            id INTEGER PRIMARY KEY,
+            name TEXT,
+            created_at TEXT,
+            completed_at TEXT
+          );
+        `,
+      ],
+      { encoding: "utf8" },
+    );
+    expect(setup.status, setup.stderr).toBe(0);
+
+    const writer = spawn("sqlite3", [database], {
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    let writerOutput = "";
+    let writerError = "";
+    writer.stderr.on("data", (chunk) => {
+      writerError += chunk.toString();
+    });
+    const writerReady = new Promise<void>((resolve, reject) => {
+      writer.stdout.on("data", (chunk) => {
+        writerOutput += chunk.toString();
+        if (writerOutput.includes("WAL_WRITER_READY")) resolve();
+      });
+      writer.on("exit", (code) => {
+        if (!writerOutput.includes("WAL_WRITER_READY")) {
+          reject(new Error(`WAL writer exited with ${code}: ${writerError}`));
+        }
+      });
+    });
+    writer.stdin.write([
+      "PRAGMA journal_mode=WAL;",
+      `INSERT INTO app_events (event_name, route, metadata, created_at)
+       VALUES (
+         'app_usage_session_started',
+         '/',
+         '{"appSessionId":"live-wal","appSessionSequence":1,"clientLocalDate":"2026-07-28","clientOccurredAt":"2026-07-28T01:00:00.000Z"}',
+         '2026-07-28 01:00:00'
+       );`,
+      ".print WAL_WRITER_READY",
+      "",
+    ].join("\n"));
+    await writerReady;
+
+    try {
+      expect(existsSync(`${database}-wal`)).toBe(true);
+      const sourceMtimeMs = statSync(database).mtimeMs;
+      const result = spawnSync(
+        process.execPath,
+        [
+          path.join(repoRoot, "scripts/analyze-daily-product-usage.mjs"),
+          "--date",
+          "2026-07-28",
+          "--db",
+          database,
+          "--no-write",
+          "--json",
+        ],
+        {
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            TMPDIR: directory,
+            TZ: "Asia/Shanghai",
+          },
+        },
+      );
+
+      expect(result.status, result.stderr).toBe(0);
+      expect(JSON.parse(result.stdout).coverage.eventCount).toBe(1);
+      expect(statSync(database).mtimeMs).toBe(sourceMtimeMs);
+      expect(
+        readdirSync(directory).filter((entry) =>
+          entry.startsWith("time-butler-product-usage-")
+        ),
+      ).toEqual([]);
+    } finally {
+      if (writer.exitCode == null) {
+        writer.stdin.end(".exit\n");
+        await once(writer, "exit");
+      }
+    }
   });
 
   it("reports destinations after repeated rapid route exits", () => {
