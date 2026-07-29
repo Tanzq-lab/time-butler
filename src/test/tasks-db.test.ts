@@ -129,10 +129,19 @@ describe("task database boundaries", () => {
     );
   });
 
-  it("reads persisted task order and saves a requested order", async () => {
+  it("hides only untouched future recurring instances and preserves task order", async () => {
     await getTasks();
-    expect(select).toHaveBeenCalledWith(
-      expect.stringContaining("CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END"),
+    const taskQuery = vi.mocked(select).mock.calls[0]?.[0] as string;
+    expect(taskQuery).toContain("FROM recurring_task_occurrences AS occurrence");
+    expect(taskQuery).toContain(
+      "occurrence.occurrence_date > date('now', 'localtime')",
+    );
+    expect(taskQuery).toContain("task.completed_pomos = 0");
+    expect(taskQuery).toContain("task.completed_at IS NULL");
+    expect(taskQuery).toContain("FROM sessions AS session");
+    expect(taskQuery).toContain("FROM tasks AS child");
+    expect(taskQuery).toContain(
+      "CASE WHEN task.parent_id IS NULL THEN 0 ELSE 1 END",
     );
 
     await reorderTasks([7, 3]);

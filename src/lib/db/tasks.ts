@@ -8,13 +8,32 @@ import type {
 export async function getTasks(): Promise<Task[]> {
   const database = await getDb();
   return database.select<Task[]>(
-    `SELECT *
-     FROM tasks
-     WHERE archived = 0
+    `SELECT task.*
+     FROM tasks AS task
+     WHERE task.archived = 0
+       AND NOT EXISTS (
+         SELECT 1
+         FROM recurring_task_occurrences AS occurrence
+         WHERE occurrence.task_id = task.id
+           AND occurrence.occurrence_date > date('now', 'localtime')
+           AND task.completed_pomos = 0
+           AND task.completed_at IS NULL
+           AND NOT EXISTS (
+             SELECT 1
+             FROM sessions AS session
+             WHERE session.task_id = task.id
+           )
+           AND NOT EXISTS (
+             SELECT 1
+             FROM tasks AS child
+             WHERE child.parent_id = task.id
+               AND child.archived = 0
+           )
+       )
      ORDER BY
-       CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END,
-       sort_order ASC,
-       created_at DESC`,
+       CASE WHEN task.parent_id IS NULL THEN 0 ELSE 1 END,
+       task.sort_order ASC,
+       task.created_at DESC`,
   );
 }
 

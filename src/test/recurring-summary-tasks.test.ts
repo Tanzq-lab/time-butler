@@ -126,6 +126,25 @@ describe("recurring summary tasks", () => {
     ]);
   });
 
+  it("defaults generation to the reference day instead of a future occurrence", () => {
+    const rule = userRule({
+      frequency: "weekly",
+      start_date: "2026-07-24",
+    });
+
+    expect(
+      buildUserRecurringTaskOccurrences([rule], new Date(2026, 6, 22)),
+    ).toEqual([]);
+    expect(
+      buildUserRecurringTaskOccurrences([rule], new Date(2026, 6, 24)),
+    ).toEqual([
+      expect.objectContaining({
+        occurrenceDate: "2026-07-24",
+        scheduledFor: "2026-07-24T09:30:00",
+      }),
+    ]);
+  });
+
   it("keeps an original rule key after the rule is edited", () => {
     const occurrences = buildUserRecurringTaskOccurrences(
       [
@@ -195,10 +214,10 @@ describe("recurring summary tasks", () => {
       ensureRecurringSummaryTasks(new Date(2026, 6, 21)),
     ]);
 
-    // July 21 has one daily ANKI task and the following Monday's weekly summary.
-    expect(dbMocks.addTask).toHaveBeenCalledTimes(2);
-    expect(dbMocks.execute).toHaveBeenCalledTimes(2);
-    expect(pomodoroLogMocks.appendPomodoroEstimationLog).toHaveBeenCalledTimes(2);
+    // July 21 has one daily ANKI task; later recurring tasks stay as rules.
+    expect(dbMocks.addTask).toHaveBeenCalledTimes(1);
+    expect(dbMocks.execute).toHaveBeenCalledTimes(1);
+    expect(pomodoroLogMocks.appendPomodoroEstimationLog).toHaveBeenCalledTimes(1);
   });
 
   it("generates a recurring todo with ordinary todo semantics", async () => {

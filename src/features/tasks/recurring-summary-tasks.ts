@@ -9,7 +9,7 @@ import {
 } from "@/features/tasks/recurring-task-rules";
 import type { TaskItemType } from "@/features/tasks/task-types";
 
-const LOOKAHEAD_DAYS = 7;
+const DEFAULT_GENERATION_LOOKAHEAD_DAYS = 0;
 
 export interface RecurringTaskOccurrence {
   ruleKey: string;
@@ -178,7 +178,7 @@ function findFirstDayOffPeriodStartInYear(year: number): string | null {
 export function buildUserRecurringTaskOccurrences(
   rules: UserRecurringTaskRule[],
   referenceDate = new Date(),
-  lookaheadDays = LOOKAHEAD_DAYS,
+  lookaheadDays = DEFAULT_GENERATION_LOOKAHEAD_DAYS,
 ): RecurringTaskOccurrence[] {
   const occurrences: RecurringTaskOccurrence[] = [];
   const start = cloneDate(referenceDate);
@@ -227,7 +227,7 @@ export function buildUserRecurringTaskOccurrences(
 
 export function buildSummaryTaskOccurrences(
   referenceDate = new Date(),
-  lookaheadDays = LOOKAHEAD_DAYS,
+  lookaheadDays = DEFAULT_GENERATION_LOOKAHEAD_DAYS,
 ): RecurringTaskOccurrence[] {
   const builtInRules: UserRecurringTaskRule[] = BUILT_IN_RECURRING_TASK_RULES.map(
     (rule, index) => ({
