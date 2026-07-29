@@ -321,7 +321,7 @@ test.describe("Responsive and accessibility", () => {
   });
 
   test("mobile task actions have names and support keyboard activation", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
+    await page.setViewportSize({ width: 320, height: 700 });
     await page.reload();
     await page.getByRole("navigation", { name: "移动端导航" }).getByRole("link", { name: "任务" }).click();
     await page.getByRole("button", { name: "添加专注任务" }).click();
@@ -334,6 +334,11 @@ test.describe("Responsive and accessibility", () => {
       .click();
     const actions = page.getByRole("group", { name: "任务操作：手机任务操作测试" });
     await expect(actions).toBeVisible();
+    const actionOverflow = await actions.evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+    expect(actionOverflow.scrollWidth).toBe(actionOverflow.clientWidth);
     const recordButton = actions.getByRole("button", {
       name: "记录任务：手机任务操作测试",
     });

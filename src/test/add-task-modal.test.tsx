@@ -90,4 +90,23 @@ describe("AddTaskModal", () => {
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog", { name: "新建任务" })).toBeVisible();
   });
+
+  it("uses the focused child copy for subtask creation", () => {
+    render(
+      <AddTaskModal
+        open
+        mode="subtask"
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("dialog", { name: "添加专注子任务" }),
+    ).toBeVisible();
+    expect(screen.getByText("创建后归入父任务，并计入子任务进度")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "添加专注子任务" }),
+    ).toBeDisabled();
+  });
 });

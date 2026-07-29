@@ -171,6 +171,7 @@ describe("useTaskStore", () => {
         undefined,
         69,
         undefined,
+        null,
       );
       expect(useTaskStore.getState().tasks[0].category_id).toBe(69);
     });
@@ -190,8 +191,81 @@ describe("useTaskStore", () => {
         "",
         63,
         undefined,
+        null,
       );
       expect(useTaskStore.getState().tasks[0].category_id).toBe(63);
+    });
+
+    it("adds a focus task inside a root task and reopens parent progress", async () => {
+      const { addTask: dbAddTask } = await import("@/lib/db");
+      useTaskStore.setState({
+        tasks: [
+          {
+            ...mockTasks[0],
+            item_type: "todo",
+            completed_at: "2026-07-29T08:00:00.000Z",
+          },
+        ],
+      });
+
+      const created = await useTaskStore
+        .getState()
+        .addTask(
+          "整理调研结论",
+          2,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          1,
+        );
+
+      expect(dbAddTask).toHaveBeenLastCalledWith(
+        "整理调研结论",
+        2,
+        undefined,
+        undefined,
+        null,
+        undefined,
+        1,
+      );
+      expect(created).toEqual(
+        expect.objectContaining({
+          name: "整理调研结论",
+          item_type: "focus",
+          parent_id: 1,
+          estimated_pomos: 2,
+        }),
+      );
+      expect(
+        useTaskStore.getState().tasks.find((task) => task.id === 1)
+          ?.completed_at,
+      ).toBeNull();
+    });
+
+    it("does not add a nested focus task below another child", async () => {
+      const { addTask: dbAddTask } = await import("@/lib/db");
+      useTaskStore.setState({
+        tasks: [
+          { ...mockTasks[0], parent_id: null },
+          { ...mockTasks[1], parent_id: 1 },
+        ],
+      });
+
+      const created = await useTaskStore
+        .getState()
+        .addTask(
+          "不应创建的孙任务",
+          1,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          2,
+        );
+
+      expect(created).toBeNull();
+      expect(dbAddTask).not.toHaveBeenCalled();
     });
 
     it("sets error on failure", async () => {

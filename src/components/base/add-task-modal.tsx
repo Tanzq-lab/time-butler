@@ -22,7 +22,7 @@ interface AddTaskModalProps {
   onSubmit: (data: AddTaskData) => boolean | void | Promise<boolean | void>;
   editTask?: Task | null;
   initialName?: string;
-  mode?: "create" | "edit" | "convert";
+  mode?: "create" | "edit" | "convert" | "subtask";
 }
 
 interface FormState {
@@ -81,6 +81,7 @@ export function AddTaskModal({
   const resolvedMode = mode ?? (editTask ? "edit" : "create");
   const isEditing = resolvedMode === "edit";
   const isConverting = resolvedMode === "convert";
+  const isSubtask = resolvedMode === "subtask";
   const [form, dispatch] = useReducer(
     formReducer,
     initialStateForTask(editTask, initialName),
@@ -117,18 +118,20 @@ export function AddTaskModal({
           ? "编辑任务"
           : isConverting
             ? "设为专注任务"
-            : "新建任务"
+            : isSubtask
+              ? "添加专注子任务"
+              : "新建任务"
       }
     >
       <div className="p-5 md:p-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="flex size-9 items-center justify-center rounded-md bg-sahara-primary text-sahara-bg">
             {isEditing ? (
-              <Edit3 className="size-5" />
-            ) : isConverting ? (
-              <Focus className="size-5" />
+              <Edit3 aria-hidden="true" className="size-5" />
+            ) : isConverting || isSubtask ? (
+              <Focus aria-hidden="true" className="size-5" />
             ) : (
-              <Plus className="size-5" />
+              <Plus aria-hidden="true" className="size-5" />
             )}
           </div>
           <div>
@@ -137,14 +140,18 @@ export function AddTaskModal({
                 ? "编辑任务"
                 : isConverting
                   ? "设为专注任务"
-                  : "新建任务"}
+                  : isSubtask
+                    ? "添加专注子任务"
+                    : "新建任务"}
             </h3>
             <p className="text-xs text-sahara-text-muted mt-0.5">
               {isEditing
                 ? "更新任务详情"
                 : isConverting
                   ? "选择预计投入，再开始记录专注进度"
-                  : "添加一个要专注推进的任务"}
+                  : isSubtask
+                    ? "创建后归入父任务，并计入子任务进度"
+                    : "添加一个要专注推进的任务"}
             </p>
           </div>
         </div>
@@ -232,19 +239,24 @@ export function AddTaskModal({
               intent={form.name.trim() && form.estimatedPomos !== null ? "sahara" : "default"}
               fullWidth
               disabled={!form.name.trim() || form.estimatedPomos === null}
-              className="gap-2"
+              aria-label={isSubtask ? "添加专注子任务" : undefined}
+              className="gap-2 whitespace-nowrap"
             >
               {isEditing ? (
                 <>
-                  <Edit3 className="size-4" /> 保存修改
+                  <Edit3 aria-hidden="true" className="size-4" /> 保存修改
                 </>
               ) : isConverting ? (
                 <>
-                  <Focus className="size-4" /> 设为专注
+                  <Focus aria-hidden="true" className="size-4" /> 设为专注
+                </>
+              ) : isSubtask ? (
+                <>
+                  <Focus aria-hidden="true" className="size-4" /> 添加专注
                 </>
               ) : (
                 <>
-                  <Plus className="size-4" /> 创建任务
+                  <Plus aria-hidden="true" className="size-4" /> 创建任务
                 </>
               )}
             </Button>

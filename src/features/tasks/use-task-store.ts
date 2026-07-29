@@ -55,6 +55,7 @@ interface TaskStore {
     priority?: string,
     categoryId?: number | null,
     scheduledFor?: string | null,
+    parentId?: number | null,
   ) => Promise<Task | null>;
   addTodo: (name: string, parentId?: number | null) => Promise<Task | null>;
   addSubtask: (parentId: number, name: string) => Promise<Task | null>;
@@ -194,9 +195,20 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     priority,
     categoryId,
     scheduledFor,
+    parentId = null,
   ) => {
+    const parent = parentId == null
+      ? null
+      : get().tasks.find((task) => task.id === parentId);
+    if (parentId != null && (!parent || (parent.parent_id ?? null) !== null)) {
+      return null;
+    }
+
     try {
-      const resolvedCategoryId = await inferCategoryIdFromTaskName(name, categoryId);
+      const before = get().tasks;
+      const resolvedCategoryId = parentId == null
+        ? await inferCategoryIdFromTaskName(name, categoryId)
+        : categoryId ?? null;
       const id = await dbAddTask(
         name,
         estimatedPomos,
@@ -204,12 +216,16 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         priority,
         resolvedCategoryId,
         scheduledFor,
+        parentId,
       );
+      const siblingSortOrders = before
+        .filter((task) => (task.parent_id ?? null) === parentId)
+        .map((task) => task.sort_order ?? 0);
       const newTask: Task = {
         id,
         name,
         item_type: "focus",
-        parent_id: null,
+        parent_id: parentId,
         estimated_pomos: estimatedPomos,
         completed_pomos: 0,
         project: project ?? undefined,
@@ -217,7 +233,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         sort_order:
           Math.min(
             0,
-            ...get().tasks.map((task) => task.sort_order ?? 0),
+            ...siblingSortOrders,
           ) - 1,
         category_id: resolvedCategoryId,
         scheduled_for: scheduledFor ?? null,
@@ -227,12 +243,14 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         created_at: new Date().toISOString(),
         archived: 0,
       };
-      set((state) => ({
-        tasks: sortTasks([newTask, ...state.tasks]),
-        error: null,
-      }));
+      const tasks = reconcileParentInState(
+        sortTasks([newTask, ...before]),
+        parentId,
+      );
+      set({ tasks, error: null });
+      recordParentCompletionTransition(before, tasks, parentId, id);
       void recordAppEvent({
-        eventName: "task_added",
+        eventName: parentId == null ? "task_added" : "subtask_added",
         route: "/tasks",
         entityType: "task",
         entityId: id,
@@ -243,6 +261,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           hasCategory: resolvedCategoryId != null,
           hasSchedule: Boolean(scheduledFor),
           categoryInferred: resolvedCategoryId != null && categoryId == null,
+          itemType: "focus",
+          parentId,
         },
       });
       return newTask;

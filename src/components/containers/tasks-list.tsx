@@ -112,6 +112,8 @@ export function TasksList() {
   const [showRecurringModal, setShowRecurringModal] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
   const [taskToConvert, setTaskToConvert] = useState<Task | null>(null);
+  const [focusSubtaskParent, setFocusSubtaskParent] =
+    useState<Task | null>(null);
   const [taskToComplete, setTaskToComplete] = useState<Task | null>(null);
   const [completionHistory, setCompletionHistory] = useState<
     TaskCompletionReview[]
@@ -281,6 +283,22 @@ export function TasksList() {
       }
       return setItemType(taskToConvert.id, "focus", data.estimatedPomos);
     }
+    if (focusSubtaskParent) {
+      const created = await addTask(
+        data.name,
+        data.estimatedPomos,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        focusSubtaskParent.id,
+      );
+      if (!created) return false;
+      setExpandedIds((current) =>
+        new Set(current).add(focusSubtaskParent.id));
+      if (activeTaskId === focusSubtaskParent.id) await setActiveTask(null);
+      return true;
+    }
     return Boolean(await addTask(data.name, data.estimatedPomos));
   };
 
@@ -288,6 +306,7 @@ export function TasksList() {
     setShowAddFocusModal(false);
     setTaskToEdit(null);
     setTaskToConvert(null);
+    setFocusSubtaskParent(null);
   };
 
   const handleFocus = async (task: Task) => {
@@ -339,6 +358,12 @@ export function TasksList() {
     setSubtaskParentId(task.id);
     setSubtaskDraft("");
     setExpandedIds((current) => new Set(current).add(task.id));
+  };
+
+  const beginAddFocusSubtask = (task: Task) => {
+    setSubtaskParentId(null);
+    setSubtaskDraft("");
+    setFocusSubtaskParent(task);
   };
 
   const handleAddSubtask = async (event: FormEvent, parent: Task) => {
@@ -675,6 +700,11 @@ export function TasksList() {
               ? () => beginAddSubtask(task)
               : undefined
           }
+          onAddFocusSubtask={
+            depth === 0 && !taskIsCurrentRunningSession
+              ? () => beginAddFocusSubtask(task)
+              : undefined
+          }
           onRename={async (name) => {
             await updateTask(task.id, name);
             return true;
@@ -858,11 +888,24 @@ export function TasksList() {
       </div>
 
       <AddTaskModal
-        open={showAddFocusModal || Boolean(taskToEdit) || Boolean(taskToConvert)}
+        open={
+          showAddFocusModal
+          || Boolean(taskToEdit)
+          || Boolean(taskToConvert)
+          || Boolean(focusSubtaskParent)
+        }
         onClose={closeTaskModal}
         onSubmit={handleTaskModalSubmit}
         editTask={taskToEdit ?? taskToConvert}
-        mode={taskToEdit ? "edit" : taskToConvert ? "convert" : "create"}
+        mode={
+          taskToEdit
+            ? "edit"
+            : taskToConvert
+              ? "convert"
+              : focusSubtaskParent
+                ? "subtask"
+                : "create"
+        }
       />
       <AddRecurringTaskModal
         open={showRecurringModal}

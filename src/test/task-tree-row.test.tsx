@@ -332,6 +332,33 @@ describe("TaskTreeRow", () => {
     );
   });
 
+  it("offers separate todo and focus child actions on a parent task", () => {
+    const onAddSubtask = vi.fn();
+    const onAddFocusSubtask = vi.fn();
+    render(
+      <TaskTreeRow
+        task={{ ...focusTask, name: "B站数据调研", item_type: "todo" }}
+        childCount={8}
+        completedChildCount={7}
+        focusChildCount={8}
+        onAddSubtask={onAddSubtask}
+        onAddFocusSubtask={onAddFocusSubtask}
+        onRename={vi.fn(() => true)}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "添加子任务：B站数据调研" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "添加专注任务：B站数据调研" }),
+    );
+
+    expect(onAddSubtask).toHaveBeenCalledOnce();
+    expect(onAddFocusSubtask).toHaveBeenCalledOnce();
+  });
+
   it("uses the same child-progress tone without focus subtasks", () => {
     render(
       <TaskTreeRow

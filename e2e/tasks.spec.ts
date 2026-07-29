@@ -72,6 +72,62 @@ test.describe("Tasks", () => {
     await expect(progress).toHaveAttribute("aria-valuenow", "1");
   });
 
+  test("adds a focus task directly under a progress parent", async ({ page }) => {
+    const parent = "B站数据调研";
+    const todoChild = "收集样本";
+    const child = "整理调研结论";
+    await page.setViewportSize({ width: 320, height: 700 });
+    const quickInput = page.getByRole("textbox", { name: "添加任务" });
+    await quickInput.fill(parent);
+    await quickInput.press("Enter");
+
+    const parentRow = page
+      .locator('article[data-task-depth="0"]')
+      .filter({ hasText: parent })
+      .first();
+    await parentRow
+      .getByRole("button", { name: `显示任务操作：${parent}` })
+      .click();
+    await parentRow
+      .getByRole("button", { name: `添加子任务：${parent}` })
+      .click();
+    const todoDraft = page.getByRole("textbox", {
+      name: `添加子任务：${parent}`,
+    });
+    await todoDraft.fill(todoChild);
+    await todoDraft.press("Enter");
+    await parentRow
+      .getByRole("button", { name: `添加专注任务：${parent}` })
+      .click();
+
+    const dialog = page.getByRole("dialog", { name: "添加专注子任务" });
+    await dialog.getByLabel("任务名称").fill(child);
+    await dialog.getByRole("button", { name: "预计 2 个番茄" }).click();
+    await dialog.getByRole("button", { name: "添加专注子任务" }).click();
+
+    const focusChild = page
+      .locator(
+        'article[data-task-depth="1"][data-task-kind="focus"]',
+      )
+      .filter({ hasText: child })
+      .first();
+    await expect(focusChild).toBeVisible();
+    await expect(focusChild).toContainText("0/2");
+    const progress = parentRow.getByRole("progressbar", {
+      name: `${parent} 子任务进度`,
+    });
+    await expect(progress).toHaveAttribute("aria-valuemax", "2");
+    await expect(progress).toHaveAttribute("aria-valuenow", "0");
+
+    await focusChild
+      .getByRole("button", { name: `显示任务操作：${child}` })
+      .click();
+    await focusChild
+      .getByRole("button", { name: `开始专注：${child}` })
+      .click();
+    await expect(page).toHaveURL(/\/#\/$/);
+  });
+
   test("shows and edits the original recurring rules", async ({ page }) => {
     await page.getByRole("button", { name: "添加循环任务" }).click();
 

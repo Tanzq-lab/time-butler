@@ -44,6 +44,7 @@ interface TaskTreeRowProps {
   onConvertToFocus?: () => void;
   onConvertToTodo?: () => void;
   onAddSubtask?: () => void;
+  onAddFocusSubtask?: () => void;
   onRename: (name: string) => Promise<boolean> | boolean;
   onEditDetails?: () => void;
   onRecord?: () => void;
@@ -88,6 +89,7 @@ export function TaskTreeRow({
   onConvertToFocus,
   onConvertToTodo,
   onAddSubtask,
+  onAddFocusSubtask,
   onRename,
   onEditDetails,
   onRecord,
@@ -431,7 +433,7 @@ export function TaskTreeRow({
               </button>
             )}
 
-            <div className="flex items-center gap-0.5 md:pointer-events-none md:opacity-0 md:transition-opacity md:duration-150 md:group-hover/task:pointer-events-auto md:group-hover/task:opacity-100 md:group-focus-within/task:pointer-events-auto md:group-focus-within/task:opacity-100 motion-reduce:transition-none">
+            <div className="flex flex-wrap items-center justify-end gap-0.5 md:pointer-events-none md:opacity-0 md:transition-opacity md:duration-150 md:group-hover/task:pointer-events-auto md:group-hover/task:opacity-100 md:group-focus-within/task:pointer-events-auto md:group-focus-within/task:opacity-100 motion-reduce:transition-none">
               {canAddSubtask && onAddSubtask && (
                 <button
                   type="button"
@@ -441,6 +443,18 @@ export function TaskTreeRow({
                   className="flex size-10 touch-manipulation items-center justify-center rounded-md text-sahara-text-muted outline-none hover:bg-sahara-card hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus md:size-8"
                 >
                   <Plus aria-hidden="true" className="size-3.5" />
+                </button>
+              )}
+
+              {isGroup && canAddSubtask && onAddFocusSubtask && (
+                <button
+                  type="button"
+                  onClick={onAddFocusSubtask}
+                  aria-label={`添加专注任务：${task.name}`}
+                  title="添加专注任务"
+                  className="flex size-10 touch-manipulation items-center justify-center rounded-md text-sahara-text-muted outline-none hover:bg-sahara-card hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus md:size-8"
+                >
+                  <Focus aria-hidden="true" className="size-3.5" />
                 </button>
               )}
 
