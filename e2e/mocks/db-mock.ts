@@ -221,6 +221,44 @@ export class Database {
     if (up.startsWith("INSERT")) {
       const tbl = getTable(name);
 
+      // Migration v19 backfills one accurate snapshot for already-completed
+      // leaf focus tasks before the completion trigger starts capturing more.
+      if (name === "task_completion_reviews" && up.includes("FROM TASKS TASK")) {
+        let inserted = 0;
+        for (const task of allRows("tasks")) {
+          const hasVisibleChildren = allRows("tasks").some(
+            (child) => child.parent_id === task.id && child.archived === 0,
+          );
+          const alreadyCaptured = allRows("task_completion_reviews").some(
+            (entry) =>
+              entry.task_id === task.id
+              && entry.completed_at === task.completed_at,
+          );
+          if (
+            task.item_type !== "focus"
+            || !task.completed_at
+            || hasVisibleChildren
+            || alreadyCaptured
+          ) {
+            continue;
+          }
+
+          const id = (autoInc.get(name) || 0) + 1;
+          autoInc.set(name, id);
+          tbl.set(id, {
+            id,
+            task_id: task.id,
+            estimated_pomos: task.estimated_pomos,
+            actual_pomos: task.completed_pomos,
+            review: task.completion_review ?? null,
+            completed_at: task.completed_at,
+            created_at: new Date().toISOString(),
+          });
+          inserted += 1;
+        }
+        return { lastInsertId: 0, rowsAffected: inserted };
+      }
+
       // Migration v18 copies legacy todo rows into the unified task table.
       // INSERT ... SELECT has no VALUES clause, so model it explicitly.
       if (name === "tasks" && up.includes("FROM TODOS TODO")) {
@@ -313,6 +351,35 @@ export class Database {
             const value = literalValue(part.slice(part.indexOf("=") + 1).trim(), params);
             if (value !== undefined) row[col] = value;
           });
+        }
+
+        // Emulate migration v19's SQLite trigger so browser E2E exercises the
+        // same append-only completion history as the desktop database.
+        if (
+          name === "tasks"
+          && up.includes("COMPLETION_REVIEW =")
+          && up.includes("DATETIME('NOW', 'LOCALTIME')")
+        ) {
+          const completedAt = new Date().toISOString();
+          row.completed_at = completedAt;
+          const hasVisibleChildren = allRows("tasks").some(
+            (child) => child.parent_id === row.id && child.archived === 0,
+          );
+          if (row.item_type === "focus" && !hasVisibleChildren) {
+            const history = getTable("task_completion_reviews");
+            const historyId =
+              (autoInc.get("task_completion_reviews") || 0) + 1;
+            autoInc.set("task_completion_reviews", historyId);
+            history.set(historyId, {
+              id: historyId,
+              task_id: row.id,
+              estimated_pomos: row.estimated_pomos,
+              actual_pomos: row.completed_pomos,
+              review: row.completion_review ?? null,
+              completed_at: completedAt,
+              created_at: completedAt,
+            });
+          }
         }
         return { lastInsertId: 0, rowsAffected: 1 };
       }

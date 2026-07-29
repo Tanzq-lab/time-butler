@@ -22,6 +22,7 @@ import { useTimerStore } from "@/features/timer/use-timer-store";
 import {
   getTaskItemType,
   type Task,
+  type TaskCompletionReview,
 } from "@/features/tasks/task-types";
 import {
   AddTaskModal,
@@ -37,7 +38,7 @@ import { TaskTreeRow } from "@/components/base/task-tree-row";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PageHeader } from "@/components/ui/page-header";
-import { recordAppEvent } from "@/lib/db";
+import { getTaskCompletionReviews, recordAppEvent } from "@/lib/db";
 import {
   addRecurringTaskRule,
   getRecurringTaskRules,
@@ -111,6 +112,12 @@ export function TasksList() {
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
   const [taskToConvert, setTaskToConvert] = useState<Task | null>(null);
   const [taskToComplete, setTaskToComplete] = useState<Task | null>(null);
+  const [completionHistory, setCompletionHistory] = useState<
+    TaskCompletionReview[]
+  >([]);
+  const [completionHistoryLoading, setCompletionHistoryLoading] =
+    useState(false);
+  const [completionHistoryError, setCompletionHistoryError] = useState(false);
   const [taskToRecord, setTaskToRecord] = useState<Task | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
   const [showDone, setShowDone] = useState(false);
@@ -147,6 +154,41 @@ export function TasksList() {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [loadTasks]);
+
+  useEffect(() => {
+    if (!taskToComplete) {
+      setCompletionHistory([]);
+      setCompletionHistoryLoading(false);
+      setCompletionHistoryError(false);
+      return;
+    }
+
+    let disposed = false;
+    setCompletionHistory([]);
+    setCompletionHistoryLoading(true);
+    setCompletionHistoryError(false);
+    void getTaskCompletionReviews(taskToComplete.id)
+      .then((history) => {
+        if (!disposed) setCompletionHistory(history);
+      })
+      .catch((historyError) => {
+        console.error(
+          "[TasksList] Failed to load task completion history:",
+          historyError,
+        );
+        if (!disposed) {
+          setCompletionHistory([]);
+          setCompletionHistoryError(true);
+        }
+      })
+      .finally(() => {
+        if (!disposed) setCompletionHistoryLoading(false);
+      });
+
+    return () => {
+      disposed = true;
+    };
+  }, [taskToComplete]);
 
   const taskById = useMemo(
     () => new Map(tasks.map((task) => [task.id, task])),
@@ -811,6 +853,9 @@ export function TasksList() {
       <TaskCompletionReviewModal
         open={Boolean(taskToComplete)}
         task={taskToComplete}
+        history={completionHistory}
+        historyLoading={completionHistoryLoading}
+        historyError={completionHistoryError}
         onClose={() => setTaskToComplete(null)}
         onSubmit={handleCompleteTask}
       />

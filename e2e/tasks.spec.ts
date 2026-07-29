@@ -252,6 +252,49 @@ test.describe("Tasks", () => {
       .click();
   });
 
+  test("keeps past completion reviews available when a focus task is reopened", async ({
+    page,
+  }) => {
+    const title = "复查历史估时";
+    await page.setViewportSize({ width: 320, height: 700 });
+    await page.getByRole("button", { name: "添加专注任务" }).click();
+    await page.getByPlaceholder("你现在要做什么？").fill(title);
+    await page.getByRole("button", { name: "预计 1 个番茄" }).click();
+    await page.getByRole("button", { name: "创建任务" }).click();
+
+    await page
+      .getByRole("checkbox", { name: `完成专注任务：${title}` })
+      .click();
+    const firstReview = page.getByRole("dialog", { name: "完成任务复盘" });
+    await firstReview.getByLabel("本次复盘原因").fill("第一次资料比预期集中。");
+    await firstReview.getByRole("button", { name: "保存完成记录" }).click();
+
+    await page.getByRole("button", { name: "已完成（1）" }).click();
+    await page
+      .getByRole("checkbox", { name: `重新打开专注任务：${title}` })
+      .click();
+    await page
+      .getByRole("checkbox", { name: `完成专注任务：${title}` })
+      .click();
+
+    const reopenedReview = page.getByRole("dialog", {
+      name: "完成任务复盘",
+    });
+    await expect(reopenedReview.getByText("1 条")).toBeVisible();
+    await expect(
+      reopenedReview.getByText("第一次资料比预期集中。"),
+    ).toBeVisible();
+    await expect(
+      reopenedReview.getByRole("button", { name: "保存完成记录" }),
+    ).toBeVisible();
+
+    const dialogBounds = await reopenedReview.boundingBox();
+    expect(dialogBounds).not.toBeNull();
+    expect(dialogBounds!.x).toBeGreaterThanOrEqual(0);
+    expect(dialogBounds!.x + dialogBounds!.width).toBeLessThanOrEqual(320);
+    expect(dialogBounds!.y + dialogBounds!.height).toBeLessThanOrEqual(700);
+  });
+
   test("quick-adds, completes, and reopens a todo", async ({ page }) => {
     const title = "购买 E2E 测试用品";
     const input = page.getByRole("textbox", { name: "添加任务" });

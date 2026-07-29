@@ -20,6 +20,15 @@ export interface Task {
   archived: number;
 }
 
+export interface TaskCompletionReview {
+  id: number;
+  task_id: number;
+  estimated_pomos: number;
+  actual_pomos: number;
+  review: string | null;
+  completed_at: string;
+}
+
 export function getTaskItemType(task: Task): TaskItemType {
   return task.item_type === "todo" ? "todo" : "focus";
 }

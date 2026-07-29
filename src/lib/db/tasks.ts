@@ -1,5 +1,9 @@
 import { getDb } from "./schema";
-import type { Task, TaskItemType } from "@/features/tasks/task-types";
+import type {
+  Task,
+  TaskCompletionReview,
+  TaskItemType,
+} from "@/features/tasks/task-types";
 
 export async function getTasks(): Promise<Task[]> {
   const database = await getDb();
@@ -11,6 +15,25 @@ export async function getTasks(): Promise<Task[]> {
        CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END,
        sort_order ASC,
        created_at DESC`,
+  );
+}
+
+export async function getTaskCompletionReviews(
+  taskId: number,
+): Promise<TaskCompletionReview[]> {
+  const database = await getDb();
+  return database.select<TaskCompletionReview[]>(
+    `SELECT
+       id,
+       task_id,
+       estimated_pomos,
+       actual_pomos,
+       review,
+       completed_at
+     FROM task_completion_reviews
+     WHERE task_id = $1
+     ORDER BY completed_at DESC, id DESC`,
+    [taskId],
   );
 }
 
@@ -309,9 +332,17 @@ export async function deleteTask(id: number): Promise<void> {
     [id],
   );
   for (const child of children) {
+    await database.execute(
+      "DELETE FROM task_completion_reviews WHERE task_id = $1",
+      [child.id],
+    );
     await database.execute("DELETE FROM sessions WHERE task_id = $1", [child.id]);
   }
   await database.execute("DELETE FROM tasks WHERE parent_id = $1", [id]);
+  await database.execute(
+    "DELETE FROM task_completion_reviews WHERE task_id = $1",
+    [id],
+  );
   await database.execute("DELETE FROM sessions WHERE task_id = $1", [id]);
   await database.execute("DELETE FROM tasks WHERE id = $1", [id]);
   await reconcileParentCompletion(parentId);

@@ -10,6 +10,7 @@ export {
 } from "./app-events";
 export {
   getTasks,
+  getTaskCompletionReviews,
   addTask,
   addTodoTask,
   updateTask,

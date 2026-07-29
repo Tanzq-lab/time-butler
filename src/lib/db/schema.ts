@@ -305,9 +305,78 @@ export async function initDb(): Promise<void> {
         WHERE existing.legacy_todo_id = todo.id
       )`,
     ],
+    19: [
+      `CREATE TABLE IF NOT EXISTS task_completion_reviews (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL,
+        estimated_pomos INTEGER NOT NULL,
+        actual_pomos INTEGER NOT NULL,
+        review TEXT,
+        completed_at DATETIME NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (task_id) REFERENCES tasks(id)
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_task_completion_reviews_task_time
+        ON task_completion_reviews (task_id, completed_at DESC, id DESC)`,
+      `INSERT INTO task_completion_reviews (
+        task_id,
+        estimated_pomos,
+        actual_pomos,
+        review,
+        completed_at
+      )
+      SELECT
+        task.id,
+        task.estimated_pomos,
+        task.completed_pomos,
+        task.completion_review,
+        task.completed_at
+      FROM tasks task
+      WHERE task.item_type = 'focus'
+        AND task.completed_at IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM tasks child
+          WHERE child.parent_id = task.id
+            AND child.archived = 0
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM task_completion_reviews history
+          WHERE history.task_id = task.id
+            AND history.completed_at = task.completed_at
+        )`,
+      `CREATE TRIGGER IF NOT EXISTS trg_tasks_capture_completion_review
+        AFTER UPDATE OF completed_at ON tasks
+        WHEN NEW.completed_at IS NOT NULL
+          AND (OLD.completed_at IS NULL OR OLD.completed_at <> NEW.completed_at)
+          AND NEW.item_type = 'focus'
+          AND NOT EXISTS (
+            SELECT 1
+            FROM tasks child
+            WHERE child.parent_id = NEW.id
+              AND child.archived = 0
+          )
+        BEGIN
+          INSERT INTO task_completion_reviews (
+            task_id,
+            estimated_pomos,
+            actual_pomos,
+            review,
+            completed_at
+          )
+          VALUES (
+            NEW.id,
+            NEW.estimated_pomos,
+            NEW.completed_pomos,
+            NEW.completion_review,
+            NEW.completed_at
+          );
+        END`,
+    ],
   };
 
-  const targetVersion = 18;
+  const targetVersion = 19;
 
   for (let v = currentVersion + 1; v <= targetVersion; v++) {
     const statements = migrations[v];

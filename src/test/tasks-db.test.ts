@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addTask,
   addTodoTask,
+  getTaskCompletionReviews,
   getTasks,
   reorderTasks,
   setTaskCompleted,
@@ -119,6 +120,26 @@ describe("task database boundaries", () => {
     expect(execute).toHaveBeenCalledWith(
       expect.stringContaining("SET sort_order = CASE id WHEN $1 THEN $2 WHEN $3 THEN $4"),
       [7, 0, 3, 1, null],
+    );
+  });
+
+  it("loads a task's completion history newest first", async () => {
+    const history = [
+      {
+        id: 3,
+        task_id: 7,
+        estimated_pomos: 2,
+        actual_pomos: 3,
+        review: "联调增加了工作量。",
+        completed_at: "2026-07-29 12:00:00",
+      },
+    ];
+    select.mockResolvedValueOnce(history);
+
+    await expect(getTaskCompletionReviews(7)).resolves.toEqual(history);
+    expect(select).toHaveBeenCalledWith(
+      expect.stringContaining("ORDER BY completed_at DESC, id DESC"),
+      [7],
     );
   });
 });
