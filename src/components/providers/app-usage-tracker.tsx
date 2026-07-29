@@ -2,6 +2,24 @@ import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { recordAppEvent } from "@/lib/db";
 
+interface VisibleUsageSessionState {
+  startedAtMs: number | null;
+  sequence: number;
+}
+
+const hotData = import.meta.hot?.data as
+  | { visibleUsageSessionState?: VisibleUsageSessionState }
+  | undefined;
+const visibleUsageSessionState: VisibleUsageSessionState =
+  hotData?.visibleUsageSessionState ?? {
+    startedAtMs: null,
+    sequence: 0,
+  };
+
+if (hotData) {
+  hotData.visibleUsageSessionState = visibleUsageSessionState;
+}
+
 export function AppUsageTracker() {
   const location = useLocation();
   const previousRoute = useRef<string | null>(null);
@@ -10,47 +28,77 @@ export function AppUsageTracker() {
   currentRoute.current = location.pathname;
 
   useEffect(() => {
-    const startedAtMs = Date.now();
-    let ended = false;
+    const startVisibleSession = (
+      reason: "initial_visible" | "became_visible",
+    ) => {
+      if (
+        document.visibilityState !== "visible"
+        || visibleUsageSessionState.startedAtMs != null
+      ) {
+        return;
+      }
+      visibleUsageSessionState.startedAtMs = Date.now();
+      visibleUsageSessionState.sequence += 1;
+      void recordAppEvent({
+        eventName: "app_usage_session_started",
+        route: currentRoute.current,
+        metadata: {
+          reason,
+          visibleSessionSequence: visibleUsageSessionState.sequence,
+        },
+      });
+    };
 
-    void recordAppEvent({
-      eventName: "app_usage_session_started",
-      route: currentRoute.current,
-    });
-
-    const recordSessionEnd = (reason: "page_hidden" | "tracker_unmounted") => {
-      if (ended) return;
-      ended = true;
+    const recordSessionEnd = (
+      reason: "document_hidden" | "page_hidden",
+    ) => {
+      const startedAtMs = visibleUsageSessionState.startedAtMs;
+      if (startedAtMs == null) return;
+      visibleUsageSessionState.startedAtMs = null;
       void recordAppEvent({
         eventName: "app_usage_session_ended",
         route: currentRoute.current,
         metadata: {
           reason,
           durationMs: Math.max(0, Date.now() - startedAtMs),
+          visibleSessionSequence: visibleUsageSessionState.sequence,
         },
       });
     };
 
     const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        startVisibleSession("became_visible");
+      }
       void recordAppEvent({
         eventName: "app_visibility_changed",
         route: currentRoute.current,
         metadata: {
           state: document.visibilityState,
-          sessionElapsedMs: Math.max(0, Date.now() - startedAtMs),
+          sessionElapsedMs:
+            visibleUsageSessionState.startedAtMs == null
+              ? null
+              : Math.max(
+                0,
+                Date.now() - visibleUsageSessionState.startedAtMs,
+              ),
+          visibleSessionSequence: visibleUsageSessionState.sequence,
         },
       });
+      if (document.visibilityState === "hidden") {
+        recordSessionEnd("document_hidden");
+      }
     };
 
     const handlePageHide = () => recordSessionEnd("page_hidden");
 
+    startVisibleSession("initial_visible");
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("pagehide", handlePageHide);
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("pagehide", handlePageHide);
-      recordSessionEnd("tracker_unmounted");
     };
   }, []);
 
