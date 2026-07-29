@@ -4,15 +4,16 @@ import { Button } from "@/components/ui/button";
 import { ModalOverlay } from "@/components/ui/modal-overlay";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
+import type { Task } from "@/features/tasks/task-types";
 import type {
-  Task,
-  TaskCompletionReview,
-} from "@/features/tasks/task-types";
+  TaskReviewHistoryEntry,
+  TaskReviewHistoryKind,
+} from "@/features/tasks/task-review-history";
 
 interface TaskCompletionReviewModalProps {
   open: boolean;
   task: Task | null;
-  history?: TaskCompletionReview[];
+  history?: TaskReviewHistoryEntry[];
   historyLoading?: boolean;
   historyError?: boolean;
   onClose: () => void;
@@ -47,6 +48,12 @@ function getHistoryDeltaClassName(delta: number): string {
   if (delta > 0) return "text-[var(--color-timer-pomo-overrun)]";
   if (delta < 0) return "text-[var(--color-timer-complete)]";
   return "text-sahara-text-secondary";
+}
+
+function getHistoryKindLabel(kind: TaskReviewHistoryKind): string {
+  if (kind === "overrun") return "超额路线复核";
+  if (kind === "estimate") return "估时偏差";
+  return "完成复盘";
 }
 
 export function TaskCompletionReviewModal({
@@ -201,7 +208,7 @@ export function TaskCompletionReviewModal({
               </p>
             ) : history.length === 0 ? (
               <p className="rounded-[10px] border border-dashed border-sahara-border px-3 py-4 text-xs leading-5 text-sahara-text-secondary">
-                还没有历史复盘。本次完成后，预计、实际和原因会保留在这里。
+                还没有历史复盘。完成复盘或超额路线复核后，记录会保留在这里。
               </p>
             ) : (
               <ol className="overflow-hidden rounded-[10px] border border-sahara-border bg-sahara-surface">
@@ -215,21 +222,40 @@ export function TaskCompletionReviewModal({
                     >
                       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                         <time
-                          dateTime={entry.completed_at}
+                          dateTime={entry.recorded_at}
                           className="text-[10px] font-medium text-sahara-text-secondary"
                         >
-                          {formatCompletionTime(entry.completed_at)}
+                          {formatCompletionTime(entry.recorded_at)}
                         </time>
-                        <span
-                          className={`text-[10px] font-semibold ${getHistoryDeltaClassName(historyDelta)}`}
-                        >
-                          {buildDeltaLabel(historyDelta)}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-medium text-sahara-text-secondary">
+                            {getHistoryKindLabel(entry.kind)}
+                          </span>
+                          {entry.kind !== "overrun" && (
+                            <span
+                              className={`text-[10px] font-semibold ${getHistoryDeltaClassName(historyDelta)}`}
+                            >
+                              {buildDeltaLabel(historyDelta)}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <p className="mt-1.5 font-mono text-[11px] tabular-nums text-sahara-text-secondary">
-                        预计 {entry.estimated_pomos}
-                        <span aria-hidden="true"> · </span>
-                        实际 {entry.actual_pomos}
+                        {entry.kind === "overrun" ? (
+                          <>
+                            预计 {entry.estimated_pomos}
+                            <span aria-hidden="true"> · </span>
+                            当时已完成 {entry.actual_pomos}
+                            <span aria-hidden="true"> · </span>
+                            准备第 {entry.next_pomo} 个
+                          </>
+                        ) : (
+                          <>
+                            预计 {entry.estimated_pomos}
+                            <span aria-hidden="true"> · </span>
+                            实际 {entry.actual_pomos}
+                          </>
+                        )}
                       </p>
                       <MarkdownRenderer
                         content={entry.review}

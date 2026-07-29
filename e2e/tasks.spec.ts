@@ -487,6 +487,26 @@ test.describe("Tasks", () => {
     await page
       .getByRole("checkbox", { name: `重新打开专注任务：${title}` })
       .click();
+    await page.evaluate(async (taskName) => {
+      const storeModulePath = "/src/features/tasks/use-task-store.ts";
+      const { useTaskStore } = await import(
+        /* @vite-ignore */ storeModulePath
+      );
+      const state = useTaskStore.getState();
+      useTaskStore.setState({
+        tasks: state.tasks.map((task) =>
+          task.name === taskName
+            ? {
+                ...task,
+                notes:
+                  "**2026-07-29 16:05**\n\n"
+                  + "**超额番茄路线复核**\n\n"
+                  + "第 2 个番茄：先验证核心资料。",
+              }
+            : task,
+        ),
+      });
+    }, title);
     await page
       .getByRole("checkbox", { name: `完成专注任务：${title}` })
       .click();
@@ -494,10 +514,12 @@ test.describe("Tasks", () => {
     const reopenedReview = page.getByRole("dialog", {
       name: "完成任务复盘",
     });
-    await expect(reopenedReview.getByText("1 条")).toBeVisible();
+    await expect(reopenedReview.getByText("2 条")).toBeVisible();
     await expect(
       reopenedReview.getByText("第一次资料比预期集中。"),
     ).toBeVisible();
+    await expect(reopenedReview.getByText("超额路线复核")).toBeVisible();
+    await expect(reopenedReview.getByText("先验证核心资料。")).toBeVisible();
     await expect(
       reopenedReview.getByRole("button", { name: "保存完成记录" }),
     ).toBeVisible();

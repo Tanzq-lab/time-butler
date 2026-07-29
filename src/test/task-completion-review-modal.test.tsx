@@ -15,20 +15,20 @@ const task: Task = {
 
 const history = [
   {
-    id: 2,
-    task_id: 1,
+    id: "completion:2",
+    kind: "completion" as const,
     estimated_pomos: 3,
     actual_pomos: 5,
     review: "接口联调比预期复杂。",
-    completed_at: "2026-07-28 15:30:00",
+    recorded_at: "2026-07-28 15:30:00",
   },
   {
-    id: 1,
-    task_id: 1,
+    id: "completion:1",
+    kind: "completion" as const,
     estimated_pomos: 4,
     actual_pomos: 4,
     review: null,
-    completed_at: "2026-07-20 10:00:00",
+    recorded_at: "2026-07-20 10:00:00",
   },
 ];
 
@@ -94,7 +94,7 @@ describe("TaskCompletionReviewModal", () => {
 
     expect(
       screen.getByText(
-        "还没有历史复盘。本次完成后，预计、实际和原因会保留在这里。",
+        "还没有历史复盘。完成复盘或超额路线复核后，记录会保留在这里。",
       ),
     ).toBeVisible();
   });

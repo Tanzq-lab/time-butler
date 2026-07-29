@@ -16,6 +16,7 @@ export interface PomodoroEstimationCreatedLog {
 export interface PomodoroEstimationCompletionLog {
   event: "completion";
   completedAt: string;
+  taskId?: number;
   taskName: string;
   estimatedPomos: number;
   actualPomos: number;
@@ -57,6 +58,7 @@ export function buildCreatedLogEntry(
 
 export function buildCompletionLogEntry(
   task: {
+    id?: number;
     name: string;
     estimated_pomos: number;
     completed_pomos: number;
@@ -75,6 +77,7 @@ export function buildCompletionLogEntry(
   return {
     event: "completion",
     completedAt: nowIso(),
+    ...(task.id != null && { taskId: task.id }),
     taskName: task.name,
     estimatedPomos: task.estimated_pomos,
     actualPomos: task.completed_pomos,
@@ -99,7 +102,8 @@ export async function readPomodoroEstimationLog(): Promise<string> {
   if (!isTauri()) return "";
 
   try {
-    return await invoke<string>("read_pomodoro_estimation_log");
+    const rawLog = await invoke<unknown>("read_pomodoro_estimation_log");
+    return typeof rawLog === "string" ? rawLog : "";
   } catch (err) {
     console.warn("[PomodoroEstimationLog] Failed to read log:", err);
     return "";

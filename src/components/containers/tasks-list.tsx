@@ -22,8 +22,14 @@ import { useTimerStore } from "@/features/timer/use-timer-store";
 import {
   getTaskItemType,
   type Task,
-  type TaskCompletionReview,
 } from "@/features/tasks/task-types";
+import {
+  buildTaskReviewHistory,
+  type TaskReviewHistoryEntry,
+} from "@/features/tasks/task-review-history";
+import {
+  readPomodoroEstimationLog,
+} from "@/features/tasks/pomodoro-estimation-log";
 import {
   AddTaskModal,
   type AddTaskData,
@@ -116,7 +122,7 @@ export function TasksList() {
     useState<Task | null>(null);
   const [taskToComplete, setTaskToComplete] = useState<Task | null>(null);
   const [completionHistory, setCompletionHistory] = useState<
-    TaskCompletionReview[]
+    TaskReviewHistoryEntry[]
   >([]);
   const [completionHistoryLoading, setCompletionHistoryLoading] =
     useState(false);
@@ -170,9 +176,21 @@ export function TasksList() {
     setCompletionHistory([]);
     setCompletionHistoryLoading(true);
     setCompletionHistoryError(false);
-    void getTaskCompletionReviews(taskToComplete.id)
-      .then((history) => {
-        if (!disposed) setCompletionHistory(history);
+    void Promise.all([
+      getTaskCompletionReviews(taskToComplete.id),
+      readPomodoroEstimationLog(),
+    ])
+      .then(([completionReviews, rawEstimationLog]) => {
+        if (!disposed) {
+          setCompletionHistory(
+            buildTaskReviewHistory({
+              task: taskToComplete,
+              tasks,
+              completionReviews,
+              rawEstimationLog,
+            }),
+          );
+        }
       })
       .catch((historyError) => {
         console.error(
@@ -191,7 +209,7 @@ export function TasksList() {
     return () => {
       disposed = true;
     };
-  }, [taskToComplete]);
+  }, [taskToComplete, tasks]);
 
   const taskById = useMemo(
     () => new Map(tasks.map((task) => [task.id, task])),
