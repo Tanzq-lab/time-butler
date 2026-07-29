@@ -92,6 +92,7 @@ test.describe("Responsive and accessibility", () => {
 
     const dialog = page.getByRole("dialog", { name: "添加循环任务" });
     await expect(dialog).toBeVisible();
+    await dialog.getByLabel("任务名称").fill("每日整理最小窗口");
     const bounds = await dialog.boundingBox();
     expect(bounds?.x ?? -1).toBeGreaterThanOrEqual(0);
     expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(320);
@@ -124,8 +125,53 @@ test.describe("Responsive and accessibility", () => {
       name: "创建循环任务",
     });
     await expect(createButton).toBeVisible();
+    await createButton.click();
+
+    await page.getByRole("button", { name: "添加循环任务" }).click();
+    const reopenedDialog = page.getByRole("dialog", {
+      name: "添加循环任务",
+    });
+    await reopenedDialog.getByRole("button", { name: /管理已配置规则/ }).click();
+    const rulesDialog = page.getByRole("dialog", { name: "管理循环规则" });
+    const deleteRuleButton = rulesDialog.getByRole("button", {
+      name: "删除循环规则：每日整理最小窗口",
+    });
+    await expect(deleteRuleButton).toBeVisible();
+    const clippedRuleControls = await rulesDialog
+      .locator("button")
+      .evaluateAll((elements) =>
+        elements.filter((element) => {
+          const rect = element.getBoundingClientRect();
+          return (
+            rect.width > 0
+            && (rect.left < -1 || rect.right > window.innerWidth + 1)
+          );
+        }).length,
+      );
+    expect(clippedRuleControls).toBe(0);
+
+    await deleteRuleButton.click();
+    const deleteDialog = page.getByRole("dialog", {
+      name: "确认删除循环任务",
+    });
+    const deleteBounds = await deleteDialog.boundingBox();
+    expect(deleteBounds?.x ?? -1).toBeGreaterThanOrEqual(0);
+    expect(
+      (deleteBounds?.x ?? 0) + (deleteBounds?.width ?? 0),
+    ).toBeLessThanOrEqual(320);
+    await deleteDialog.getByRole("button", { name: "取消" }).click();
+    await expect(
+      page.getByRole("dialog", { name: "管理循环规则" }),
+    ).toBeVisible();
+
     await page.keyboard.press("Escape");
-    await expect(returnedDialog).not.toBeVisible();
+    await expect(
+      page.getByRole("dialog", { name: "添加循环任务" }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(
+      page.getByRole("dialog", { name: "添加循环任务" }),
+    ).not.toBeVisible();
     await expect(page.getByRole("button", { name: "添加循环任务" })).toBeFocused();
   });
 

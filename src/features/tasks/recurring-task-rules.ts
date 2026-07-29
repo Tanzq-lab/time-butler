@@ -69,6 +69,12 @@ export function getRecurringTaskItemType(
   return rule.item_type === "todo" ? "todo" : "focus";
 }
 
+export function isCustomRecurringTaskRule(
+  rule: Pick<UserRecurringTaskRule, "rule_key">,
+): boolean {
+  return rule.rule_key?.startsWith("custom.") === true;
+}
+
 function assertRuleInput(input: RecurringTaskRuleInput): void {
   if (!input.name.trim()) throw new Error("任务名称不能为空");
   if (input.itemType !== "todo" && input.itemType !== "focus") {
@@ -212,4 +218,31 @@ export async function setRecurringTaskRuleEnabled(
      WHERE id = $2`,
     [enabled ? 1 : 0, id],
   );
+}
+
+export async function deleteRecurringTaskRule(id: number): Promise<void> {
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error("循环任务规则不存在");
+  }
+
+  const database = await getDb();
+  const rows = await database.select<{ rule_key: string | null }[]>(
+    "SELECT rule_key FROM recurring_task_rules WHERE id = $1 LIMIT 1",
+    [id],
+  );
+  const rule = rows[0];
+  if (!rule) {
+    throw new Error("循环任务规则不存在");
+  }
+  if (!isCustomRecurringTaskRule(rule)) {
+    throw new Error("内置循环任务不能删除");
+  }
+
+  const result = await database.execute(
+    "DELETE FROM recurring_task_rules WHERE id = $1 AND rule_key = $2",
+    [id, rule.rule_key],
+  );
+  if (result.rowsAffected === 0) {
+    throw new Error("循环任务规则不存在");
+  }
 }

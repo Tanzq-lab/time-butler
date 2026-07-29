@@ -12,6 +12,7 @@ vi.mock("@/lib/db", () => ({
 
 import {
   addRecurringTaskRule,
+  deleteRecurringTaskRule,
   getEnabledRecurringTaskRules,
   setRecurringTaskRuleEnabled,
   updateRecurringTaskRule,
@@ -93,6 +94,30 @@ describe("recurring task rules database", () => {
       expect.stringContaining("UPDATE recurring_task_rules"),
       [0, 31],
     );
+  });
+
+  it("deletes a custom rule without touching generated tasks", async () => {
+    dbMocks.select.mockResolvedValueOnce([{ rule_key: "custom.31" }]);
+
+    await deleteRecurringTaskRule(31);
+
+    expect(dbMocks.execute).toHaveBeenCalledWith(
+      "DELETE FROM recurring_task_rules WHERE id = $1 AND rule_key = $2",
+      [31, "custom.31"],
+    );
+    expect(dbMocks.execute.mock.calls[0][0]).not.toContain(
+      "recurring_task_occurrences",
+    );
+    expect(dbMocks.execute.mock.calls[0][0]).not.toContain("tasks");
+  });
+
+  it("protects built-in recurring rules from deletion", async () => {
+    dbMocks.select.mockResolvedValueOnce([{ rule_key: "summary.weekly" }]);
+
+    await expect(deleteRecurringTaskRule(1)).rejects.toThrow(
+      "内置循环任务不能删除",
+    );
+    expect(dbMocks.execute).not.toHaveBeenCalled();
   });
 
   it("updates a rule in place without rewriting generated tasks", async () => {

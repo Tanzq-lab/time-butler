@@ -177,6 +177,7 @@ describe("AddRecurringTaskModal", () => {
         rules={[
           {
             id: 31,
+            rule_key: "custom.31",
             name: "每日整理收件箱",
             estimated_pomos: 1,
             project: "个人效率",
@@ -198,7 +199,7 @@ describe("AddRecurringTaskModal", () => {
     );
     expect(
       screen.getByText(
-        "编辑或停用模板，不会改写已经生成的任务。",
+        "管理模板不会改写已经生成的任务；自定义规则可以删除。",
       ),
     ).toBeVisible();
     fireEvent.click(
@@ -208,6 +209,76 @@ describe("AddRecurringTaskModal", () => {
     await waitFor(() =>
       expect(onToggleRule).toHaveBeenCalledWith(31, false),
     );
+  });
+
+  it("confirms deletion only for a custom recurring rule", async () => {
+    const onDeleteRule = vi.fn().mockResolvedValue(true);
+    render(
+      <AddRecurringTaskModal
+        open
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+        onDeleteRule={onDeleteRule}
+        rules={[
+          {
+            id: 1,
+            rule_key: "summary.weekly",
+            name: "周总结",
+            estimated_pomos: 1,
+            project: "个人复盘",
+            category_id: null,
+            category_name: null,
+            frequency: "weekly",
+            start_date: "2026-01-05",
+            scheduled_time: "09:00",
+            enabled: 1,
+            created_at: "2026-01-01T00:00:00",
+            updated_at: "2026-01-01T00:00:00",
+          },
+          {
+            id: 31,
+            rule_key: "custom.31",
+            name: "每日整理收件箱",
+            estimated_pomos: 1,
+            project: "个人效率",
+            category_id: null,
+            category_name: null,
+            frequency: "daily",
+            start_date: "2026-07-22",
+            scheduled_time: "09:00",
+            enabled: 1,
+            created_at: "2026-07-22T09:00:00",
+            updated_at: "2026-07-22T09:00:00",
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /管理已配置规则/ }),
+    );
+    expect(
+      screen.queryByRole("button", { name: "删除循环规则：周总结" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "删除循环规则：每日整理收件箱",
+      }),
+    );
+
+    expect(
+      screen.getByRole("dialog", { name: "确认删除循环任务" }),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        "已经生成的普通任务和专注记录会保留；只有循环模板会被删除。",
+      ),
+    ).toBeVisible();
+    fireEvent.click(
+      screen.getByRole("button", { name: "删除循环任务" }),
+    );
+
+    await waitFor(() => expect(onDeleteRule).toHaveBeenCalledWith(31));
   });
 
   it("always exposes the configured-rules entry, including its empty state", () => {
@@ -278,6 +349,7 @@ describe("AddRecurringTaskModal", () => {
         rules={[
           {
             id: 31,
+            rule_key: "custom.31",
             name: "每日整理收件箱",
             estimated_pomos: 1,
             project: "个人效率",

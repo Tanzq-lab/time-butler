@@ -41,6 +41,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { getTaskCompletionReviews, recordAppEvent } from "@/lib/db";
 import {
   addRecurringTaskRule,
+  deleteRecurringTaskRule,
   getRecurringTaskRules,
   setRecurringTaskRuleEnabled,
   updateRecurringTaskRule,
@@ -421,6 +422,18 @@ export function TasksList() {
         startDate: data.startDate,
         scheduledTime: data.scheduledTime,
       },
+    });
+    return true;
+  };
+
+  const handleDeleteRecurringRule = async (ruleId: number) => {
+    await deleteRecurringTaskRule(ruleId);
+    setRecurringRules((rules) => rules.filter((rule) => rule.id !== ruleId));
+    void recordAppEvent({
+      eventName: "recurring_task_rule_deleted",
+      route: "/tasks",
+      entityType: "recurring_task_rule",
+      entityId: ruleId,
     });
     return true;
   };
@@ -851,6 +864,7 @@ export function TasksList() {
         rules={recurringRules}
         onToggleRule={handleToggleRecurringRule}
         onUpdateRule={handleUpdateRecurringRule}
+        onDeleteRule={handleDeleteRecurringRule}
       />
       <TaskCompletionReviewModal
         open={Boolean(taskToComplete)}

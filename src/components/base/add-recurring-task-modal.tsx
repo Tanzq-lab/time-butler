@@ -17,6 +17,7 @@ import {
   Repeat2,
   Save,
   SlidersHorizontal,
+  Trash2,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,12 +31,13 @@ import type {
 import {
   getRecurringTaskItemType,
   getRecurringTaskSchedule,
+  isCustomRecurringTaskRule,
 } from "@/features/tasks/recurring-task-rules";
 
 const POMODORO_OPTIONS = [1, 2, 3, 4] as const;
 type PomodoroEstimate = (typeof POMODORO_OPTIONS)[number];
 type ChildView = "focus" | "attributes" | "schedule" | "rules";
-type ModalView = "main" | ChildView;
+type ModalView = "main" | ChildView | "delete";
 
 export type AddRecurringTaskData = RecurringTaskRuleInput;
 
@@ -54,6 +56,9 @@ interface AddRecurringTaskModalProps {
   onUpdateRule?: (
     ruleId: number,
     data: AddRecurringTaskData,
+  ) => boolean | void | Promise<boolean | void>;
+  onDeleteRule?: (
+    ruleId: number,
   ) => boolean | void | Promise<boolean | void>;
 }
 
@@ -277,6 +282,7 @@ export function AddRecurringTaskModal({
   rules = [],
   onToggleRule,
   onUpdateRule,
+  onDeleteRule,
 }: AddRecurringTaskModalProps) {
   const categories = useCategoriesStore((state) => state.categories);
   const loadCategories = useCategoriesStore((state) => state.loadCategories);
@@ -285,6 +291,9 @@ export function AddRecurringTaskModal({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [togglingRuleId, setTogglingRuleId] = useState<number | null>(null);
+  const [deletingRuleId, setDeletingRuleId] = useState<number | null>(null);
+  const [rulePendingDelete, setRulePendingDelete] =
+    useState<UserRecurringTaskRule | null>(null);
   const [editingRuleId, setEditingRuleId] = useState<number | null>(null);
   const [activeView, setActiveView] = useState<ModalView>("main");
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -307,6 +316,8 @@ export function AddRecurringTaskModal({
     setSubmitError(null);
     setSubmitSuccess(null);
     setTogglingRuleId(null);
+    setDeletingRuleId(null);
+    setRulePendingDelete(null);
     setEditingRuleId(null);
     setActiveView("main");
     lastMainTriggerRef.current = null;
@@ -370,12 +381,18 @@ export function AddRecurringTaskModal({
 
   const closeDialog = () => {
     setActiveView("main");
+    setRulePendingDelete(null);
     onClose();
   };
 
   const handleLayerDismiss = () => {
     if (activeView === "main") {
       closeDialog();
+      return;
+    }
+    if (activeView === "delete") {
+      setRulePendingDelete(null);
+      setActiveView("rules");
       return;
     }
     returnToMain();
@@ -460,6 +477,42 @@ export function AddRecurringTaskModal({
       setSubmitError("未能更新循环规则，请重试。");
     } finally {
       setTogglingRuleId(null);
+    }
+  };
+
+  const beginDeleting = (rule: UserRecurringTaskRule) => {
+    if (!isCustomRecurringTaskRule(rule) || !onDeleteRule) return;
+    setRulePendingDelete(rule);
+    setSubmitError(null);
+    setSubmitSuccess(null);
+    setActiveView("delete");
+  };
+
+  const cancelDeleting = () => {
+    setRulePendingDelete(null);
+    setActiveView("rules");
+  };
+
+  const handleDeleteRule = async () => {
+    if (!rulePendingDelete || !onDeleteRule || deletingRuleId !== null) return;
+
+    const rule = rulePendingDelete;
+    setDeletingRuleId(rule.id);
+    setSubmitError(null);
+    try {
+      const deleted = await onDeleteRule(rule.id);
+      if (deleted === false) {
+        setSubmitError("未能删除循环规则，请重试。");
+        return;
+      }
+      setRulePendingDelete(null);
+      setSubmitSuccess(`“${rule.name}”的循环规则已删除。`);
+      setActiveView("rules");
+    } catch (error) {
+      console.error("[RecurringTaskModal] Failed to delete rule:", error);
+      setSubmitError("未能删除循环规则，请重试。");
+    } finally {
+      setDeletingRuleId(null);
     }
   };
 
@@ -978,7 +1031,7 @@ export function AddRecurringTaskModal({
     <>
       <DialogHeader
         title="已配置规则"
-        description="编辑或停用模板，不会改写已经生成的任务。"
+        description="管理模板不会改写已经生成的任务；自定义规则可以删除。"
         onBack={returnToMain}
         onClose={closeDialog}
         backButtonRef={backButtonRef}
@@ -1002,6 +1055,7 @@ export function AddRecurringTaskModal({
           {rules.map((rule) => {
             const enabled = rule.enabled === 1;
             const itemType = getRecurringTaskItemType(rule);
+            const customRule = isCustomRecurringTaskRule(rule);
             return (
               <article
                 key={rule.id}
@@ -1035,6 +1089,11 @@ export function AddRecurringTaskModal({
                       {!enabled && (
                         <span className="shrink-0 rounded-full bg-sahara-card px-1.5 py-0.5 text-[10px] text-sahara-text-muted">
                           已停用
+                        </span>
+                      )}
+                      {!customRule && (
+                        <span className="shrink-0 rounded-full bg-sahara-card px-1.5 py-0.5 text-[10px] text-sahara-text-muted">
+                          内置
                         </span>
                       )}
                     </div>
@@ -1085,6 +1144,25 @@ export function AddRecurringTaskModal({
                         ? "停用"
                         : "启用"}
                   </Button>
+                  {customRule && onDeleteRule && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      intent="red"
+                      size="icon-sm"
+                      aria-label={`删除循环规则：${rule.name}`}
+                      title={`删除循环规则：${rule.name}`}
+                      disabled={
+                        submitting
+                        || togglingRuleId !== null
+                        || deletingRuleId !== null
+                      }
+                      onClick={() => beginDeleting(rule)}
+                      className="min-h-10 min-w-10 shrink-0 touch-manipulation"
+                    >
+                      <Trash2 aria-hidden="true" className="size-3.5" />
+                    </Button>
+                  )}
                 </div>
               </article>
             );
@@ -1101,8 +1179,79 @@ export function AddRecurringTaskModal({
           {submitError}
         </p>
       )}
+      {submitSuccess && (
+        <p
+          role="status"
+          aria-live="polite"
+          className="mt-4 text-xs font-medium text-sahara-text-secondary"
+        >
+          {submitSuccess}
+        </p>
+      )}
     </>
   );
+
+  const renderDeleteView = () => {
+    if (!rulePendingDelete) return null;
+
+    return (
+      <>
+        <DialogHeader
+          title="删除循环任务？"
+          description="删除后不会再按这条规则生成新任务。"
+          onBack={cancelDeleting}
+          onClose={closeDialog}
+          backButtonRef={backButtonRef}
+        />
+
+        <div className="rounded-[10px] border border-[#b42318]/25 bg-[#b42318]/6 px-4 py-4">
+          <p className="break-words text-sm font-medium text-sahara-text">
+            {rulePendingDelete.name}
+          </p>
+          <p className="mt-1.5 text-xs leading-5 text-sahara-text-secondary">
+            已经生成的普通任务和专注记录会保留；只有循环模板会被删除。
+          </p>
+        </div>
+
+        {submitError && (
+          <p
+            role="status"
+            aria-live="polite"
+            className="mt-4 text-xs font-medium text-[#b42318]"
+          >
+            {submitError}
+          </p>
+        )}
+
+        <div className="mt-6 flex gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            intent="default"
+            size="md"
+            fullWidth
+            onClick={cancelDeleting}
+            disabled={deletingRuleId !== null}
+          >
+            取消
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            intent="red"
+            size="md"
+            fullWidth
+            onClick={() => void handleDeleteRule()}
+            disabled={deletingRuleId !== null}
+          >
+            {deletingRuleId === rulePendingDelete.id
+              ? "正在删除…"
+              : "删除循环任务"}
+          </Button>
+        </div>
+      </>
+    );
+  };
 
   return (
     <ModalOverlay
@@ -1112,7 +1261,9 @@ export function AddRecurringTaskModal({
       ariaLabel={
         activeView === "main"
           ? mainDialogLabel
-          : CHILD_VIEW_LABELS[activeView]
+          : activeView === "delete"
+            ? "确认删除循环任务"
+            : CHILD_VIEW_LABELS[activeView]
       }
     >
       <div className="max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain p-5 md:p-6">
@@ -1121,6 +1272,7 @@ export function AddRecurringTaskModal({
         {activeView === "attributes" && renderAttributesView()}
         {activeView === "schedule" && renderScheduleView()}
         {activeView === "rules" && renderRulesView()}
+        {activeView === "delete" && renderDeleteView()}
       </div>
     </ModalOverlay>
   );

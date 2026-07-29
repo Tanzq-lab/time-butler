@@ -143,7 +143,7 @@ test.describe("Tasks", () => {
     ).toBeVisible();
   });
 
-  test("creates, edits, and pauses a recurring task from the task list", async ({ page }) => {
+  test("creates, edits, pauses, and deletes a recurring task from the task list", async ({ page }) => {
     await page.getByRole("button", { name: "添加循环任务" }).click();
 
     const dialog = page.getByRole("dialog", { name: "添加循环任务" });
@@ -232,6 +232,21 @@ test.describe("Tasks", () => {
     await expect(
       persistedRulesDialog.getByRole("button", { name: "启用循环规则：每周整理收件箱" }),
     ).toBeVisible();
+    await persistedRulesDialog
+      .getByRole("button", { name: "删除循环规则：每周整理收件箱" })
+      .click();
+    const deleteDialog = page.getByRole("dialog", {
+      name: "确认删除循环任务",
+    });
+    await expect(deleteDialog).toContainText(
+      "已经生成的普通任务和专注记录会保留",
+    );
+    await deleteDialog.getByRole("button", { name: "删除循环任务" }).click();
+    await expect(
+      page
+        .getByRole("dialog", { name: "管理循环规则" })
+        .getByRole("button", { name: "编辑循环规则：每周整理收件箱" }),
+    ).toHaveCount(0);
   });
 
   test("opens add task modal and creates a task", async ({ page }) => {
