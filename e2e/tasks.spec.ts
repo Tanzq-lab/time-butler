@@ -101,7 +101,7 @@ test.describe("Tasks", () => {
     await editDialog.getByRole("button", { name: "保存修改" }).click();
 
     const updatedDialog = page.getByRole("dialog", { name: "添加循环任务" });
-    await expect(updatedDialog.getByText("月度复盘", { exact: true })).toBeVisible();
+    await expect(updatedDialog.getByTitle("月度复盘")).toBeVisible();
     await expect(
       updatedDialog.getByText(/每月首个休息日 10:15 生成任务/),
     ).toBeVisible();
@@ -115,13 +115,32 @@ test.describe("Tasks", () => {
     ).toBeVisible();
   });
 
+  test("creates a recurring todo through the ordinary task template", async ({ page }) => {
+    await page.getByRole("button", { name: "添加循环任务" }).click();
+
+    const dialog = page.getByRole("dialog", { name: "添加循环任务" });
+    await dialog.getByLabel("任务名称").fill("每日查看收件箱");
+    await dialog.getByRole("button", { name: "创建循环任务" }).click();
+
+    const todo = page
+      .locator('article[data-task-kind="todo"]')
+      .filter({ hasText: "每日查看收件箱" })
+      .first();
+    await expect(todo).toBeVisible();
+    await expect(
+      todo.getByRole("checkbox", { name: "完成待办：每日查看收件箱" }),
+    ).toBeVisible();
+  });
+
   test("creates, edits, and pauses a recurring task from the task list", async ({ page }) => {
     await page.getByRole("button", { name: "添加循环任务" }).click();
 
     const dialog = page.getByRole("dialog", { name: "添加循环任务" });
     await expect(dialog).toBeVisible();
     await dialog.getByLabel("任务名称").fill("每日整理收件箱");
-    await dialog.getByRole("button", { name: "循环任务预计 1 个番茄" }).click();
+    await dialog.getByRole("button", { name: "设为专注" }).click();
+    await dialog.getByRole("button", { name: "预计 1 个番茄" }).click();
+    await dialog.getByRole("button", { name: "更多任务属性" }).click();
     await dialog.getByLabel(/项目/).fill("个人效率");
     await dialog.getByRole("button", { name: "创建循环任务" }).click();
 

@@ -32,6 +32,7 @@ describe("recurring task rules database", () => {
     await expect(
       addRecurringTaskRule({
         name: "  每日整理收件箱  ",
+        itemType: "focus",
         estimatedPomos: 1,
         project: " 个人效率 ",
         categoryId: 66,
@@ -45,6 +46,7 @@ describe("recurring task rules database", () => {
       expect.stringContaining("INSERT INTO recurring_task_rules"),
       [
         "每日整理收件箱",
+        "focus",
         1,
         "个人效率",
         66,
@@ -64,6 +66,7 @@ describe("recurring task rules database", () => {
     await expect(
       addRecurringTaskRule({
         name: "过大的任务",
+        itemType: "focus",
         estimatedPomos: 5,
         project: null,
         categoryId: null,
@@ -95,7 +98,8 @@ describe("recurring task rules database", () => {
   it("updates a rule in place without rewriting generated tasks", async () => {
     await updateRecurringTaskRule(31, {
       name: "  每周整理收件箱  ",
-      estimatedPomos: 2,
+      itemType: "todo",
+      estimatedPomos: 1,
       project: " 个人效率 ",
       categoryId: 66,
       frequency: "weekly",
@@ -107,7 +111,8 @@ describe("recurring task rules database", () => {
       expect.stringContaining("UPDATE recurring_task_rules"),
       [
         "每周整理收件箱",
-        2,
+        "todo",
+        1,
         "个人效率",
         66,
         "weekly",
@@ -125,6 +130,7 @@ describe("recurring task rules database", () => {
   it("stores special summary schedules without breaking the legacy frequency check", async () => {
     await updateRecurringTaskRule(7, {
       name: "月总结",
+      itemType: "focus",
       estimatedPomos: 2,
       project: "个人复盘",
       categoryId: 50,
@@ -134,9 +140,10 @@ describe("recurring task rules database", () => {
     });
 
     expect(dbMocks.execute).toHaveBeenCalledWith(
-      expect.stringContaining("schedule_type = $6"),
+      expect.stringContaining("schedule_type = $7"),
       [
         "月总结",
+        "focus",
         2,
         "个人复盘",
         50,
@@ -155,6 +162,7 @@ describe("recurring task rules database", () => {
     await expect(
       updateRecurringTaskRule(404, {
         name: "已经不存在的规则",
+        itemType: "todo",
         estimatedPomos: 1,
         project: null,
         categoryId: null,

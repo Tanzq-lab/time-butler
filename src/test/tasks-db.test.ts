@@ -50,12 +50,31 @@ describe("task database boundaries", () => {
     expect(execute).toHaveBeenNthCalledWith(
       1,
       expect.stringContaining("'todo'"),
-      ["完成界面验收", 12],
+      ["完成界面验收", 12, null, null, null],
     );
     expect(execute).toHaveBeenNthCalledWith(
       2,
       "UPDATE tasks SET completed_at = NULL WHERE id = $1",
       [12],
+    );
+  });
+
+  it("keeps recurring metadata when it creates a todo", async () => {
+    await addTodoTask("每日整理收件箱", null, {
+      project: "个人效率",
+      categoryId: 50,
+      scheduledFor: "2026-07-29T09:00:00",
+    });
+
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining("scheduled_for"),
+      [
+        "每日整理收件箱",
+        null,
+        "个人效率",
+        50,
+        "2026-07-29T09:00:00",
+      ],
     );
   });
 

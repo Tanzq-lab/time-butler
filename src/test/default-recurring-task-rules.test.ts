@@ -26,6 +26,7 @@ describe("built-in recurring rule seeds", () => {
       [
         "summary.monthly",
         "月总结",
+        "focus",
         2,
         "个人复盘",
         50,

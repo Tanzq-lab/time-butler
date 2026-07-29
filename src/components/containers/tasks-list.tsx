@@ -369,8 +369,9 @@ export function TasksList() {
       entityType: "recurring_task_rule",
       entityId: ruleId,
       metadata: {
+        itemType: data.itemType,
         frequency: data.frequency,
-        estimatedPomos: data.estimatedPomos,
+        estimatedPomos: data.itemType === "focus" ? data.estimatedPomos : null,
         hasProject: Boolean(data.project),
         hasCategory: data.categoryId != null,
         startDate: data.startDate,
@@ -412,8 +413,9 @@ export function TasksList() {
       entityType: "recurring_task_rule",
       entityId: ruleId,
       metadata: {
+        itemType: data.itemType,
         frequency: data.frequency,
-        estimatedPomos: data.estimatedPomos,
+        estimatedPomos: data.itemType === "focus" ? data.estimatedPomos : null,
         hasProject: Boolean(data.project),
         hasCategory: data.categoryId != null,
         startDate: data.startDate,

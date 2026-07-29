@@ -37,7 +37,7 @@ describe("AddRecurringTaskModal", () => {
     ).toBe("从 1月1日起，每月首个休息日 09:00 生成任务");
   });
 
-  it("requires the core fields and submits project and category separately", async () => {
+  it("creates an ordinary todo template by default", async () => {
     const onSubmit = vi.fn().mockResolvedValue(true);
     const onClose = vi.fn();
 
@@ -56,13 +56,12 @@ describe("AddRecurringTaskModal", () => {
       "aria-pressed",
       "true",
     );
+    expect(screen.getByRole("button", { name: "设为专注" })).toBeVisible();
 
     fireEvent.change(screen.getByLabelText("任务名称"), {
       target: { value: "整理本周复盘" },
     });
-    fireEvent.click(
-      screen.getByRole("button", { name: "循环任务预计 2 个番茄" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "更多任务属性" }));
     fireEvent.change(screen.getByLabelText(/项目/), {
       target: { value: "个人复盘" },
     });
@@ -84,7 +83,8 @@ describe("AddRecurringTaskModal", () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(onSubmit).toHaveBeenCalledWith({
       name: "整理本周复盘",
-      estimatedPomos: 2,
+      itemType: "todo",
+      estimatedPomos: 1,
       project: "个人复盘",
       categoryId: 50,
       frequency: "weekly",
@@ -92,6 +92,41 @@ describe("AddRecurringTaskModal", () => {
       scheduledTime: "09:30",
     });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the existing todo-to-focus flow for a focus template", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(true);
+    render(
+      <AddRecurringTaskModal
+        open
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("任务名称"), {
+      target: { value: "整理季度复盘" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "设为专注" }));
+
+    expect(
+      screen.getByRole("button", { name: "创建循环任务" }),
+    ).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "预计 2 个番茄" }));
+    expect(screen.getByText("专注：")).toBeVisible();
+    expect(screen.getByText("0/2")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "创建循环任务" }));
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "整理季度复盘",
+          itemType: "focus",
+          estimatedPomos: 2,
+        }),
+      ),
+    );
   });
 
   it("keeps the form open and explains a failed creation", async () => {
@@ -104,9 +139,6 @@ describe("AddRecurringTaskModal", () => {
     fireEvent.change(screen.getByLabelText("任务名称"), {
       target: { value: "每日复习" },
     });
-    fireEvent.click(
-      screen.getByRole("button", { name: "循环任务预计 1 个番茄" }),
-    );
     fireEvent.click(screen.getByRole("button", { name: "创建循环任务" }));
 
     await waitFor(() =>
@@ -260,7 +292,7 @@ describe("AddRecurringTaskModal", () => {
       target: { value: "每周整理收件箱" },
     });
     fireEvent.click(
-      screen.getByRole("button", { name: "循环任务预计 2 个番茄" }),
+      screen.getByRole("button", { name: "预计 2 个番茄" }),
     );
     fireEvent.click(screen.getByRole("button", { name: "每周" }));
     fireEvent.change(screen.getByLabelText("提醒时间"), {
@@ -271,6 +303,7 @@ describe("AddRecurringTaskModal", () => {
     await waitFor(() =>
       expect(onUpdateRule).toHaveBeenCalledWith(31, {
         name: "每周整理收件箱",
+        itemType: "focus",
         estimatedPomos: 2,
         project: "个人效率",
         categoryId: 50,

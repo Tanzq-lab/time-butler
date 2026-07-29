@@ -13,6 +13,7 @@ export interface BuiltInRecurringTaskRuleSeed {
     | "summary.yearly"
     | "anki.daily";
   name: string;
+  itemType: "focus";
   estimatedPomos: number;
   project: string;
   categoryName: string;
@@ -27,6 +28,7 @@ export const BUILT_IN_RECURRING_TASK_RULES:
   {
     ruleKey: "summary.weekly",
     name: "周总结",
+    itemType: "focus",
     estimatedPomos: 1,
     project: "个人复盘",
     categoryName: TASK_CATEGORY_NAMES.review,
@@ -38,6 +40,7 @@ export const BUILT_IN_RECURRING_TASK_RULES:
   {
     ruleKey: "summary.monthly",
     name: "月总结",
+    itemType: "focus",
     estimatedPomos: 2,
     project: "个人复盘",
     categoryName: TASK_CATEGORY_NAMES.review,
@@ -49,6 +52,7 @@ export const BUILT_IN_RECURRING_TASK_RULES:
   {
     ruleKey: "summary.yearly",
     name: "年总结",
+    itemType: "focus",
     estimatedPomos: 4,
     project: "个人复盘",
     categoryName: TASK_CATEGORY_NAMES.review,
@@ -60,6 +64,7 @@ export const BUILT_IN_RECURRING_TASK_RULES:
   {
     ruleKey: "anki.daily",
     name: "复习 ANKI",
+    itemType: "focus",
     estimatedPomos: 1,
     project: "ANKI",
     categoryName: TASK_CATEGORY_NAMES.memoryReview,
@@ -90,6 +95,7 @@ export async function seedBuiltInRecurringTaskRules(
       `INSERT OR IGNORE INTO recurring_task_rules (
         rule_key,
         name,
+        item_type,
         estimated_pomos,
         project,
         category_id,
@@ -97,10 +103,11 @@ export async function seedBuiltInRecurringTaskRules(
         schedule_type,
         start_date,
         scheduled_time
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
       [
         rule.ruleKey,
         rule.name,
+        rule.itemType,
         rule.estimatedPomos,
         rule.project,
         categoryIds.get(rule.categoryName) ?? null,

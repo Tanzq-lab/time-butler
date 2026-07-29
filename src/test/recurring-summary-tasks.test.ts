@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const dbMocks = vi.hoisted(() => ({
   addTask: vi.fn(),
+  addTodoTask: vi.fn(),
   execute: vi.fn(),
   getDb: vi.fn(),
   select: vi.fn(),
@@ -13,6 +14,7 @@ const pomodoroLogMocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => ({
   addTask: dbMocks.addTask,
+  addTodoTask: dbMocks.addTodoTask,
   getDb: dbMocks.getDb,
 }));
 
@@ -35,6 +37,7 @@ const builtInRules: UserRecurringTaskRule[] = BUILT_IN_RECURRING_TASK_RULES.map(
     id: index + 1,
     rule_key: rule.ruleKey,
     name: rule.name,
+    item_type: rule.itemType,
     estimated_pomos: rule.estimatedPomos,
     project: rule.project,
     category_id: null,
@@ -55,6 +58,7 @@ function userRule(
   return {
     id: 12,
     name: "整理循环任务",
+    item_type: "focus",
     estimated_pomos: 2,
     project: "时间管家",
     category_id: 50,
@@ -69,14 +73,17 @@ function userRule(
   };
 }
 
+let selectedRecurringRules: UserRecurringTaskRule[] = builtInRules;
+
 beforeEach(() => {
   vi.clearAllMocks();
+  selectedRecurringRules = builtInRules;
   dbMocks.getDb.mockResolvedValue({
     execute: dbMocks.execute,
     select: dbMocks.select,
   });
   dbMocks.select.mockImplementation(async (query: string) => {
-    if (query.includes("FROM recurring_task_rules")) return builtInRules;
+    if (query.includes("FROM recurring_task_rules")) return selectedRecurringRules;
     if (query.includes("FROM categories")) return [{ id: 69 }];
     return [];
   });
@@ -85,6 +92,7 @@ beforeEach(() => {
 
   let nextTaskId = 1;
   dbMocks.addTask.mockImplementation(async () => nextTaskId++);
+  dbMocks.addTodoTask.mockImplementation(async () => nextTaskId++);
 });
 
 describe("recurring summary tasks", () => {
@@ -100,6 +108,7 @@ describe("recurring summary tasks", () => {
         ruleKey: "custom.12",
         occurrenceDate: "2026-07-22",
         scheduledFor: "2026-07-22T09:30:00",
+        itemType: "focus",
         categoryId: 50,
       }),
     ]);
@@ -190,6 +199,32 @@ describe("recurring summary tasks", () => {
     expect(dbMocks.addTask).toHaveBeenCalledTimes(2);
     expect(dbMocks.execute).toHaveBeenCalledTimes(2);
     expect(pomodoroLogMocks.appendPomodoroEstimationLog).toHaveBeenCalledTimes(2);
+  });
+
+  it("generates a recurring todo with ordinary todo semantics", async () => {
+    selectedRecurringRules = [
+      userRule({
+        item_type: "todo",
+        estimated_pomos: 1,
+        start_date: "2026-07-23",
+      }),
+    ];
+
+    await expect(
+      ensureRecurringSummaryTasks(new Date(2026, 6, 23)),
+    ).resolves.toBe(1);
+
+    expect(dbMocks.addTask).not.toHaveBeenCalled();
+    expect(dbMocks.addTodoTask).toHaveBeenCalledWith(
+      "整理循环任务",
+      null,
+      {
+        project: "时间管家",
+        categoryId: 50,
+        scheduledFor: "2026-07-23T09:30:00",
+      },
+    );
+    expect(pomodoroLogMocks.appendPomodoroEstimationLog).not.toHaveBeenCalled();
   });
 
   it("creates weekly summaries for Mondays in the next week", () => {

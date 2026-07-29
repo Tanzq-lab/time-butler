@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type React from "react";
-import { CalendarDays, Pencil, Plus, Repeat2, Save, X } from "lucide-react";
+import {
+  CalendarDays,
+  ChevronDown,
+  Focus,
+  ListTodo,
+  Pencil,
+  Plus,
+  Repeat2,
+  Save,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModalOverlay } from "@/components/ui/modal-overlay";
 import { useCategoriesStore } from "@/features/categories/use-categories-store";
@@ -9,7 +19,10 @@ import type {
   RecurringTaskRuleInput,
   UserRecurringTaskRule,
 } from "@/features/tasks/recurring-task-rules";
-import { getRecurringTaskSchedule } from "@/features/tasks/recurring-task-rules";
+import {
+  getRecurringTaskItemType,
+  getRecurringTaskSchedule,
+} from "@/features/tasks/recurring-task-rules";
 
 const POMODORO_OPTIONS = [1, 2, 3, 4] as const;
 type PomodoroEstimate = (typeof POMODORO_OPTIONS)[number];
@@ -91,7 +104,9 @@ function initialFormState(): FormState {
 function formStateFromRule(rule: UserRecurringTaskRule): FormState {
   return {
     name: rule.name,
-    estimatedPomos: rule.estimated_pomos as PomodoroEstimate,
+    estimatedPomos: getRecurringTaskItemType(rule) === "focus"
+      ? (rule.estimated_pomos as PomodoroEstimate)
+      : null,
     project: rule.project ?? "",
     categoryId: rule.category_id,
     frequency: getRecurringTaskSchedule(rule),
@@ -156,6 +171,8 @@ export function AddRecurringTaskModal({
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [togglingRuleId, setTogglingRuleId] = useState<number | null>(null);
   const [editingRuleId, setEditingRuleId] = useState<number | null>(null);
+  const [focusSetupOpen, setFocusSetupOpen] = useState(false);
+  const [attributesOpen, setAttributesOpen] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const uniqueProjects = useMemo(
     () => [...new Set(projectOptions.map((project) => project.trim()).filter(Boolean))],
@@ -170,6 +187,8 @@ export function AddRecurringTaskModal({
     setSubmitSuccess(null);
     setTogglingRuleId(null);
     setEditingRuleId(null);
+    setFocusSetupOpen(false);
+    setAttributesOpen(false);
     void loadCategories();
   }, [loadCategories, open]);
 
@@ -179,9 +198,9 @@ export function AddRecurringTaskModal({
 
   const canSubmit =
     Boolean(form.name.trim())
-    && form.estimatedPomos !== null
     && Boolean(form.startDate)
     && Boolean(form.scheduledTime)
+    && (!focusSetupOpen || form.estimatedPomos !== null)
     && !submitting;
   const ruleSummary = formatRecurringRuleSummary(
     form.frequency,
@@ -197,6 +216,8 @@ export function AddRecurringTaskModal({
   const beginEditing = (rule: UserRecurringTaskRule) => {
     dispatch({ type: "RESET", payload: formStateFromRule(rule) });
     setEditingRuleId(rule.id);
+    setFocusSetupOpen(getRecurringTaskItemType(rule) === "focus");
+    setAttributesOpen(Boolean(rule.project || rule.category_id));
     setSubmitError(null);
     setSubmitSuccess(null);
   };
@@ -204,13 +225,15 @@ export function AddRecurringTaskModal({
   const cancelEditing = () => {
     dispatch({ type: "RESET", payload: initialFormState() });
     setEditingRuleId(null);
+    setFocusSetupOpen(false);
+    setAttributesOpen(false);
     setSubmitError(null);
     setSubmitSuccess(null);
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!canSubmit || form.estimatedPomos === null) return;
+    if (!canSubmit) return;
 
     setSubmitting(true);
     setSubmitError(null);
@@ -218,7 +241,8 @@ export function AddRecurringTaskModal({
     try {
       const data: AddRecurringTaskData = {
         name: form.name.trim(),
-        estimatedPomos: form.estimatedPomos,
+        itemType: form.estimatedPomos === null ? "todo" : "focus",
+        estimatedPomos: form.estimatedPomos ?? 1,
         project: form.project.trim() || null,
         categoryId: form.categoryId,
         frequency: form.frequency,
@@ -232,6 +256,8 @@ export function AddRecurringTaskModal({
         if (isEditing) {
           dispatch({ type: "RESET", payload: initialFormState() });
           setEditingRuleId(null);
+          setFocusSetupOpen(false);
+          setAttributesOpen(false);
           setSubmitSuccess("循环规则已更新。修改只影响之后新生成的任务。");
           return;
         }
@@ -279,33 +305,33 @@ export function AddRecurringTaskModal({
       maxWidth="max-w-xl"
       ariaLabel={isEditing ? "编辑循环任务" : "添加循环任务"}
     >
-      <div className="max-h-[calc(100dvh-2rem)] overflow-y-auto p-5 md:p-6">
+      <div className="max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain p-5 md:p-6">
         <div className="mb-6 flex items-start gap-3">
           <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-sahara-border bg-sahara-card text-sahara-text">
             <Repeat2 aria-hidden="true" className="size-5" />
           </div>
           <div className="min-w-0">
             <h3 className="text-balance text-lg font-semibold text-sahara-text">
-              {isEditing ? "编辑循环任务" : "添加循环任务"}
+              {isEditing ? "编辑循环任务" : "创建循环任务"}
             </h3>
             <p className="mt-0.5 text-xs text-sahara-text-muted">
               {isEditing
                 ? "修改只影响之后新生成的任务"
-                : "设定一次，任务会按节奏自动出现"}
+                : "像平常一样创建任务，再设置循环时间"}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="关闭对话框"
-            className="ml-auto flex size-10 shrink-0 items-center justify-center rounded-md text-sahara-text-muted outline-none transition-colors duration-150 hover:bg-sahara-card hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus"
+            className="ml-auto flex size-10 shrink-0 touch-manipulation items-center justify-center rounded-md text-sahara-text-muted outline-none transition-colors duration-150 hover:bg-sahara-card hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus"
           >
             <X aria-hidden="true" className="size-5" />
           </button>
         </div>
 
         <details className="mb-5 rounded-md border border-sahara-border bg-sahara-card/60">
-          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 text-xs font-medium text-sahara-text outline-none transition-colors duration-150 hover:bg-sahara-card focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sahara-focus">
+          <summary className="flex min-h-11 cursor-pointer touch-manipulation list-none items-center gap-2 px-3 text-xs font-medium text-sahara-text outline-none transition-colors duration-150 hover:bg-sahara-card focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sahara-focus">
             <Repeat2 aria-hidden="true" className="size-4 text-sahara-text-muted" />
             已配置规则
             <span className="ml-auto tabular-nums text-sahara-text-muted">
@@ -324,29 +350,56 @@ export function AddRecurringTaskModal({
               <div className="space-y-1.5">
                 {rules.map((rule) => {
                   const enabled = rule.enabled === 1;
+                  const itemType = getRecurringTaskItemType(rule);
                   return (
                     <div
                       key={rule.id}
                       className="flex min-w-0 items-center gap-3 rounded-md bg-sahara-surface px-2.5 py-2"
                     >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <p className="truncate text-xs font-medium text-sahara-text" title={rule.name}>
-                            {rule.name}
+                      <div className="flex min-w-0 flex-1 items-start gap-2">
+                        {itemType === "focus" ? (
+                          <Focus
+                            aria-hidden="true"
+                            className="mt-0.5 size-3.5 shrink-0 text-sahara-text-secondary"
+                          />
+                        ) : (
+                          <ListTodo
+                            aria-hidden="true"
+                            className="mt-0.5 size-3.5 shrink-0 text-sahara-text-secondary"
+                          />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <p
+                              className="truncate text-xs font-medium text-sahara-text"
+                              title={rule.name}
+                            >
+                              {itemType === "focus" && (
+                                <span className="task-pomo-label task-pomo-not-started">
+                                  专注：
+                                </span>
+                              )}
+                              {rule.name}
+                            </p>
+                            {!enabled && (
+                              <span className="shrink-0 rounded-full bg-sahara-card px-1.5 py-0.5 text-[10px] text-sahara-text-muted">
+                                已停用
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-0.5 truncate text-[11px] text-sahara-text-muted">
+                            {itemType === "focus" && (
+                              <span className="mr-1.5 font-mono font-semibold tabular-nums text-sahara-text-secondary">
+                                0/{rule.estimated_pomos}
+                              </span>
+                            )}
+                            {formatRecurringRuleSummary(
+                              getRecurringTaskSchedule(rule),
+                              rule.start_date,
+                              rule.scheduled_time,
+                            )}
                           </p>
-                          {!enabled && (
-                            <span className="shrink-0 rounded-full bg-sahara-card px-1.5 py-0.5 text-[10px] text-sahara-text-muted">
-                              已停用
-                            </span>
-                          )}
                         </div>
-                        <p className="mt-0.5 truncate text-[11px] text-sahara-text-muted">
-                          {formatRecurringRuleSummary(
-                            getRecurringTaskSchedule(rule),
-                            rule.start_date,
-                            rule.scheduled_time,
-                          )}
-                        </p>
                       </div>
                       <div className="flex shrink-0 gap-1.5">
                         {onUpdateRule && (
@@ -390,231 +443,343 @@ export function AddRecurringTaskModal({
         </details>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label
-              htmlFor="recurring-task-name"
-              className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
-            >
-              任务名称
-            </label>
-            <input
-              id="recurring-task-name"
-              name="recurring-task-name"
-              type="text"
-              ref={nameInputRef}
-              autoComplete="off"
-              value={form.name}
-              onChange={(event) =>
-                dispatch({
-                  type: "SET_FIELD",
-                  field: "name",
-                  value: event.target.value,
-                })
-              }
-              placeholder="例如：整理本周复盘…"
-              className="h-10 w-full rounded-md border border-sahara-border bg-sahara-surface px-3 text-sm text-sahara-text outline-none transition-colors duration-150 placeholder:text-sahara-text-muted focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
-            />
-          </div>
+          <section aria-labelledby="recurring-task-template-label">
+            <div className="mb-2">
+              <h4
+                id="recurring-task-template-label"
+                className="text-xs font-semibold text-sahara-text"
+              >
+                任务模板
+              </h4>
+              <p className="mt-0.5 text-[11px] leading-4 text-sahara-text-muted">
+                生成后就是一条普通任务，可继续按原有方式修改。
+              </p>
+            </div>
 
-          <div>
-            <label
-              id="recurring-task-pomos-label"
-              className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
-            >
-              预计番茄数
-            </label>
-            <div
-              role="group"
-              aria-labelledby="recurring-task-pomos-label"
-              className="grid grid-cols-4 gap-2"
-            >
-              {POMODORO_OPTIONS.map((pomos) => {
-                const selected = form.estimatedPomos === pomos;
-                return (
+            <div className="overflow-hidden rounded-[10px] border border-sahara-border bg-sahara-surface">
+              <div
+                data-template-kind={form.estimatedPomos === null ? "todo" : "focus"}
+                className="flex min-w-0 items-start gap-2.5 px-3 py-3 sm:px-4"
+              >
+                <span
+                  aria-hidden="true"
+                  className="mt-1 flex size-5 shrink-0 items-center justify-center rounded-[5px] border border-sahara-text-muted/55 bg-sahara-surface"
+                />
+                <div className="min-w-0 flex-1">
+                  <label htmlFor="recurring-task-name" className="sr-only">
+                    任务名称
+                  </label>
+                  <div className="flex min-w-0 items-center">
+                    {form.estimatedPomos !== null && (
+                      <span className="task-pomo-label task-pomo-not-started shrink-0 text-sm font-medium leading-8">
+                        专注：
+                      </span>
+                    )}
+                    <input
+                      id="recurring-task-name"
+                      name="recurring-task-name"
+                      type="text"
+                      ref={nameInputRef}
+                      autoComplete="off"
+                      value={form.name}
+                      onChange={(event) =>
+                        dispatch({
+                          type: "SET_FIELD",
+                          field: "name",
+                          value: event.target.value,
+                        })
+                      }
+                      placeholder="添加任务…"
+                      className="h-8 min-w-0 flex-1 bg-transparent px-0.5 text-sm text-sahara-text outline-none placeholder:text-sahara-text-muted focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-sahara-focus"
+                    />
+                  </div>
+                  {form.estimatedPomos !== null && (
+                    <p className="task-pomo-label task-pomo-not-started mt-0.5 font-mono text-[11px] font-semibold tabular-nums">
+                      0/{form.estimatedPomos}
+                    </p>
+                  )}
+                </div>
+
+                {form.estimatedPomos === null ? (
                   <button
-                    key={pomos}
                     type="button"
-                    aria-label={`循环任务预计 ${pomos} 个番茄`}
-                    aria-pressed={selected}
-                    onClick={() =>
+                    aria-expanded={focusSetupOpen}
+                    aria-controls="recurring-task-focus-setup"
+                    onClick={() => setFocusSetupOpen(true)}
+                    className="flex min-h-10 shrink-0 touch-manipulation items-center gap-1.5 rounded-md px-2 text-xs font-medium text-sahara-text-secondary outline-none transition-colors duration-150 hover:bg-sahara-card hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus"
+                  >
+                    <Focus aria-hidden="true" className="size-3.5" />
+                    设为专注
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
                       dispatch({
                         type: "SET_FIELD",
                         field: "estimatedPomos",
-                        value: pomos,
-                      })
-                    }
-                    className={`flex h-11 items-center justify-center rounded-md border text-sm font-semibold tabular-nums outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-sahara-focus ${
-                      selected
-                        ? "border-sahara-text bg-sahara-card text-sahara-text"
-                        : "border-sahara-border bg-sahara-surface text-sahara-text-secondary hover:border-sahara-text-muted hover:bg-sahara-card"
-                    }`}
+                        value: null,
+                      });
+                      setFocusSetupOpen(false);
+                    }}
+                    className="flex min-h-10 shrink-0 touch-manipulation items-center gap-1.5 rounded-md px-2 text-xs font-medium text-sahara-text-secondary outline-none transition-colors duration-150 hover:bg-sahara-card hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus"
                   >
-                    {pomos}
+                    <ListTodo aria-hidden="true" className="size-3.5" />
+                    改为待办
                   </button>
-                );
-              })}
-            </div>
-          </div>
+                )}
+              </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label
-                htmlFor="recurring-task-project"
-                className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
-              >
-                项目 <span className="font-normal text-sahara-text-muted">（可选）</span>
-              </label>
-              <input
-                id="recurring-task-project"
-                name="recurring-task-project"
-                type="text"
-                list="recurring-task-project-options"
-                autoComplete="off"
-                value={form.project}
-                onChange={(event) =>
-                  dispatch({
-                    type: "SET_FIELD",
-                    field: "project",
-                    value: event.target.value,
-                  })
-                }
-                placeholder="例如：个人复盘…"
-                className="h-10 w-full rounded-md border border-sahara-border bg-sahara-surface px-3 text-sm text-sahara-text outline-none transition-colors duration-150 placeholder:text-sahara-text-muted focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
+              {focusSetupOpen && (
+                <div
+                  id="recurring-task-focus-setup"
+                  className="border-t border-sahara-border bg-sahara-card/45 px-3 py-3 sm:px-4"
+                >
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <label
+                      id="recurring-task-pomos-label"
+                      className="text-xs font-medium text-sahara-text-secondary"
+                    >
+                      预计番茄数
+                    </label>
+                    {form.estimatedPomos === null && (
+                      <button
+                        type="button"
+                        onClick={() => setFocusSetupOpen(false)}
+                        className="min-h-10 touch-manipulation rounded-md px-2 text-[11px] text-sahara-text-muted outline-none hover:bg-sahara-surface hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus"
+                      >
+                        保留为普通待办
+                      </button>
+                    )}
+                  </div>
+                  <div
+                    role="group"
+                    aria-labelledby="recurring-task-pomos-label"
+                    className="grid grid-cols-4 gap-2"
+                  >
+                    {POMODORO_OPTIONS.map((pomos) => {
+                      const selected = form.estimatedPomos === pomos;
+                      return (
+                        <button
+                          key={pomos}
+                          type="button"
+                          aria-label={`预计 ${pomos} 个番茄`}
+                          aria-pressed={selected}
+                          onClick={() =>
+                            dispatch({
+                              type: "SET_FIELD",
+                              field: "estimatedPomos",
+                              value: pomos,
+                            })
+                          }
+                          className={`flex h-11 touch-manipulation items-center justify-center rounded-md border text-sm font-semibold tabular-nums outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-sahara-focus ${
+                            selected
+                              ? "border-sahara-text bg-sahara-surface text-sahara-text"
+                              : "border-sahara-border bg-sahara-surface text-sahara-text-secondary hover:border-sahara-text-muted hover:bg-sahara-card"
+                          }`}
+                        >
+                          {pomos}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              aria-expanded={attributesOpen}
+              aria-controls="recurring-task-attributes"
+              onClick={() => setAttributesOpen((value) => !value)}
+              className="mt-2 flex min-h-10 touch-manipulation items-center gap-1 rounded-md px-1.5 text-[11px] font-medium text-sahara-text-muted outline-none transition-colors duration-150 hover:bg-sahara-card hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus"
+            >
+              <ChevronDown
+                aria-hidden="true"
+                className={`size-3.5 transition-transform duration-150 motion-reduce:transition-none ${
+                  attributesOpen ? "rotate-180" : ""
+                }`}
               />
-              <datalist id="recurring-task-project-options">
-                {uniqueProjects.map((project) => (
-                  <option key={project} value={project} />
-                ))}
-              </datalist>
-            </div>
+              更多任务属性
+            </button>
 
-            <div>
-              <label
-                htmlFor="recurring-task-category"
-                className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
+            {attributesOpen && (
+              <div
+                id="recurring-task-attributes"
+                className="mt-2 grid gap-4 rounded-md border border-sahara-border bg-sahara-card/45 p-3 sm:grid-cols-2"
               >
-                分类 <span className="font-normal text-sahara-text-muted">（可选）</span>
-              </label>
-              <select
-                id="recurring-task-category"
-                name="recurring-task-category"
-                value={form.categoryId ?? ""}
-                onChange={(event) =>
-                  dispatch({
-                    type: "SET_FIELD",
-                    field: "categoryId",
-                    value: event.target.value ? Number(event.target.value) : null,
-                  })
-                }
-                className="h-10 w-full rounded-md border border-sahara-border bg-sahara-surface px-3 text-sm text-sahara-text outline-none transition-colors duration-150 focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
-              >
-                <option value="">不设置分类</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label
-              id="recurring-task-frequency-label"
-              className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
-            >
-              循环频率
-            </label>
-            <div
-              role="group"
-              aria-labelledby="recurring-task-frequency-label"
-              className="grid grid-cols-2 gap-2 sm:grid-cols-3"
-            >
-              {FREQUENCY_OPTIONS.map((option) => {
-                const selected = form.frequency === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() =>
+                <div>
+                  <label
+                    htmlFor="recurring-task-project"
+                    className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
+                  >
+                    项目 <span className="font-normal text-sahara-text-muted">（可选）</span>
+                  </label>
+                  <input
+                    id="recurring-task-project"
+                    name="recurring-task-project"
+                    type="text"
+                    list="recurring-task-project-options"
+                    autoComplete="off"
+                    value={form.project}
+                    onChange={(event) =>
                       dispatch({
                         type: "SET_FIELD",
-                        field: "frequency",
-                        value: option.value,
+                        field: "project",
+                        value: event.target.value,
                       })
                     }
-                    className={`h-11 rounded-md border px-2 text-xs font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-sahara-focus last:col-span-2 sm:last:col-span-1 ${
-                      selected
-                        ? "border-sahara-text bg-sahara-card text-sahara-text"
-                        : "border-sahara-border bg-sahara-surface text-sahara-text-secondary hover:bg-sahara-card"
-                    }`}
+                    placeholder="例如：个人复盘…"
+                    className="h-10 w-full rounded-md border border-sahara-border bg-sahara-surface px-3 text-sm text-sahara-text outline-none transition-colors duration-150 placeholder:text-sahara-text-muted focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
+                  />
+                  <datalist id="recurring-task-project-options">
+                    {uniqueProjects.map((project) => (
+                      <option key={project} value={project} />
+                    ))}
+                  </datalist>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="recurring-task-category"
+                    className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
                   >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+                    分类 <span className="font-normal text-sahara-text-muted">（可选）</span>
+                  </label>
+                  <select
+                    id="recurring-task-category"
+                    name="recurring-task-category"
+                    value={form.categoryId ?? ""}
+                    onChange={(event) =>
+                      dispatch({
+                        type: "SET_FIELD",
+                        field: "categoryId",
+                        value: event.target.value ? Number(event.target.value) : null,
+                      })
+                    }
+                    className="h-10 w-full rounded-md border border-sahara-border bg-sahara-surface px-3 text-sm text-sahara-text outline-none transition-colors duration-150 focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
+                  >
+                    <option value="">不设置分类</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+          </section>
 
-          <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
+          <div className="border-t border-sahara-border pt-5">
+            <div className="mb-3 flex items-center gap-2">
+              <CalendarDays
+                aria-hidden="true"
+                className="size-4 text-sahara-text-secondary"
+              />
+              <h4 className="text-xs font-semibold text-sahara-text">
+                循环设置
+              </h4>
+            </div>
+
             <div>
               <label
-                htmlFor="recurring-task-start-date"
+                id="recurring-task-frequency-label"
                 className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
               >
-                {usesRestDaySchedule ? "生效日期" : "开始日期"}
+                循环频率
               </label>
-              <input
-                id="recurring-task-start-date"
-                name="recurring-task-start-date"
-                type="date"
-                value={form.startDate}
-                onChange={(event) =>
-                  dispatch({
-                    type: "SET_FIELD",
-                    field: "startDate",
-                    value: event.target.value,
-                  })
-                }
-                className="h-10 w-full min-w-0 rounded-md border border-sahara-border bg-sahara-surface px-2.5 text-sm tabular-nums text-sahara-text outline-none transition-colors duration-150 focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20 sm:px-3"
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="recurring-task-time"
-                className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
+              <div
+                role="group"
+                aria-labelledby="recurring-task-frequency-label"
+                className="grid grid-cols-2 gap-2 sm:grid-cols-3"
               >
-                提醒时间
-              </label>
-              <input
-                id="recurring-task-time"
-                name="recurring-task-time"
-                type="time"
-                value={form.scheduledTime}
-                onChange={(event) =>
-                  dispatch({
-                    type: "SET_FIELD",
-                    field: "scheduledTime",
-                    value: event.target.value,
-                  })
-                }
-                className="h-10 w-full min-w-0 rounded-md border border-sahara-border bg-sahara-surface px-2.5 text-sm tabular-nums text-sahara-text outline-none transition-colors duration-150 focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20 sm:px-3"
-              />
+                {FREQUENCY_OPTIONS.map((option) => {
+                  const selected = form.frequency === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() =>
+                        dispatch({
+                          type: "SET_FIELD",
+                          field: "frequency",
+                          value: option.value,
+                        })
+                      }
+                      className={`h-11 touch-manipulation rounded-md border px-2 text-xs font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-sahara-focus last:col-span-2 sm:last:col-span-1 ${
+                        selected
+                          ? "border-sahara-text bg-sahara-card text-sahara-text"
+                          : "border-sahara-border bg-sahara-surface text-sahara-text-secondary hover:bg-sahara-card"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
 
-          <div className="flex items-start gap-3 rounded-md border border-sahara-border bg-sahara-card px-3 py-3 text-sahara-text-secondary">
-            <CalendarDays aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-            <div>
-              <p className="text-xs font-medium leading-5 text-sahara-text">
-                {ruleSummary}
-              </p>
-              {form.frequency === "monthly" && startDay > 28 && (
-                <p className="mt-0.5 text-[11px] leading-4 text-sahara-text-muted">
-                  遇到没有该日期的月份时，会安排在当月最后一天。
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 sm:gap-4">
+              <div>
+                <label
+                  htmlFor="recurring-task-start-date"
+                  className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
+                >
+                  {usesRestDaySchedule ? "生效日期" : "开始日期"}
+                </label>
+                <input
+                  id="recurring-task-start-date"
+                  name="recurring-task-start-date"
+                  type="date"
+                  value={form.startDate}
+                  onChange={(event) =>
+                    dispatch({
+                      type: "SET_FIELD",
+                      field: "startDate",
+                      value: event.target.value,
+                    })
+                  }
+                  className="h-10 w-full min-w-0 rounded-md border border-sahara-border bg-sahara-surface px-2.5 text-sm tabular-nums text-sahara-text outline-none transition-colors duration-150 focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20 sm:px-3"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="recurring-task-time"
+                  className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
+                >
+                  提醒时间
+                </label>
+                <input
+                  id="recurring-task-time"
+                  name="recurring-task-time"
+                  type="time"
+                  value={form.scheduledTime}
+                  onChange={(event) =>
+                    dispatch({
+                      type: "SET_FIELD",
+                      field: "scheduledTime",
+                      value: event.target.value,
+                    })
+                  }
+                  className="h-10 w-full min-w-0 rounded-md border border-sahara-border bg-sahara-surface px-2.5 text-sm tabular-nums text-sahara-text outline-none transition-colors duration-150 focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20 sm:px-3"
+                />
+              </div>
+            </div>
+
+            <div className="mt-4 flex items-start gap-3 rounded-md border border-sahara-border bg-sahara-card px-3 py-3 text-sahara-text-secondary">
+              <CalendarDays aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+              <div>
+                <p className="text-xs font-medium leading-5 text-sahara-text">
+                  {ruleSummary}
                 </p>
-              )}
+                {form.frequency === "monthly" && startDay > 28 && (
+                  <p className="mt-0.5 text-[11px] leading-4 text-sahara-text-muted">
+                    遇到没有该日期的月份时，会安排在当月最后一天。
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
@@ -648,7 +813,7 @@ export function AddRecurringTaskModal({
               intent={canSubmit ? "sahara" : "default"}
               fullWidth
               disabled={!canSubmit}
-              className="gap-2"
+              className="gap-2 whitespace-nowrap px-2 text-xs sm:px-4 sm:text-sm"
             >
               {isEditing ? (
                 <Save aria-hidden="true" className="size-4" />

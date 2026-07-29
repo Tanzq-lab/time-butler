@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/db";
+import type { TaskItemType } from "@/features/tasks/task-types";
 
 export type RecurringTaskFrequency =
   | "daily"
@@ -11,6 +12,7 @@ type LegacyRecurringTaskFrequency = "daily" | "weekly" | "monthly";
 
 export interface RecurringTaskRuleInput {
   name: string;
+  itemType: TaskItemType;
   estimatedPomos: number;
   project: string | null;
   categoryId: number | null;
@@ -22,6 +24,7 @@ export interface RecurringTaskRuleInput {
 export interface UserRecurringTaskRule {
   id: number;
   name: string;
+  item_type?: TaskItemType | null;
   estimated_pomos: number;
   project: string | null;
   category_id: number | null;
@@ -60,12 +63,24 @@ export function getRecurringTaskSchedule(
   return rule.schedule_type ?? rule.frequency;
 }
 
+export function getRecurringTaskItemType(
+  rule: UserRecurringTaskRule,
+): TaskItemType {
+  return rule.item_type === "todo" ? "todo" : "focus";
+}
+
 function assertRuleInput(input: RecurringTaskRuleInput): void {
   if (!input.name.trim()) throw new Error("任务名称不能为空");
+  if (input.itemType !== "todo" && input.itemType !== "focus") {
+    throw new Error("任务类型无效");
+  }
   if (
-    !Number.isInteger(input.estimatedPomos)
-    || input.estimatedPomos < 1
-    || input.estimatedPomos > 4
+    input.itemType === "focus"
+    && (
+      !Number.isInteger(input.estimatedPomos)
+      || input.estimatedPomos < 1
+      || input.estimatedPomos > 4
+    )
   ) {
     throw new Error("预计番茄数必须是 1 到 4 的整数");
   }
@@ -88,6 +103,7 @@ export async function addRecurringTaskRule(
   const result = await database.execute(
     `INSERT INTO recurring_task_rules (
       name,
+      item_type,
       estimated_pomos,
       project,
       category_id,
@@ -95,9 +111,10 @@ export async function addRecurringTaskRule(
       schedule_type,
       start_date,
       scheduled_time
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
     [
       input.name.trim(),
+      input.itemType,
       input.estimatedPomos,
       input.project?.trim() || null,
       input.categoryId,
@@ -128,17 +145,19 @@ export async function updateRecurringTaskRule(
   const result = await database.execute(
     `UPDATE recurring_task_rules
      SET name = $1,
-         estimated_pomos = $2,
-         project = $3,
-         category_id = $4,
-         frequency = $5,
-         schedule_type = $6,
-         start_date = $7,
-         scheduled_time = $8,
+         item_type = $2,
+         estimated_pomos = $3,
+         project = $4,
+         category_id = $5,
+         frequency = $6,
+         schedule_type = $7,
+         start_date = $8,
+         scheduled_time = $9,
          updated_at = CURRENT_TIMESTAMP
-     WHERE id = $9`,
+     WHERE id = $10`,
     [
       input.name.trim(),
+      input.itemType,
       input.estimatedPomos,
       input.project?.trim() || null,
       input.categoryId,

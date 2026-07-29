@@ -1,11 +1,13 @@
-import { addTask, getDb } from "@/lib/db";
+import { addTask, addTodoTask, getDb } from "@/lib/db";
 import { BUILT_IN_RECURRING_TASK_RULES } from "@/lib/db/default-recurring-task-rules";
 import { appendPomodoroEstimationLog } from "@/features/tasks/pomodoro-estimation-log";
 import {
   getRecurringTaskSchedule,
+  getRecurringTaskItemType,
   getEnabledRecurringTaskRules,
   type UserRecurringTaskRule,
 } from "@/features/tasks/recurring-task-rules";
+import type { TaskItemType } from "@/features/tasks/task-types";
 
 const LOOKAHEAD_DAYS = 7;
 
@@ -14,6 +16,7 @@ export interface RecurringTaskOccurrence {
   occurrenceDate: string;
   scheduledFor: string;
   name: string;
+  itemType: TaskItemType;
   estimatedPomos: number;
   project: string;
   categoryName: string;
@@ -197,21 +200,24 @@ export function buildUserRecurringTaskOccurrences(
         occurrenceDate: toDateKey(date),
         scheduledFor: toScheduledForTime(date, rule.scheduled_time),
         name: rule.name,
+        itemType: getRecurringTaskItemType(rule),
         estimatedPomos: rule.estimated_pomos,
         project: rule.project?.trim() || "",
         categoryName: rule.category_name?.trim() || "",
         categoryId: rule.category_id,
-        reason: `用户配置的${
-          schedule === "daily"
-            ? "每日"
-            : schedule === "weekly"
-              ? "每周"
-              : schedule === "monthly"
-                ? "每月"
-                : schedule === "monthly_first_day_off"
-                  ? "每月首个休息日"
-                  : "每年首个休息日"
-        }循环任务，沿用规则中设置的 ${rule.estimated_pomos} 个番茄预估。`,
+        reason: getRecurringTaskItemType(rule) === "focus"
+          ? `用户配置的${
+              schedule === "daily"
+                ? "每日"
+                : schedule === "weekly"
+                  ? "每周"
+                  : schedule === "monthly"
+                    ? "每月"
+                    : schedule === "monthly_first_day_off"
+                      ? "每月首个休息日"
+                      : "每年首个休息日"
+            }循环专注任务，沿用模板中设置的 ${rule.estimated_pomos} 个番茄预估。`
+          : `用户配置的循环待办模板，按既有待办规则生成，不附加番茄预估。`,
       });
     }
   }
@@ -228,6 +234,7 @@ export function buildSummaryTaskOccurrences(
       id: -(index + 1),
       rule_key: rule.ruleKey,
       name: rule.name,
+      item_type: rule.itemType,
       estimated_pomos: rule.estimatedPomos,
       project: rule.project,
       category_id: null,
@@ -273,11 +280,12 @@ async function getExistingOccurrence(
 async function findExistingTaskId(
   name: string,
   scheduledFor: string,
+  itemType: TaskItemType,
 ): Promise<number | null> {
   const database = await getDb();
   const rows = await database.select<{ id: number }[]>(
-    "SELECT id FROM tasks WHERE archived = 0 AND name = $1 AND scheduled_for = $2 LIMIT 1",
-    [name, scheduledFor],
+    "SELECT id FROM tasks WHERE archived = 0 AND name = $1 AND scheduled_for = $2 AND item_type = $3 LIMIT 1",
+    [name, scheduledFor, itemType],
   );
   return rows[0]?.id ?? null;
 }
@@ -342,24 +350,34 @@ async function createMissingRecurringSummaryTasks(
     const existingTask = await findExistingTaskId(
       occurrence.name,
       occurrence.scheduledFor,
+      occurrence.itemType,
     );
     if (existingTask) {
       await recordOccurrence(occurrence, existingTask);
       continue;
     }
 
-    const taskId = await addTask(
-      occurrence.name,
-      occurrence.estimatedPomos,
-      occurrence.project,
-      "medium",
-      occurrence.categoryId
-        ?? categoryIds.get(occurrence.categoryName)
-        ?? null,
-      occurrence.scheduledFor,
-    );
+    const categoryId = occurrence.categoryId
+      ?? categoryIds.get(occurrence.categoryName)
+      ?? null;
+    const taskId = occurrence.itemType === "focus"
+      ? await addTask(
+          occurrence.name,
+          occurrence.estimatedPomos,
+          occurrence.project,
+          "medium",
+          categoryId,
+          occurrence.scheduledFor,
+        )
+      : await addTodoTask(occurrence.name, null, {
+          project: occurrence.project,
+          categoryId,
+          scheduledFor: occurrence.scheduledFor,
+        });
     await recordOccurrence(occurrence, taskId);
-    await logCreatedOccurrence(occurrence);
+    if (occurrence.itemType === "focus") {
+      await logCreatedOccurrence(occurrence);
+    }
     createdCount += 1;
   }
 

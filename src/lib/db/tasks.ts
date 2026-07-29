@@ -103,6 +103,11 @@ export async function addTask(
 export async function addTodoTask(
   name: string,
   parentId?: number | null,
+  options: {
+    project?: string | null;
+    categoryId?: number | null;
+    scheduledFor?: string | null;
+  } = {},
 ): Promise<number> {
   const cleanName = name.trim();
   if (!cleanName) throw new Error("待办名称不能为空");
@@ -115,6 +120,9 @@ export async function addTodoTask(
       completed_pomos,
       item_type,
       parent_id,
+      project,
+      category_id,
+      scheduled_for,
       sort_order
     ) VALUES (
       $1,
@@ -122,6 +130,9 @@ export async function addTodoTask(
       0,
       'todo',
       $2,
+      $3,
+      $4,
+      $5,
       COALESCE((
         SELECT MAX(sort_order)
         FROM tasks
@@ -129,7 +140,13 @@ export async function addTodoTask(
           AND parent_id IS $2
       ), -1) + 1
     )`,
-    [cleanName, parentId ?? null],
+    [
+      cleanName,
+      parentId ?? null,
+      options.project?.trim() || null,
+      options.categoryId ?? null,
+      options.scheduledFor ?? null,
+    ],
   );
   if (parentId != null) {
     await database.execute(
