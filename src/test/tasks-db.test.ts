@@ -39,9 +39,36 @@ describe("task database boundaries", () => {
   it("places a newly created task ahead of the current visible order", async () => {
     await addTask("新任务", 2);
 
+    const insertQuery = vi.mocked(execute).mock.calls[0]?.[0] as string;
+    expect(insertQuery).toMatch(
+      /WHEN \$7 IS NULL THEN COALESCE\(\(\s*SELECT MIN\(sort_order\)/,
+    );
     expect(execute).toHaveBeenCalledWith(
       expect.stringContaining("AND parent_id IS $7"),
       ["新任务", 2, null, null, null, null, null],
+    );
+  });
+
+  it("appends a focus child after its existing siblings", async () => {
+    await addTask(
+      "新专注子任务",
+      2,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      12,
+    );
+
+    const insertQuery = vi.mocked(execute).mock.calls[0]?.[0] as string;
+    expect(insertQuery).toMatch(/CASE\s+WHEN \$7 IS NULL/);
+    expect(insertQuery).toMatch(
+      /ELSE COALESCE\(\(\s*SELECT MAX\(sort_order\)/,
+    );
+    expect(execute).toHaveBeenNthCalledWith(
+      2,
+      "UPDATE tasks SET completed_at = NULL WHERE id = $1",
+      [12],
     );
   });
 

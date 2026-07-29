@@ -230,11 +230,11 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         completed_pomos: 0,
         project: project ?? undefined,
         priority: priority as Task["priority"] | undefined,
-        sort_order:
-          Math.min(
-            0,
-            ...siblingSortOrders,
-          ) - 1,
+        sort_order: siblingSortOrders.length === 0
+          ? parentId == null ? -1 : 0
+          : parentId == null
+            ? Math.min(...siblingSortOrders) - 1
+            : Math.max(...siblingSortOrders) + 1,
         category_id: resolvedCategoryId,
         scheduled_for: scheduledFor ?? null,
         completed_at: null,

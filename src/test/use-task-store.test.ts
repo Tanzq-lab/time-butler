@@ -203,7 +203,15 @@ describe("useTaskStore", () => {
           {
             ...mockTasks[0],
             item_type: "todo",
+            parent_id: null,
+            sort_order: 2,
             completed_at: "2026-07-29T08:00:00.000Z",
+          },
+          {
+            ...mockTasks[1],
+            item_type: "todo",
+            parent_id: 1,
+            sort_order: 7,
           },
         ],
       });
@@ -235,6 +243,7 @@ describe("useTaskStore", () => {
           item_type: "focus",
           parent_id: 1,
           estimated_pomos: 2,
+          sort_order: 8,
         }),
       );
       expect(

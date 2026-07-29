@@ -93,12 +93,20 @@ export async function addTask(
       $6,
       'focus',
       $7,
-      COALESCE((
-        SELECT MIN(sort_order)
-        FROM tasks
-        WHERE archived = 0
-          AND parent_id IS $7
-      ), 0) - 1
+      CASE
+        WHEN $7 IS NULL THEN COALESCE((
+          SELECT MIN(sort_order)
+          FROM tasks
+          WHERE archived = 0
+            AND parent_id IS $7
+        ), 0) - 1
+        ELSE COALESCE((
+          SELECT MAX(sort_order)
+          FROM tasks
+          WHERE archived = 0
+            AND parent_id IS $7
+        ), -1) + 1
+      END
     )`,
     [
       name,

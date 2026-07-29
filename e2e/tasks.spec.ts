@@ -35,6 +35,13 @@ test.describe("Tasks", () => {
     await page.getByRole("textbox", { name: `添加子任务：${parent}` }).fill(secondChild);
     await page.getByRole("textbox", { name: `添加子任务：${parent}` }).press("Enter");
 
+    const childRows = parentRow
+      .locator("..")
+      .locator('article[data-task-depth="1"]');
+    await expect(childRows).toHaveCount(2);
+    await expect(childRows.nth(0)).toContainText(firstChild);
+    await expect(childRows.nth(1)).toContainText(secondChild);
+
     const progress = page.getByRole("progressbar", { name: `${parent} 子任务进度` });
     await expect(progress).toHaveAttribute("aria-valuenow", "0");
     await expect(progress).toHaveAttribute("aria-valuemax", "2");
@@ -113,6 +120,12 @@ test.describe("Tasks", () => {
       .first();
     await expect(focusChild).toBeVisible();
     await expect(focusChild).toContainText("0/2");
+    const childRows = parentRow
+      .locator("..")
+      .locator('article[data-task-depth="1"]');
+    await expect(childRows).toHaveCount(2);
+    await expect(childRows.nth(0)).toContainText(todoChild);
+    await expect(childRows.nth(1)).toContainText(child);
     const progress = parentRow.getByRole("progressbar", {
       name: `${parent} 子任务进度`,
     });
