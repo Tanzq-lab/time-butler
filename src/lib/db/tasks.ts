@@ -367,19 +367,45 @@ export async function deleteTask(id: number): Promise<void> {
     "SELECT id FROM tasks WHERE parent_id = $1",
     [id],
   );
-  for (const child of children) {
+  const deletedTaskIds = [...children.map((child) => child.id), id];
+
+  for (const deletedTaskId of deletedTaskIds) {
+    const recurringOccurrences = await database.select<
+      { rule_key: string; occurrence_date: string }[]
+    >(
+      `SELECT rule_key, occurrence_date
+       FROM recurring_task_occurrences
+       WHERE task_id = $1`,
+      [deletedTaskId],
+    );
+    for (const occurrence of recurringOccurrences) {
+      await database.execute(
+        `INSERT OR IGNORE INTO recurring_task_occurrence_exclusions (
+          rule_key,
+          occurrence_date
+        ) VALUES ($1, $2)`,
+        [occurrence.rule_key, occurrence.occurrence_date],
+      );
+    }
+    await database.execute(
+      "DELETE FROM recurring_task_occurrences WHERE task_id = $1",
+      [deletedTaskId],
+    );
     await database.execute(
       "DELETE FROM task_completion_reviews WHERE task_id = $1",
-      [child.id],
+      [deletedTaskId],
     );
-    await database.execute("DELETE FROM sessions WHERE task_id = $1", [child.id]);
+    await database.execute(
+      "DELETE FROM sessions WHERE task_id = $1",
+      [deletedTaskId],
+    );
+    await database.execute(
+      "DELETE FROM task_activity_log WHERE task_id = $1",
+      [deletedTaskId],
+    );
   }
+
   await database.execute("DELETE FROM tasks WHERE parent_id = $1", [id]);
-  await database.execute(
-    "DELETE FROM task_completion_reviews WHERE task_id = $1",
-    [id],
-  );
-  await database.execute("DELETE FROM sessions WHERE task_id = $1", [id]);
   await database.execute("DELETE FROM tasks WHERE id = $1", [id]);
   await reconcileParentCompletion(parentId);
 }

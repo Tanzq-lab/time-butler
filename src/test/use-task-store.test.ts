@@ -389,7 +389,7 @@ describe("useTaskStore", () => {
   describe("deleteTask", () => {
     it("optimistically removes task", async () => {
       useTaskStore.setState({ tasks: [...mockTasks] });
-      await useTaskStore.getState().deleteTask(1);
+      await expect(useTaskStore.getState().deleteTask(1)).resolves.toBe(true);
       expect(useTaskStore.getState().tasks).toHaveLength(1);
       expect(useTaskStore.getState().tasks[0].id).toBe(2);
     });
@@ -398,7 +398,7 @@ describe("useTaskStore", () => {
       const { deleteTask } = await import("@/lib/db");
       vi.mocked(deleteTask).mockRejectedValueOnce(new Error("DB error"));
       useTaskStore.setState({ tasks: [...mockTasks] });
-      await useTaskStore.getState().deleteTask(1);
+      await expect(useTaskStore.getState().deleteTask(1)).resolves.toBe(false);
       expect(useTaskStore.getState().error).toBe("Error: DB error");
     });
   });

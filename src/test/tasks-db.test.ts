@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addTask,
   addTodoTask,
+  deleteTask,
   getTaskCompletionReviews,
   getTasks,
   reorderTasks,
@@ -168,6 +169,35 @@ describe("task database boundaries", () => {
     expect(select).toHaveBeenCalledWith(
       expect.stringContaining("ORDER BY completed_at DESC, id DESC"),
       [7],
+    );
+  });
+
+  it("records a deleted recurring occurrence before removing its task", async () => {
+    select
+      .mockResolvedValueOnce([{ parent_id: null }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          rule_key: "custom.545",
+          occurrence_date: "2026-07-29",
+        },
+      ]);
+
+    await deleteTask(411);
+
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "INSERT OR IGNORE INTO recurring_task_occurrence_exclusions",
+      ),
+      ["custom.545", "2026-07-29"],
+    );
+    expect(execute).toHaveBeenCalledWith(
+      "DELETE FROM recurring_task_occurrences WHERE task_id = $1",
+      [411],
+    );
+    expect(execute).toHaveBeenCalledWith(
+      "DELETE FROM tasks WHERE id = $1",
+      [411],
     );
   });
 });

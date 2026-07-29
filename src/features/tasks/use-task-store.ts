@@ -77,7 +77,7 @@ interface TaskStore {
     orderedIds: number[],
     parentId?: number | null,
   ) => Promise<boolean>;
-  deleteTask: (id: number) => Promise<void>;
+  deleteTask: (id: number) => Promise<boolean>;
   archiveTask: (id: number) => Promise<void>;
   incrementPomos: (
     id: number,
@@ -485,9 +485,11 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         entityType: "task",
         entityId: id,
       });
+      return true;
     } catch (err) {
       console.error("[TaskStore] Failed to delete task:", err);
       set({ error: String(err) });
+      return false;
     }
   },
 

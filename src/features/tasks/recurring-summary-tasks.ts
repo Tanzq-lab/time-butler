@@ -269,16 +269,22 @@ async function getCategoryIdByName(categoryName: string): Promise<number | null>
   return rows[0]?.id ?? null;
 }
 
-async function getExistingOccurrence(
+async function hasHandledOccurrence(
   ruleKey: string,
   occurrenceDate: string,
-): Promise<number | null> {
+): Promise<boolean> {
   const database = await getDb();
-  const rows = await database.select<{ task_id: number }[]>(
-    "SELECT task_id FROM recurring_task_occurrences WHERE rule_key = $1 AND occurrence_date = $2 LIMIT 1",
+  const occurrenceRows = await database.select<{ id: number }[]>(
+    "SELECT id FROM recurring_task_occurrences WHERE rule_key = $1 AND occurrence_date = $2 LIMIT 1",
     [ruleKey, occurrenceDate],
   );
-  return rows[0]?.task_id ?? null;
+  if (occurrenceRows.length > 0) return true;
+
+  const exclusionRows = await database.select<{ id: number }[]>(
+    "SELECT id FROM recurring_task_occurrence_exclusions WHERE rule_key = $1 AND occurrence_date = $2 LIMIT 1",
+    [ruleKey, occurrenceDate],
+  );
+  return exclusionRows.length > 0;
 }
 
 async function findExistingTaskId(
@@ -415,7 +421,7 @@ async function createMissingRecurringSummaryTasks(
       );
     }
 
-    const existingOccurrence = await getExistingOccurrence(
+    const existingOccurrence = await hasHandledOccurrence(
       occurrence.ruleKey,
       occurrence.occurrenceDate,
     );

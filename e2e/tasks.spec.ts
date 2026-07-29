@@ -143,6 +143,44 @@ test.describe("Tasks", () => {
     ).toBeVisible();
   });
 
+  test("deletes one generated occurrence without recreating it", async ({ page }) => {
+    const title = "今日饮食记录";
+    await page.getByRole("button", { name: "添加循环任务" }).click();
+    const dialog = page.getByRole("dialog", { name: "添加循环任务" });
+    await dialog.getByLabel("任务名称").fill(title);
+    await dialog.getByRole("button", { name: "创建循环任务" }).click();
+
+    const task = page
+      .locator('article[data-task-kind="todo"]')
+      .filter({ hasText: title })
+      .first();
+    await expect(task).toBeVisible();
+    await task.hover();
+    await task.getByRole("button", { name: `删除任务：${title}` }).click();
+    await page
+      .getByRole("dialog", { name: "删除任务？" })
+      .getByRole("button", { name: "删除任务" })
+      .click();
+    await expect(task).toHaveCount(0);
+
+    await page.getByRole("link", { name: "计时" }).click();
+    await page.getByRole("link", { name: "任务" }).click();
+    await expect(
+      page
+        .locator('article[data-task-kind="todo"]')
+        .filter({ hasText: title }),
+    ).toHaveCount(0);
+
+    await page.getByRole("button", { name: "添加循环任务" }).click();
+    const reopenedDialog = page.getByRole("dialog", { name: "添加循环任务" });
+    await reopenedDialog.getByRole("button", { name: /管理已配置规则/ }).click();
+    await expect(
+      page
+        .getByRole("dialog", { name: "管理循环规则" })
+        .getByRole("button", { name: `编辑循环规则：${title}` }),
+    ).toBeVisible();
+  });
+
   test("copies template subtasks into a generated recurring task group", async ({ page }) => {
     await page.getByRole("button", { name: "添加循环任务" }).click();
     const dialog = page.getByRole("dialog", { name: "添加循环任务" });

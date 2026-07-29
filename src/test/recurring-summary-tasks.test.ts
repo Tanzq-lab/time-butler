@@ -249,6 +249,38 @@ describe("recurring summary tasks", () => {
     expect(pomodoroLogMocks.appendPomodoroEstimationLog).not.toHaveBeenCalled();
   });
 
+  it("keeps a deleted occurrence suppressed without blocking the next date", async () => {
+    selectedRecurringRules = [
+      userRule({
+        item_type: "todo",
+        estimated_pomos: 1,
+        start_date: "2026-07-29",
+      }),
+    ];
+    dbMocks.select.mockImplementation(
+      async (query: string, params: unknown[] = []) => {
+        if (query.includes("FROM recurring_task_rules")) {
+          return selectedRecurringRules;
+        }
+        if (query.includes("FROM recurring_task_occurrence_exclusions")) {
+          return params[1] === "2026-07-29" ? [{ id: 40 }] : [];
+        }
+        if (query.includes("FROM categories")) return [{ id: 69 }];
+        return [];
+      },
+    );
+
+    await expect(
+      ensureRecurringSummaryTasks(new Date(2026, 6, 29)),
+    ).resolves.toBe(0);
+    expect(dbMocks.addTodoTask).not.toHaveBeenCalled();
+
+    await expect(
+      ensureRecurringSummaryTasks(new Date(2026, 6, 30)),
+    ).resolves.toBe(1);
+    expect(dbMocks.addTodoTask).toHaveBeenCalledOnce();
+  });
+
   it("copies todo and focus subtasks into each generated task group", async () => {
     selectedRecurringRules = [
       userRule({

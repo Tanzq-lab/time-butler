@@ -580,8 +580,8 @@ export function TimePlanningWorkspace() {
 
   const confirmDeleteTask = async () => {
     if (!taskToDelete) return;
-    await deleteTask(taskToDelete.id);
-    setTaskToDelete(null);
+    const deleted = await deleteTask(taskToDelete.id);
+    if (deleted) setTaskToDelete(null);
   };
 
   const handleFocusTask = async (task: Task) => {

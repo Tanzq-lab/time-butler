@@ -331,8 +331,8 @@ export function TasksList() {
     if (activeTaskId === taskToDelete.id || (activeTaskId != null && childIds.has(activeTaskId))) {
       await setActiveTask(null);
     }
-    await deleteTask(taskToDelete.id);
-    setTaskToDelete(null);
+    const deleted = await deleteTask(taskToDelete.id);
+    if (deleted) setTaskToDelete(null);
   };
 
   const beginAddSubtask = (task: Task) => {

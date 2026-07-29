@@ -383,9 +383,18 @@ export async function initDb(): Promise<void> {
       `ALTER TABLE recurring_task_rules
        ADD COLUMN subtasks_json TEXT NOT NULL DEFAULT '[]'`,
     ],
+    22: [
+      `CREATE TABLE IF NOT EXISTS recurring_task_occurrence_exclusions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        rule_key TEXT NOT NULL,
+        occurrence_date TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(rule_key, occurrence_date)
+      )`,
+    ],
   };
 
-  const targetVersion = 21;
+  const targetVersion = 22;
 
   for (let v = currentVersion + 1; v <= targetVersion; v++) {
     const statements = migrations[v];
