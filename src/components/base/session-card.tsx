@@ -31,7 +31,7 @@ function getAccentColor(session: Session): string {
 
 export function SessionCard({ session }: SessionCardProps) {
   const accentColor = getAccentColor(session);
-  const tagLabel = session.intention || session.category_name;
+  const tagLabel = session.category_name || session.intention;
 
   return (
     <div className="group relative flex items-stretch gap-0 overflow-hidden rounded-[10px] border border-sahara-border bg-sahara-surface transition-colors duration-150 hover:border-sahara-text-muted">

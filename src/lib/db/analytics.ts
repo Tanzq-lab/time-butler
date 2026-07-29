@@ -1,6 +1,53 @@
 import { getDb } from "./schema";
 import type { CategoryBreakdown, DayData, MoodStat, SessionNoteEntry, CompletedTaskEntry } from "./types";
 
+function buildCategoryBreakdownQuery(datePredicate?: string): string {
+  const dateFilter = datePredicate ? `${datePredicate}\n      AND ` : "";
+
+  return `
+    WITH attributed_sessions AS (
+      SELECT
+        CASE
+          WHEN parent_task.id IS NOT NULL THEN NULL
+          ELSE s.category_id
+        END AS category_id,
+        CASE
+          WHEN parent_task.id IS NOT NULL OR category.id IS NOT NULL THEN NULL
+          ELSE NULLIF(TRIM(s.intention), '')
+        END AS intention,
+        CASE
+          WHEN parent_task.id IS NOT NULL THEN parent_task.name
+          ELSE category.name
+        END AS category_name,
+        CASE
+          WHEN parent_task.id IS NOT NULL THEN NULL
+          ELSE category.color
+        END AS category_color,
+        s.started_at,
+        s.duration_sec,
+        s.completed,
+        s.phase,
+        s.pomo_counted
+      FROM sessions s
+      LEFT JOIN tasks task ON s.task_id = task.id
+      LEFT JOIN tasks parent_task ON task.parent_id = parent_task.id
+      LEFT JOIN categories category ON s.category_id = category.id
+    )
+    SELECT
+      category_id,
+      intention,
+      category_name,
+      category_color,
+      COALESCE(SUM(duration_sec), 0) AS total_seconds,
+      COUNT(*) AS session_count,
+      COUNT(*) AS pomo_count
+    FROM attributed_sessions
+    WHERE ${dateFilter}completed = 1 AND phase = 'work' AND pomo_counted = 1
+    GROUP BY category_id, intention, category_name, category_color
+    ORDER BY pomo_count DESC
+  `;
+}
+
 export async function getCategoryBreakdown(
   startDate?: string,
   endDate?: string,
@@ -8,58 +55,22 @@ export async function getCategoryBreakdown(
   const database = await getDb();
   if (startDate && endDate) {
     return database.select<CategoryBreakdown[]>(
-      `SELECT
-        s.category_id,
-        s.intention,
-        c.name AS category_name,
-        c.color AS category_color,
-        COALESCE(SUM(s.duration_sec), 0) AS total_seconds,
-        COUNT(*) AS session_count,
-        COUNT(*) AS pomo_count
-      FROM sessions s
-      LEFT JOIN categories c ON s.category_id = c.id
-      WHERE date(s.started_at) >= $1 AND date(s.started_at) <= $2
-        AND s.completed = 1 AND s.phase = 'work' AND s.pomo_counted = 1
-      GROUP BY s.category_id, s.intention, c.name, c.color
-      ORDER BY pomo_count DESC`,
+      buildCategoryBreakdownQuery(
+        "date(started_at) >= $1 AND date(started_at) <= $2",
+      ),
       [startDate, endDate],
     );
   }
-  return database.select<CategoryBreakdown[]>(`
-    SELECT
-      s.category_id,
-      s.intention,
-      c.name AS category_name,
-      c.color AS category_color,
-      COALESCE(SUM(s.duration_sec), 0) AS total_seconds,
-      COUNT(*) AS session_count,
-      COUNT(*) AS pomo_count
-    FROM sessions s
-    LEFT JOIN categories c ON s.category_id = c.id
-    WHERE date(s.started_at) = date('now', 'localtime')
-      AND s.completed = 1 AND s.phase = 'work' AND s.pomo_counted = 1
-    GROUP BY s.category_id, s.intention, c.name, c.color
-    ORDER BY pomo_count DESC
-  `);
+  return database.select<CategoryBreakdown[]>(
+    buildCategoryBreakdownQuery(
+      "date(started_at) = date('now', 'localtime')",
+    ),
+  );
 }
 
 export async function getAllCategoryBreakdown(): Promise<CategoryBreakdown[]> {
   const database = await getDb();
-  return database.select<CategoryBreakdown[]>(`
-    SELECT
-      s.category_id,
-      s.intention,
-      c.name AS category_name,
-      c.color AS category_color,
-      COALESCE(SUM(s.duration_sec), 0) AS total_seconds,
-      COUNT(*) AS session_count,
-      COUNT(*) AS pomo_count
-    FROM sessions s
-    LEFT JOIN categories c ON s.category_id = c.id
-    WHERE s.completed = 1 AND s.phase = 'work' AND s.pomo_counted = 1
-    GROUP BY s.category_id, s.intention, c.name, c.color
-    ORDER BY pomo_count DESC
-  `);
+  return database.select<CategoryBreakdown[]>(buildCategoryBreakdownQuery());
 }
 
 export async function getWeeklyData(

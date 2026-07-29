@@ -34,7 +34,10 @@ export function CategoryBreakdown({ breakdowns }: CategoryBreakdownProps) {
         const color = item.category_color || "#94a3b8";
 
         return (
-          <div key={`${item.category_id}-${item.intention}`} className="relative">
+          <div
+            key={`${item.category_id ?? "derived"}-${item.category_name ?? ""}-${item.intention ?? ""}`}
+            className="relative"
+          >
             <div className="flex items-center justify-between mb-2.5">
               <div className="flex items-center gap-3 min-w-0">
                 <div 
