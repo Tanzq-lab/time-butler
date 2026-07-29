@@ -52,22 +52,30 @@ describe("AddRecurringTaskModal", () => {
 
     const submit = screen.getByRole("button", { name: "创建循环任务" });
     expect(submit).toBeDisabled();
-    expect(screen.getByRole("button", { name: "每天" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
     expect(screen.getByRole("button", { name: "设为专注" })).toBeVisible();
 
     fireEvent.change(screen.getByLabelText("任务名称"), {
       target: { value: "整理本周复盘" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "更多任务属性" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /编辑任务属性/ }),
+    );
     fireEvent.change(screen.getByLabelText(/项目/), {
       target: { value: "个人复盘" },
     });
     fireEvent.change(screen.getByLabelText(/分类/), {
       target: { value: "50" },
     });
+    fireEvent.click(
+      screen.getByRole("button", { name: "完成任务属性" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: /编辑循环设置/ }),
+    );
+    expect(screen.getByRole("button", { name: "每天" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     fireEvent.click(screen.getByRole("button", { name: "每周" }));
     fireEvent.change(screen.getByLabelText("开始日期"), {
       target: { value: "2026-07-22" },
@@ -77,8 +85,14 @@ describe("AddRecurringTaskModal", () => {
     });
 
     expect(screen.getByText("从 7月22日起，每周三 09:30 生成任务")).toBeVisible();
-    expect(submit).toBeEnabled();
-    fireEvent.click(submit);
+    fireEvent.click(
+      screen.getByRole("button", { name: "完成循环设置" }),
+    );
+    const readySubmit = screen.getByRole("button", {
+      name: "创建循环任务",
+    });
+    expect(readySubmit).toBeEnabled();
+    fireEvent.click(readySubmit);
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(onSubmit).toHaveBeenCalledWith({
@@ -110,9 +124,12 @@ describe("AddRecurringTaskModal", () => {
     fireEvent.click(screen.getByRole("button", { name: "设为专注" }));
 
     expect(
-      screen.getByRole("button", { name: "创建循环任务" }),
-    ).toBeDisabled();
+      screen.getByRole("dialog", { name: "设置专注任务" }),
+    ).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "预计 2 个番茄" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "完成专注设置" }),
+    );
     expect(screen.getByText("专注：")).toBeVisible();
     expect(screen.getByText("0/2")).toBeVisible();
 
@@ -176,10 +193,12 @@ describe("AddRecurringTaskModal", () => {
       />,
     );
 
-    fireEvent.click(screen.getByText("已配置规则"));
+    fireEvent.click(
+      screen.getByRole("button", { name: /管理已配置规则/ }),
+    );
     expect(
       screen.getByText(
-        "原有规则和新建规则都可编辑或停用；修改仅影响之后新生成的任务。",
+        "编辑或停用模板，不会改写已经生成的任务。",
       ),
     ).toBeVisible();
     fireEvent.click(
@@ -196,11 +215,11 @@ describe("AddRecurringTaskModal", () => {
       <AddRecurringTaskModal open onClose={vi.fn()} onSubmit={vi.fn()} />,
     );
 
-    expect(screen.getByText("已配置规则")).toBeVisible();
-    fireEvent.click(screen.getByText("已配置规则"));
-    expect(
-      screen.getByText("还没有已配置规则，可在下方创建第一条。"),
-    ).toBeVisible();
+    fireEvent.click(
+      screen.getByRole("button", { name: /管理已配置规则/ }),
+    );
+    expect(screen.getByText("还没有已配置规则")).toBeVisible();
+    expect(screen.getByText("返回后可创建第一条循环任务。")).toBeVisible();
   });
 
   it("loads the original monthly-summary cadence into the shared editor", () => {
@@ -231,9 +250,14 @@ describe("AddRecurringTaskModal", () => {
       />,
     );
 
-    fireEvent.click(screen.getByText("已配置规则"));
+    fireEvent.click(
+      screen.getByRole("button", { name: /管理已配置规则/ }),
+    );
     fireEvent.click(
       screen.getByRole("button", { name: "编辑循环规则：月总结" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: /编辑循环设置/ }),
     );
 
     expect(
@@ -270,7 +294,9 @@ describe("AddRecurringTaskModal", () => {
       />,
     );
 
-    fireEvent.click(screen.getByText("已配置规则"));
+    fireEvent.click(
+      screen.getByRole("button", { name: /管理已配置规则/ }),
+    );
     fireEvent.click(
       screen.getByRole("button", { name: "编辑循环规则：每日整理收件箱" }),
     );
@@ -279,8 +305,17 @@ describe("AddRecurringTaskModal", () => {
       screen.getByRole("dialog", { name: "编辑循环任务" }),
     ).toBeVisible();
     expect(screen.getByLabelText("任务名称")).toHaveValue("每日整理收件箱");
+    fireEvent.click(
+      screen.getByRole("button", { name: /编辑任务属性/ }),
+    );
     expect(screen.getByLabelText(/项目/)).toHaveValue("个人效率");
     expect(screen.getByLabelText(/分类/)).toHaveValue("50");
+    fireEvent.click(
+      screen.getByRole("button", { name: "完成任务属性" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: /编辑循环设置/ }),
+    );
     expect(screen.getByRole("button", { name: "每天" })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -288,16 +323,29 @@ describe("AddRecurringTaskModal", () => {
     expect(screen.getByLabelText("开始日期")).toHaveValue("2026-07-22");
     expect(screen.getByLabelText("提醒时间")).toHaveValue("09:00");
 
+    fireEvent.click(screen.getByRole("button", { name: "返回循环任务" }));
     fireEvent.change(screen.getByLabelText("任务名称"), {
       target: { value: "每周整理收件箱" },
     });
     fireEvent.click(
+      screen.getByRole("button", { name: /编辑专注设置/ }),
+    );
+    fireEvent.click(
       screen.getByRole("button", { name: "预计 2 个番茄" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "完成专注设置" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: /编辑循环设置/ }),
     );
     fireEvent.click(screen.getByRole("button", { name: "每周" }));
     fireEvent.change(screen.getByLabelText("提醒时间"), {
       target: { value: "10:30" },
     });
+    fireEvent.click(
+      screen.getByRole("button", { name: "完成循环设置" }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
 
     await waitFor(() =>

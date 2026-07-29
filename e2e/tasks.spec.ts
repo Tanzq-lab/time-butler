@@ -76,42 +76,53 @@ test.describe("Tasks", () => {
     await page.getByRole("button", { name: "添加循环任务" }).click();
 
     const dialog = page.getByRole("dialog", { name: "添加循环任务" });
-    const configuredRules = dialog.locator("summary").filter({
-      hasText: "已配置规则",
-    });
-    await expect(configuredRules).toContainText("4");
-    await configuredRules.click();
+    await expect(
+      dialog.getByRole("button", { name: /管理已配置规则，共 4 条/ }),
+    ).toBeVisible();
+    await dialog.getByRole("button", { name: /管理已配置规则/ }).click();
+    const rulesDialog = page.getByRole("dialog", { name: "管理循环规则" });
 
     for (const ruleName of ["周总结", "月总结", "年总结", "复习 ANKI"]) {
       await expect(
-        dialog.getByRole("button", { name: `编辑循环规则：${ruleName}` }),
+        rulesDialog.getByRole("button", { name: `编辑循环规则：${ruleName}` }),
       ).toBeVisible();
     }
 
-    await dialog.getByRole("button", { name: "编辑循环规则：月总结" }).click();
+    await rulesDialog.getByRole("button", { name: "编辑循环规则：月总结" }).click();
     const editDialog = page.getByRole("dialog", { name: "编辑循环任务" });
     await expect(editDialog.getByLabel("任务名称")).toHaveValue("月总结");
-    await expect(
-      editDialog.getByRole("button", { name: "每月首个休息日", exact: true }),
-    ).toHaveAttribute("aria-pressed", "true");
-    await expect(editDialog.getByLabel("生效日期")).toHaveValue("2026-01-01");
-
     await editDialog.getByLabel("任务名称").fill("月度复盘");
-    await editDialog.getByLabel("提醒时间").fill("10:15");
-    await editDialog.getByRole("button", { name: "保存修改" }).click();
+    await editDialog.getByRole("button", { name: /编辑循环设置/ }).click();
+    const scheduleDialog = page.getByRole("dialog", { name: "设置循环时间" });
+    await expect(
+      scheduleDialog.getByRole("button", { name: "每月首个休息日", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(scheduleDialog.getByLabel("生效日期")).toHaveValue("2026-01-01");
+
+    await scheduleDialog.getByLabel("提醒时间").fill("10:15");
+    await scheduleDialog.getByRole("button", { name: "完成循环设置" }).click();
+    await page
+      .getByRole("dialog", { name: "编辑循环任务" })
+      .getByRole("button", { name: "保存修改" })
+      .click();
 
     const updatedDialog = page.getByRole("dialog", { name: "添加循环任务" });
-    await expect(updatedDialog.getByTitle("月度复盘")).toBeVisible();
+    await updatedDialog.getByRole("button", { name: /管理已配置规则/ }).click();
+    const updatedRulesDialog = page.getByRole("dialog", { name: "管理循环规则" });
+    await expect(updatedRulesDialog.getByTitle("月度复盘")).toBeVisible();
     await expect(
-      updatedDialog.getByText(/每月首个休息日 10:15 生成任务/),
+      updatedRulesDialog.getByText(/每月首个休息日 10:15 生成任务/),
     ).toBeVisible();
-    await updatedDialog.getByRole("button", { name: "关闭对话框" }).click();
+    await updatedRulesDialog.getByRole("button", { name: "关闭对话框" }).click();
 
     await page.getByRole("button", { name: "添加循环任务" }).click();
     const persistedDialog = page.getByRole("dialog", { name: "添加循环任务" });
-    await persistedDialog.getByText("已配置规则").click();
+    await persistedDialog.getByRole("button", { name: /管理已配置规则/ }).click();
+    const persistedRulesDialog = page.getByRole("dialog", {
+      name: "管理循环规则",
+    });
     await expect(
-      persistedDialog.getByRole("button", { name: "编辑循环规则：月度复盘" }),
+      persistedRulesDialog.getByRole("button", { name: "编辑循环规则：月度复盘" }),
     ).toBeVisible();
   });
 
@@ -139,18 +150,29 @@ test.describe("Tasks", () => {
     await expect(dialog).toBeVisible();
     await dialog.getByLabel("任务名称").fill("每日整理收件箱");
     await dialog.getByRole("button", { name: "设为专注" }).click();
-    await dialog.getByRole("button", { name: "预计 1 个番茄" }).click();
-    await dialog.getByRole("button", { name: "更多任务属性" }).click();
-    await dialog.getByLabel(/项目/).fill("个人效率");
-    await dialog.getByRole("button", { name: "创建循环任务" }).click();
+    const focusDialog = page.getByRole("dialog", { name: "设置专注任务" });
+    await focusDialog.getByRole("button", { name: "预计 1 个番茄" }).click();
+    await focusDialog.getByRole("button", { name: "完成专注设置" }).click();
+    const mainDialog = page.getByRole("dialog", { name: "添加循环任务" });
+    await mainDialog.getByRole("button", { name: /编辑任务属性/ }).click();
+    const attributesDialog = page.getByRole("dialog", { name: "设置任务属性" });
+    await attributesDialog.getByLabel(/项目/).fill("个人效率");
+    await attributesDialog.getByRole("button", { name: "完成任务属性" }).click();
+    await page
+      .getByRole("dialog", { name: "添加循环任务" })
+      .getByRole("button", { name: "创建循环任务" })
+      .click();
 
     await expect(dialog).not.toBeVisible();
     await expect(page.getByText("每日整理收件箱")).toBeVisible();
 
     await page.getByRole("button", { name: "添加循环任务" }).click();
     const reopenedDialog = page.getByRole("dialog", { name: "添加循环任务" });
-    await reopenedDialog.getByText("已配置规则").click();
-    const editRuleButton = reopenedDialog.getByRole("button", {
+    await reopenedDialog.getByRole("button", { name: /管理已配置规则/ }).click();
+    const reopenedRulesDialog = page.getByRole("dialog", {
+      name: "管理循环规则",
+    });
+    const editRuleButton = reopenedRulesDialog.getByRole("button", {
       name: "编辑循环规则：每日整理收件箱",
     });
     await editRuleButton.focus();
@@ -159,15 +181,30 @@ test.describe("Tasks", () => {
     const editDialog = page.getByRole("dialog", { name: "编辑循环任务" });
     await expect(editDialog.getByLabel("任务名称")).toHaveValue("每日整理收件箱");
     await expect(editDialog.getByLabel("任务名称")).toBeFocused();
-    await expect(editDialog.getByLabel(/项目/)).toHaveValue("个人效率");
     await editDialog.getByLabel("任务名称").fill("每周整理收件箱");
-    await editDialog.getByRole("button", { name: "每周" }).click();
-    await editDialog.getByLabel("提醒时间").fill("10:30");
-    await editDialog.getByRole("button", { name: "保存修改" }).click();
+    await editDialog.getByRole("button", { name: /编辑任务属性/ }).click();
+    const editAttributesDialog = page.getByRole("dialog", {
+      name: "设置任务属性",
+    });
+    await expect(editAttributesDialog.getByLabel(/项目/)).toHaveValue("个人效率");
+    await editAttributesDialog.getByRole("button", { name: "完成任务属性" }).click();
+    await page
+      .getByRole("dialog", { name: "编辑循环任务" })
+      .getByRole("button", { name: /编辑循环设置/ })
+      .click();
+    const editScheduleDialog = page.getByRole("dialog", {
+      name: "设置循环时间",
+    });
+    await editScheduleDialog.getByRole("button", { name: "每周" }).click();
+    await editScheduleDialog.getByLabel("提醒时间").fill("10:30");
+    await editScheduleDialog.getByRole("button", { name: "完成循环设置" }).click();
+    await page
+      .getByRole("dialog", { name: "编辑循环任务" })
+      .getByRole("button", { name: "保存修改" })
+      .click();
 
     const updatedDialog = page.getByRole("dialog", { name: "添加循环任务" });
     await expect(updatedDialog).toBeVisible();
-    await expect(updatedDialog.getByText("每周整理收件箱")).toBeVisible();
     await expect(updatedDialog.getByRole("status")).toContainText(
       "修改只影响之后新生成的任务",
     );
@@ -176,21 +213,24 @@ test.describe("Tasks", () => {
 
     await page.getByRole("button", { name: "添加循环任务" }).click();
     const persistedDialog = page.getByRole("dialog", { name: "添加循环任务" });
-    await persistedDialog.getByText("已配置规则").click();
+    await persistedDialog.getByRole("button", { name: /管理已配置规则/ }).click();
+    const persistedRulesDialog = page.getByRole("dialog", {
+      name: "管理循环规则",
+    });
     await expect(
-      persistedDialog.getByRole("button", { name: "编辑循环规则：每周整理收件箱" }),
+      persistedRulesDialog.getByRole("button", { name: "编辑循环规则：每周整理收件箱" }),
     ).toBeVisible();
     await expect(
-      persistedDialog.getByRole("button", { name: "编辑循环规则：每日整理收件箱" }),
+      persistedRulesDialog.getByRole("button", { name: "编辑循环规则：每日整理收件箱" }),
     ).toHaveCount(0);
     await expect(
-      persistedDialog.getByText(/每周[一二三四五六日] 10:30 生成任务/),
+      persistedRulesDialog.getByText(/每周[一二三四五六日] 10:30 生成任务/),
     ).toBeVisible();
-    await persistedDialog
+    await persistedRulesDialog
       .getByRole("button", { name: "停用循环规则：每周整理收件箱" })
       .click();
     await expect(
-      persistedDialog.getByRole("button", { name: "启用循环规则：每周整理收件箱" }),
+      persistedRulesDialog.getByRole("button", { name: "启用循环规则：每周整理收件箱" }),
     ).toBeVisible();
   });
 

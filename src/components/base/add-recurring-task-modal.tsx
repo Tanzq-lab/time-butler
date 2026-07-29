@@ -1,14 +1,22 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import type React from "react";
 import {
+  ArrowLeft,
   CalendarDays,
-  ChevronDown,
+  ChevronRight,
   Focus,
   ListTodo,
   Pencil,
   Plus,
   Repeat2,
   Save,
+  SlidersHorizontal,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,6 +34,8 @@ import {
 
 const POMODORO_OPTIONS = [1, 2, 3, 4] as const;
 type PomodoroEstimate = (typeof POMODORO_OPTIONS)[number];
+type ChildView = "focus" | "attributes" | "schedule" | "rules";
+type ModalView = "main" | ChildView;
 
 export type AddRecurringTaskData = RecurringTaskRuleInput;
 
@@ -65,6 +75,23 @@ type FormAction =
       value: FormState[keyof FormState];
     };
 
+interface DialogHeaderProps {
+  title: string;
+  description: string;
+  onClose: () => void;
+  onBack?: () => void;
+  backButtonRef?: React.RefObject<HTMLButtonElement | null>;
+}
+
+interface SettingsRowProps {
+  icon: React.ReactNode;
+  title: string;
+  summary: string;
+  ariaLabel: string;
+  onClick: () => void;
+  buttonRef?: React.RefObject<HTMLButtonElement | null>;
+}
+
 const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
 const SHORT_DATE_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
   month: "long",
@@ -80,6 +107,13 @@ const FREQUENCY_OPTIONS: {
   { value: "monthly_first_day_off", label: "每月首个休息日" },
   { value: "yearly_first_day_off", label: "每年首个休息日" },
 ];
+
+const CHILD_VIEW_LABELS: Record<ChildView, string> = {
+  focus: "设置专注任务",
+  attributes: "设置任务属性",
+  schedule: "设置循环时间",
+  rules: "管理循环规则",
+};
 
 function toDateInputValue(date: Date): string {
   return [
@@ -154,6 +188,87 @@ function formReducer(state: FormState, action: FormAction): FormState {
   }
 }
 
+function DialogHeader({
+  title,
+  description,
+  onClose,
+  onBack,
+  backButtonRef,
+}: DialogHeaderProps) {
+  return (
+    <header className="mb-6 flex items-start gap-3">
+      {onBack ? (
+        <button
+          ref={backButtonRef}
+          type="button"
+          onClick={onBack}
+          aria-label="返回循环任务"
+          className="flex size-10 shrink-0 touch-manipulation items-center justify-center rounded-md border border-sahara-border bg-sahara-card text-sahara-text outline-none transition-colors duration-150 hover:bg-sahara-primary-light focus-visible:ring-2 focus-visible:ring-sahara-focus"
+        >
+          <ArrowLeft aria-hidden="true" className="size-5" />
+        </button>
+      ) : (
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-md border border-sahara-border bg-sahara-card text-sahara-text">
+          <Repeat2 aria-hidden="true" className="size-5" />
+        </div>
+      )}
+
+      <div className="min-w-0 flex-1 pt-0.5">
+        <h3 className="text-balance text-lg font-semibold text-sahara-text">
+          {title}
+        </h3>
+        <p className="mt-0.5 text-pretty text-xs leading-4 text-sahara-text-muted">
+          {description}
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="关闭对话框"
+        className="flex size-10 shrink-0 touch-manipulation items-center justify-center rounded-md text-sahara-text-muted outline-none transition-colors duration-150 hover:bg-sahara-card hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus"
+      >
+        <X aria-hidden="true" className="size-5" />
+      </button>
+    </header>
+  );
+}
+
+function SettingsRow({
+  icon,
+  title,
+  summary,
+  ariaLabel,
+  onClick,
+  buttonRef,
+}: SettingsRowProps) {
+  return (
+    <button
+      ref={buttonRef}
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className="flex min-h-14 w-full touch-manipulation items-center gap-3 px-3 py-2.5 text-left outline-none transition-colors duration-150 hover:bg-sahara-card focus-visible:bg-sahara-card focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sahara-focus sm:px-4"
+    >
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sahara-card text-sahara-text-secondary">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-xs font-medium text-sahara-text">
+          {title}
+        </span>
+        <span className="mt-0.5 block truncate text-[11px] text-sahara-text-muted">
+          {summary}
+        </span>
+      </span>
+      <ChevronRight
+        aria-hidden="true"
+        className="size-4 shrink-0 text-sahara-text-muted"
+      />
+    </button>
+  );
+}
+
 export function AddRecurringTaskModal({
   open,
   onClose,
@@ -171,9 +286,15 @@ export function AddRecurringTaskModal({
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [togglingRuleId, setTogglingRuleId] = useState<number | null>(null);
   const [editingRuleId, setEditingRuleId] = useState<number | null>(null);
-  const [focusSetupOpen, setFocusSetupOpen] = useState(false);
-  const [attributesOpen, setAttributesOpen] = useState(false);
+  const [activeView, setActiveView] = useState<ModalView>("main");
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const backButtonRef = useRef<HTMLButtonElement>(null);
+  const rulesButtonRef = useRef<HTMLButtonElement>(null);
+  const focusButtonRef = useRef<HTMLButtonElement>(null);
+  const attributesButtonRef = useRef<HTMLButtonElement>(null);
+  const scheduleButtonRef = useRef<HTMLButtonElement>(null);
+  const lastMainTriggerRef = useRef<ChildView | null>(null);
+  const focusNameOnMainRef = useRef(false);
   const uniqueProjects = useMemo(
     () => [...new Set(projectOptions.map((project) => project.trim()).filter(Boolean))],
     [projectOptions],
@@ -187,48 +308,94 @@ export function AddRecurringTaskModal({
     setSubmitSuccess(null);
     setTogglingRuleId(null);
     setEditingRuleId(null);
-    setFocusSetupOpen(false);
-    setAttributesOpen(false);
+    setActiveView("main");
+    lastMainTriggerRef.current = null;
+    focusNameOnMainRef.current = false;
     void loadCategories();
   }, [loadCategories, open]);
 
   useEffect(() => {
-    if (open && editingRuleId !== null) nameInputRef.current?.focus();
-  }, [editingRuleId, open]);
+    if (!open) return;
+    const frame = window.requestAnimationFrame(() => {
+      if (activeView !== "main") {
+        backButtonRef.current?.focus();
+        return;
+      }
+      if (focusNameOnMainRef.current) {
+        focusNameOnMainRef.current = false;
+        nameInputRef.current?.focus();
+        return;
+      }
+      const lastTrigger = lastMainTriggerRef.current;
+      if (lastTrigger === "rules") rulesButtonRef.current?.focus();
+      if (lastTrigger === "focus") focusButtonRef.current?.focus();
+      if (lastTrigger === "attributes") attributesButtonRef.current?.focus();
+      if (lastTrigger === "schedule") scheduleButtonRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeView, open]);
 
   const canSubmit =
     Boolean(form.name.trim())
     && Boolean(form.startDate)
     && Boolean(form.scheduledTime)
-    && (!focusSetupOpen || form.estimatedPomos !== null)
     && !submitting;
+  const isEditing = editingRuleId !== null;
   const ruleSummary = formatRecurringRuleSummary(
     form.frequency,
     form.startDate,
     form.scheduledTime,
   );
   const startDay = parseDateInput(form.startDate)?.getDate() ?? 0;
-  const isEditing = editingRuleId !== null;
   const usesRestDaySchedule =
     form.frequency === "monthly_first_day_off"
     || form.frequency === "yearly_first_day_off";
+  const categoryName = categories.find(
+    (category) => category.id === form.categoryId,
+  )?.name;
+  const attributeSummary = [
+    form.project.trim() ? `项目：${form.project.trim()}` : "",
+    categoryName ? `分类：${categoryName}` : "",
+  ].filter(Boolean).join(" · ") || "未设置项目或分类";
+  const mainDialogLabel = isEditing ? "编辑循环任务" : "添加循环任务";
+
+  const openChildView = (view: ChildView) => {
+    lastMainTriggerRef.current = view;
+    setActiveView(view);
+  };
+
+  const returnToMain = () => {
+    setActiveView("main");
+  };
+
+  const closeDialog = () => {
+    setActiveView("main");
+    onClose();
+  };
+
+  const handleLayerDismiss = () => {
+    if (activeView === "main") {
+      closeDialog();
+      return;
+    }
+    returnToMain();
+  };
 
   const beginEditing = (rule: UserRecurringTaskRule) => {
     dispatch({ type: "RESET", payload: formStateFromRule(rule) });
     setEditingRuleId(rule.id);
-    setFocusSetupOpen(getRecurringTaskItemType(rule) === "focus");
-    setAttributesOpen(Boolean(rule.project || rule.category_id));
     setSubmitError(null);
     setSubmitSuccess(null);
+    focusNameOnMainRef.current = true;
+    setActiveView("main");
   };
 
   const cancelEditing = () => {
     dispatch({ type: "RESET", payload: initialFormState() });
     setEditingRuleId(null);
-    setFocusSetupOpen(false);
-    setAttributesOpen(false);
     setSubmitError(null);
     setSubmitSuccess(null);
+    nameInputRef.current?.focus();
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -256,12 +423,10 @@ export function AddRecurringTaskModal({
         if (isEditing) {
           dispatch({ type: "RESET", payload: initialFormState() });
           setEditingRuleId(null);
-          setFocusSetupOpen(false);
-          setAttributesOpen(false);
           setSubmitSuccess("循环规则已更新。修改只影响之后新生成的任务。");
           return;
         }
-        onClose();
+        closeDialog();
         return;
       }
       setSubmitError(
@@ -298,538 +463,664 @@ export function AddRecurringTaskModal({
     }
   };
 
-  return (
-    <ModalOverlay
-      open={open}
-      onClose={onClose}
-      maxWidth="max-w-xl"
-      ariaLabel={isEditing ? "编辑循环任务" : "添加循环任务"}
-    >
-      <div className="max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain p-5 md:p-6">
-        <div className="mb-6 flex items-start gap-3">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-sahara-border bg-sahara-card text-sahara-text">
-            <Repeat2 aria-hidden="true" className="size-5" />
-          </div>
-          <div className="min-w-0">
-            <h3 className="text-balance text-lg font-semibold text-sahara-text">
-              {isEditing ? "编辑循环任务" : "创建循环任务"}
-            </h3>
-            <p className="mt-0.5 text-xs text-sahara-text-muted">
-              {isEditing
-                ? "修改只影响之后新生成的任务"
-                : "像平常一样创建任务，再设置循环时间"}
+  const renderMainView = () => (
+    <>
+      <DialogHeader
+        title={isEditing ? "编辑循环任务" : "创建循环任务"}
+        description={
+          isEditing
+            ? "修改只影响之后新生成的任务"
+            : "先定义任务模板，需要时再打开具体设置"
+        }
+        onClose={closeDialog}
+      />
+
+      <button
+        ref={rulesButtonRef}
+        type="button"
+        onClick={() => openChildView("rules")}
+        aria-label={`管理已配置规则，共 ${rules.length} 条`}
+        className="mb-5 flex min-h-12 w-full touch-manipulation items-center gap-2 rounded-md border border-sahara-border bg-sahara-card/60 px-3 text-xs font-medium text-sahara-text outline-none transition-colors duration-150 hover:bg-sahara-card focus-visible:ring-2 focus-visible:ring-sahara-focus"
+      >
+        <Repeat2 aria-hidden="true" className="size-4 text-sahara-text-muted" />
+        已配置规则
+        <span className="ml-auto tabular-nums text-sahara-text-muted">
+          {rules.length}
+        </span>
+        <ChevronRight
+          aria-hidden="true"
+          className="size-4 text-sahara-text-muted"
+        />
+      </button>
+
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <section aria-labelledby="recurring-task-template-label">
+          <div className="mb-2">
+            <h4
+              id="recurring-task-template-label"
+              className="text-xs font-semibold text-sahara-text"
+            >
+              任务模板
+            </h4>
+            <p className="mt-0.5 text-[11px] leading-4 text-sahara-text-muted">
+              生成后就是一条普通任务，可继续按原有方式修改。
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="关闭对话框"
-            className="ml-auto flex size-10 shrink-0 touch-manipulation items-center justify-center rounded-md text-sahara-text-muted outline-none transition-colors duration-150 hover:bg-sahara-card hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus"
-          >
-            <X aria-hidden="true" className="size-5" />
-          </button>
-        </div>
 
-        <details className="mb-5 rounded-md border border-sahara-border bg-sahara-card/60">
-          <summary className="flex min-h-11 cursor-pointer touch-manipulation list-none items-center gap-2 px-3 text-xs font-medium text-sahara-text outline-none transition-colors duration-150 hover:bg-sahara-card focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sahara-focus">
-            <Repeat2 aria-hidden="true" className="size-4 text-sahara-text-muted" />
-            已配置规则
-            <span className="ml-auto tabular-nums text-sahara-text-muted">
-              {rules.length}
-            </span>
-          </summary>
-          <div className="border-t border-sahara-border px-3 py-2">
-            <p className="mb-2 text-[11px] leading-4 text-sahara-text-muted">
-              原有规则和新建规则都可编辑或停用；修改仅影响之后新生成的任务。
-            </p>
-            {rules.length === 0 ? (
-              <p className="rounded-md bg-sahara-surface px-3 py-3 text-xs text-sahara-text-muted">
-                还没有已配置规则，可在下方创建第一条。
-              </p>
-            ) : (
-              <div className="space-y-1.5">
-                {rules.map((rule) => {
-                  const enabled = rule.enabled === 1;
-                  const itemType = getRecurringTaskItemType(rule);
-                  return (
-                    <div
-                      key={rule.id}
-                      className="flex min-w-0 items-center gap-3 rounded-md bg-sahara-surface px-2.5 py-2"
-                    >
-                      <div className="flex min-w-0 flex-1 items-start gap-2">
-                        {itemType === "focus" ? (
-                          <Focus
-                            aria-hidden="true"
-                            className="mt-0.5 size-3.5 shrink-0 text-sahara-text-secondary"
-                          />
-                        ) : (
-                          <ListTodo
-                            aria-hidden="true"
-                            className="mt-0.5 size-3.5 shrink-0 text-sahara-text-secondary"
-                          />
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex min-w-0 items-center gap-2">
-                            <p
-                              className="truncate text-xs font-medium text-sahara-text"
-                              title={rule.name}
-                            >
-                              {itemType === "focus" && (
-                                <span className="task-pomo-label task-pomo-not-started">
-                                  专注：
-                                </span>
-                              )}
-                              {rule.name}
-                            </p>
-                            {!enabled && (
-                              <span className="shrink-0 rounded-full bg-sahara-card px-1.5 py-0.5 text-[10px] text-sahara-text-muted">
-                                已停用
-                              </span>
-                            )}
-                          </div>
-                          <p className="mt-0.5 truncate text-[11px] text-sahara-text-muted">
-                            {itemType === "focus" && (
-                              <span className="mr-1.5 font-mono font-semibold tabular-nums text-sahara-text-secondary">
-                                0/{rule.estimated_pomos}
-                              </span>
-                            )}
-                            {formatRecurringRuleSummary(
-                              getRecurringTaskSchedule(rule),
-                              rule.start_date,
-                              rule.scheduled_time,
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex shrink-0 gap-1.5">
-                        {onUpdateRule && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            intent="default"
-                            size="xs"
-                            aria-label={`编辑循环规则：${rule.name}`}
-                            disabled={submitting || togglingRuleId !== null}
-                            onClick={() => beginEditing(rule)}
-                            className="min-h-10 gap-1"
-                          >
-                            <Pencil aria-hidden="true" className="size-3" />
-                            编辑
-                          </Button>
-                        )}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          intent="default"
-                          size="xs"
-                          aria-label={`${enabled ? "停用" : "启用"}循环规则：${rule.name}`}
-                          disabled={submitting || togglingRuleId !== null}
-                          onClick={() => void handleToggleRule(rule)}
-                          className="min-h-10 shrink-0"
-                        >
-                          {togglingRuleId === rule.id
-                            ? "更新中…"
-                            : enabled
-                              ? "停用"
-                              : "启用"}
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </details>
-
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <section aria-labelledby="recurring-task-template-label">
-            <div className="mb-2">
-              <h4
-                id="recurring-task-template-label"
-                className="text-xs font-semibold text-sahara-text"
-              >
-                任务模板
-              </h4>
-              <p className="mt-0.5 text-[11px] leading-4 text-sahara-text-muted">
-                生成后就是一条普通任务，可继续按原有方式修改。
-              </p>
-            </div>
-
-            <div className="overflow-hidden rounded-[10px] border border-sahara-border bg-sahara-surface">
-              <div
-                data-template-kind={form.estimatedPomos === null ? "todo" : "focus"}
-                className="flex min-w-0 items-start gap-2.5 px-3 py-3 sm:px-4"
-              >
-                <span
-                  aria-hidden="true"
-                  className="mt-1 flex size-5 shrink-0 items-center justify-center rounded-[5px] border border-sahara-text-muted/55 bg-sahara-surface"
-                />
-                <div className="min-w-0 flex-1">
-                  <label htmlFor="recurring-task-name" className="sr-only">
-                    任务名称
-                  </label>
-                  <div className="flex min-w-0 items-center">
-                    {form.estimatedPomos !== null && (
-                      <span className="task-pomo-label task-pomo-not-started shrink-0 text-sm font-medium leading-8">
-                        专注：
-                      </span>
-                    )}
-                    <input
-                      id="recurring-task-name"
-                      name="recurring-task-name"
-                      type="text"
-                      ref={nameInputRef}
-                      autoComplete="off"
-                      value={form.name}
-                      onChange={(event) =>
-                        dispatch({
-                          type: "SET_FIELD",
-                          field: "name",
-                          value: event.target.value,
-                        })
-                      }
-                      placeholder="添加任务…"
-                      className="h-8 min-w-0 flex-1 bg-transparent px-0.5 text-sm text-sahara-text outline-none placeholder:text-sahara-text-muted focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-sahara-focus"
-                    />
-                  </div>
-                  {form.estimatedPomos !== null && (
-                    <p className="task-pomo-label task-pomo-not-started mt-0.5 font-mono text-[11px] font-semibold tabular-nums">
-                      0/{form.estimatedPomos}
-                    </p>
-                  )}
-                </div>
-
-                {form.estimatedPomos === null ? (
-                  <button
-                    type="button"
-                    aria-expanded={focusSetupOpen}
-                    aria-controls="recurring-task-focus-setup"
-                    onClick={() => setFocusSetupOpen(true)}
-                    className="flex min-h-10 shrink-0 touch-manipulation items-center gap-1.5 rounded-md px-2 text-xs font-medium text-sahara-text-secondary outline-none transition-colors duration-150 hover:bg-sahara-card hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus"
-                  >
-                    <Focus aria-hidden="true" className="size-3.5" />
-                    设为专注
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      dispatch({
-                        type: "SET_FIELD",
-                        field: "estimatedPomos",
-                        value: null,
-                      });
-                      setFocusSetupOpen(false);
-                    }}
-                    className="flex min-h-10 shrink-0 touch-manipulation items-center gap-1.5 rounded-md px-2 text-xs font-medium text-sahara-text-secondary outline-none transition-colors duration-150 hover:bg-sahara-card hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus"
-                  >
-                    <ListTodo aria-hidden="true" className="size-3.5" />
-                    改为待办
-                  </button>
+          <div className="flex min-w-0 items-start gap-2.5 rounded-[10px] border border-sahara-border bg-sahara-surface px-3 py-3 sm:px-4">
+            <span
+              aria-hidden="true"
+              className="mt-1 flex size-5 shrink-0 items-center justify-center rounded-[5px] border border-sahara-text-muted/55 bg-sahara-surface"
+            />
+            <div className="min-w-0 flex-1">
+              <label htmlFor="recurring-task-name" className="sr-only">
+                任务名称
+              </label>
+              <div className="flex min-w-0 items-center">
+                {form.estimatedPomos !== null && (
+                  <span className="task-pomo-label task-pomo-not-started shrink-0 text-sm font-medium leading-8">
+                    专注：
+                  </span>
                 )}
+                <input
+                  id="recurring-task-name"
+                  name="recurring-task-name"
+                  type="text"
+                  ref={nameInputRef}
+                  autoComplete="off"
+                  value={form.name}
+                  onChange={(event) =>
+                    dispatch({
+                      type: "SET_FIELD",
+                      field: "name",
+                      value: event.target.value,
+                    })
+                  }
+                  placeholder="添加任务…"
+                  className="h-8 min-w-0 flex-1 bg-transparent px-0.5 text-sm text-sahara-text outline-none placeholder:text-sahara-text-muted focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-sahara-focus"
+                />
               </div>
-
-              {focusSetupOpen && (
-                <div
-                  id="recurring-task-focus-setup"
-                  className="border-t border-sahara-border bg-sahara-card/45 px-3 py-3 sm:px-4"
-                >
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <label
-                      id="recurring-task-pomos-label"
-                      className="text-xs font-medium text-sahara-text-secondary"
-                    >
-                      预计番茄数
-                    </label>
-                    {form.estimatedPomos === null && (
-                      <button
-                        type="button"
-                        onClick={() => setFocusSetupOpen(false)}
-                        className="min-h-10 touch-manipulation rounded-md px-2 text-[11px] text-sahara-text-muted outline-none hover:bg-sahara-surface hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus"
-                      >
-                        保留为普通待办
-                      </button>
-                    )}
-                  </div>
-                  <div
-                    role="group"
-                    aria-labelledby="recurring-task-pomos-label"
-                    className="grid grid-cols-4 gap-2"
-                  >
-                    {POMODORO_OPTIONS.map((pomos) => {
-                      const selected = form.estimatedPomos === pomos;
-                      return (
-                        <button
-                          key={pomos}
-                          type="button"
-                          aria-label={`预计 ${pomos} 个番茄`}
-                          aria-pressed={selected}
-                          onClick={() =>
-                            dispatch({
-                              type: "SET_FIELD",
-                              field: "estimatedPomos",
-                              value: pomos,
-                            })
-                          }
-                          className={`flex h-11 touch-manipulation items-center justify-center rounded-md border text-sm font-semibold tabular-nums outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-sahara-focus ${
-                            selected
-                              ? "border-sahara-text bg-sahara-surface text-sahara-text"
-                              : "border-sahara-border bg-sahara-surface text-sahara-text-secondary hover:border-sahara-text-muted hover:bg-sahara-card"
-                          }`}
-                        >
-                          {pomos}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+              {form.estimatedPomos !== null && (
+                <p className="task-pomo-label task-pomo-not-started mt-0.5 font-mono text-[11px] font-semibold tabular-nums">
+                  0/{form.estimatedPomos}
+                </p>
               )}
             </div>
 
             <button
+              ref={focusButtonRef}
               type="button"
-              aria-expanded={attributesOpen}
-              aria-controls="recurring-task-attributes"
-              onClick={() => setAttributesOpen((value) => !value)}
-              className="mt-2 flex min-h-10 touch-manipulation items-center gap-1 rounded-md px-1.5 text-[11px] font-medium text-sahara-text-muted outline-none transition-colors duration-150 hover:bg-sahara-card hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus"
+              onClick={() => openChildView("focus")}
+              aria-label={
+                form.estimatedPomos === null
+                  ? "设为专注"
+                  : `编辑专注设置，当前 ${form.estimatedPomos} 个番茄`
+              }
+              className="flex min-h-10 shrink-0 touch-manipulation items-center gap-1 rounded-md px-2 text-xs font-medium text-sahara-text-secondary outline-none transition-colors duration-150 hover:bg-sahara-card hover:text-sahara-text focus-visible:ring-2 focus-visible:ring-sahara-focus"
             >
-              <ChevronDown
+              <Focus aria-hidden="true" className="size-3.5" />
+              {form.estimatedPomos === null
+                ? "设为专注"
+                : `${form.estimatedPomos} 个番茄`}
+              <ChevronRight
                 aria-hidden="true"
-                className={`size-3.5 transition-transform duration-150 motion-reduce:transition-none ${
-                  attributesOpen ? "rotate-180" : ""
-                }`}
+                className="size-3.5 text-sahara-text-muted"
               />
-              更多任务属性
             </button>
+          </div>
+        </section>
 
-            {attributesOpen && (
-              <div
-                id="recurring-task-attributes"
-                className="mt-2 grid gap-4 rounded-md border border-sahara-border bg-sahara-card/45 p-3 sm:grid-cols-2"
-              >
-                <div>
-                  <label
-                    htmlFor="recurring-task-project"
-                    className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
-                  >
-                    项目 <span className="font-normal text-sahara-text-muted">（可选）</span>
-                  </label>
-                  <input
-                    id="recurring-task-project"
-                    name="recurring-task-project"
-                    type="text"
-                    list="recurring-task-project-options"
-                    autoComplete="off"
-                    value={form.project}
-                    onChange={(event) =>
-                      dispatch({
-                        type: "SET_FIELD",
-                        field: "project",
-                        value: event.target.value,
-                      })
-                    }
-                    placeholder="例如：个人复盘…"
-                    className="h-10 w-full rounded-md border border-sahara-border bg-sahara-surface px-3 text-sm text-sahara-text outline-none transition-colors duration-150 placeholder:text-sahara-text-muted focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
-                  />
-                  <datalist id="recurring-task-project-options">
-                    {uniqueProjects.map((project) => (
-                      <option key={project} value={project} />
-                    ))}
-                  </datalist>
-                </div>
+        <section
+          aria-label="循环任务设置摘要"
+          className="overflow-hidden rounded-[10px] border border-sahara-border bg-sahara-surface"
+        >
+          <SettingsRow
+            buttonRef={attributesButtonRef}
+            icon={
+              <SlidersHorizontal aria-hidden="true" className="size-4" />
+            }
+            title="任务属性"
+            summary={attributeSummary}
+            ariaLabel={`编辑任务属性，${attributeSummary}`}
+            onClick={() => openChildView("attributes")}
+          />
+          <div className="mx-3 border-t border-sahara-border sm:mx-4" />
+          <SettingsRow
+            buttonRef={scheduleButtonRef}
+            icon={<CalendarDays aria-hidden="true" className="size-4" />}
+            title="循环设置"
+            summary={ruleSummary}
+            ariaLabel={`编辑循环设置，${ruleSummary}`}
+            onClick={() => openChildView("schedule")}
+          />
+        </section>
 
-                <div>
-                  <label
-                    htmlFor="recurring-task-category"
-                    className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
-                  >
-                    分类 <span className="font-normal text-sahara-text-muted">（可选）</span>
-                  </label>
-                  <select
-                    id="recurring-task-category"
-                    name="recurring-task-category"
-                    value={form.categoryId ?? ""}
-                    onChange={(event) =>
-                      dispatch({
-                        type: "SET_FIELD",
-                        field: "categoryId",
-                        value: event.target.value ? Number(event.target.value) : null,
-                      })
-                    }
-                    className="h-10 w-full rounded-md border border-sahara-border bg-sahara-surface px-3 text-sm text-sahara-text outline-none transition-colors duration-150 focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
-                  >
-                    <option value="">不设置分类</option>
-                    {categories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+        {submitError && (
+          <p
+            role="status"
+            aria-live="polite"
+            className="text-xs font-medium text-[#b42318]"
+          >
+            {submitError}
+          </p>
+        )}
+
+        {submitSuccess && (
+          <p
+            role="status"
+            aria-live="polite"
+            className="text-xs font-medium text-sahara-text-secondary"
+          >
+            {submitSuccess}
+          </p>
+        )}
+
+        <div className="flex gap-3 pt-1">
+          <Button
+            type="button"
+            variant="outline"
+            intent="default"
+            size="md"
+            fullWidth
+            onClick={isEditing ? cancelEditing : closeDialog}
+            disabled={submitting}
+          >
+            {isEditing ? "取消编辑" : "取消"}
+          </Button>
+          <Button
+            type="submit"
+            variant="solid"
+            intent={canSubmit ? "sahara" : "default"}
+            fullWidth
+            disabled={!canSubmit}
+            className="gap-2 whitespace-nowrap px-2 text-xs sm:px-4 sm:text-sm"
+          >
+            {isEditing ? (
+              <Save aria-hidden="true" className="size-4" />
+            ) : (
+              <Plus aria-hidden="true" className="size-4" />
             )}
-          </section>
+            {submitting
+              ? isEditing
+                ? "正在保存…"
+                : "正在创建…"
+              : isEditing
+                ? "保存修改"
+                : "创建循环任务"}
+          </Button>
+        </div>
+      </form>
+    </>
+  );
 
-          <div className="border-t border-sahara-border pt-5">
-            <div className="mb-3 flex items-center gap-2">
-              <CalendarDays
-                aria-hidden="true"
-                className="size-4 text-sahara-text-secondary"
-              />
-              <h4 className="text-xs font-semibold text-sahara-text">
-                循环设置
-              </h4>
-            </div>
+  const renderFocusView = () => (
+    <>
+      <DialogHeader
+        title="专注设置"
+        description="普通待办需要投入时，再增加番茄预算。"
+        onBack={returnToMain}
+        onClose={closeDialog}
+        backButtonRef={backButtonRef}
+      />
 
-            <div>
-              <label
-                id="recurring-task-frequency-label"
-                className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
+      <section aria-labelledby="recurring-task-pomos-label" className="space-y-5">
+        <div className="flex min-w-0 items-start gap-3 rounded-[10px] border border-sahara-border bg-sahara-card/60 px-3 py-3">
+          {form.estimatedPomos === null ? (
+            <ListTodo
+              aria-hidden="true"
+              className="mt-0.5 size-4 shrink-0 text-sahara-text-secondary"
+            />
+          ) : (
+            <Focus
+              aria-hidden="true"
+              className="mt-0.5 size-4 shrink-0 text-sahara-text-secondary"
+            />
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-sahara-text">
+              {form.name.trim() || "未命名任务"}
+            </p>
+            <p className="mt-0.5 text-[11px] text-sahara-text-muted">
+              {form.estimatedPomos === null
+                ? "当前为普通待办"
+                : `当前预计 ${form.estimatedPomos} 个番茄`}
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <h4
+            id="recurring-task-pomos-label"
+            className="mb-2 text-xs font-medium text-sahara-text-secondary"
+          >
+            预计番茄数
+          </h4>
+          <div
+            role="group"
+            aria-labelledby="recurring-task-pomos-label"
+            className="grid grid-cols-4 gap-2"
+          >
+            {POMODORO_OPTIONS.map((pomos) => {
+              const selected = form.estimatedPomos === pomos;
+              return (
+                <button
+                  key={pomos}
+                  type="button"
+                  aria-label={`预计 ${pomos} 个番茄`}
+                  aria-pressed={selected}
+                  onClick={() =>
+                    dispatch({
+                      type: "SET_FIELD",
+                      field: "estimatedPomos",
+                      value: pomos,
+                    })
+                  }
+                  className={`flex h-12 touch-manipulation items-center justify-center rounded-md border text-base font-semibold tabular-nums outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-sahara-focus ${
+                    selected
+                      ? "border-sahara-text bg-sahara-card text-sahara-text"
+                      : "border-sahara-border bg-sahara-surface text-sahara-text-secondary hover:border-sahara-text-muted hover:bg-sahara-card"
+                  }`}
+                >
+                  {pomos}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex gap-3 pt-1">
+          <Button
+            type="button"
+            variant="outline"
+            intent="default"
+            size="md"
+            fullWidth
+            onClick={() => {
+              dispatch({
+                type: "SET_FIELD",
+                field: "estimatedPomos",
+                value: null,
+              });
+              returnToMain();
+            }}
+          >
+            {form.estimatedPomos === null ? "保留普通待办" : "改为普通待办"}
+          </Button>
+          <Button
+            type="button"
+            variant="solid"
+            intent={form.estimatedPomos === null ? "default" : "sahara"}
+            size="md"
+            fullWidth
+            disabled={form.estimatedPomos === null}
+            onClick={returnToMain}
+          >
+            完成专注设置
+          </Button>
+        </div>
+      </section>
+    </>
+  );
+
+  const renderAttributesView = () => (
+    <>
+      <DialogHeader
+        title="任务属性"
+        description="项目和分类会跟随模板写入之后生成的任务。"
+        onBack={returnToMain}
+        onClose={closeDialog}
+        backButtonRef={backButtonRef}
+      />
+
+      <section className="space-y-5" aria-label="编辑任务属性">
+        <div>
+          <label
+            htmlFor="recurring-task-project"
+            className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
+          >
+            项目{" "}
+            <span className="font-normal text-sahara-text-muted">（可选）</span>
+          </label>
+          <input
+            id="recurring-task-project"
+            name="recurring-task-project"
+            type="text"
+            list="recurring-task-project-options"
+            autoComplete="off"
+            value={form.project}
+            onChange={(event) =>
+              dispatch({
+                type: "SET_FIELD",
+                field: "project",
+                value: event.target.value,
+              })
+            }
+            placeholder="例如：个人复盘…"
+            className="h-10 w-full rounded-md border border-sahara-border bg-sahara-surface px-3 text-sm text-sahara-text outline-none transition-colors duration-150 placeholder:text-sahara-text-muted focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
+          />
+          <datalist id="recurring-task-project-options">
+            {uniqueProjects.map((project) => (
+              <option key={project} value={project} />
+            ))}
+          </datalist>
+        </div>
+
+        <div>
+          <label
+            htmlFor="recurring-task-category"
+            className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
+          >
+            分类{" "}
+            <span className="font-normal text-sahara-text-muted">（可选）</span>
+          </label>
+          <select
+            id="recurring-task-category"
+            name="recurring-task-category"
+            value={form.categoryId ?? ""}
+            onChange={(event) =>
+              dispatch({
+                type: "SET_FIELD",
+                field: "categoryId",
+                value: event.target.value ? Number(event.target.value) : null,
+              })
+            }
+            className="h-10 w-full rounded-md border border-sahara-border bg-sahara-surface px-3 text-sm text-sahara-text outline-none transition-colors duration-150 focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20"
+          >
+            <option value="">不设置分类</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <Button
+          type="button"
+          variant="solid"
+          intent="sahara"
+          size="md"
+          fullWidth
+          onClick={returnToMain}
+        >
+          完成任务属性
+        </Button>
+      </section>
+    </>
+  );
+
+  const renderScheduleView = () => (
+    <>
+      <DialogHeader
+        title="循环设置"
+        description="只设置任务何时生成，不改变任务本身的规则。"
+        onBack={returnToMain}
+        onClose={closeDialog}
+        backButtonRef={backButtonRef}
+      />
+
+      <section className="space-y-5" aria-label="编辑循环设置">
+        <div>
+          <h4
+            id="recurring-task-frequency-label"
+            className="mb-2 text-xs font-medium text-sahara-text-secondary"
+          >
+            循环频率
+          </h4>
+          <div
+            role="group"
+            aria-labelledby="recurring-task-frequency-label"
+            className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+          >
+            {FREQUENCY_OPTIONS.map((option) => {
+              const selected = form.frequency === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() =>
+                    dispatch({
+                      type: "SET_FIELD",
+                      field: "frequency",
+                      value: option.value,
+                    })
+                  }
+                  className={`h-11 touch-manipulation rounded-md border px-2 text-xs font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-sahara-focus last:col-span-2 sm:last:col-span-1 ${
+                    selected
+                      ? "border-sahara-text bg-sahara-card text-sahara-text"
+                      : "border-sahara-border bg-sahara-surface text-sahara-text-secondary hover:bg-sahara-card"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label
+              htmlFor="recurring-task-start-date"
+              className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
+            >
+              {usesRestDaySchedule ? "生效日期" : "开始日期"}
+            </label>
+            <input
+              id="recurring-task-start-date"
+              name="recurring-task-start-date"
+              type="date"
+              value={form.startDate}
+              onChange={(event) =>
+                dispatch({
+                  type: "SET_FIELD",
+                  field: "startDate",
+                  value: event.target.value,
+                })
+              }
+              className="h-10 w-full min-w-0 rounded-md border border-sahara-border bg-sahara-surface px-2.5 text-sm tabular-nums text-sahara-text outline-none transition-colors duration-150 focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20 sm:px-3"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="recurring-task-time"
+              className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
+            >
+              提醒时间
+            </label>
+            <input
+              id="recurring-task-time"
+              name="recurring-task-time"
+              type="time"
+              value={form.scheduledTime}
+              onChange={(event) =>
+                dispatch({
+                  type: "SET_FIELD",
+                  field: "scheduledTime",
+                  value: event.target.value,
+                })
+              }
+              className="h-10 w-full min-w-0 rounded-md border border-sahara-border bg-sahara-surface px-2.5 text-sm tabular-nums text-sahara-text outline-none transition-colors duration-150 focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20 sm:px-3"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-start gap-3 rounded-md border border-sahara-border bg-sahara-card px-3 py-3 text-sahara-text-secondary">
+          <CalendarDays aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          <div>
+            <p className="text-xs font-medium leading-5 text-sahara-text">
+              {ruleSummary}
+            </p>
+            {form.frequency === "monthly" && startDay > 28 && (
+              <p className="mt-0.5 text-[11px] leading-4 text-sahara-text-muted">
+                遇到没有该日期的月份时，会安排在当月最后一天。
+              </p>
+            )}
+          </div>
+        </div>
+
+        <Button
+          type="button"
+          variant="solid"
+          intent="sahara"
+          size="md"
+          fullWidth
+          onClick={returnToMain}
+        >
+          完成循环设置
+        </Button>
+      </section>
+    </>
+  );
+
+  const renderRulesView = () => (
+    <>
+      <DialogHeader
+        title="已配置规则"
+        description="编辑或停用模板，不会改写已经生成的任务。"
+        onBack={returnToMain}
+        onClose={closeDialog}
+        backButtonRef={backButtonRef}
+      />
+
+      {rules.length === 0 ? (
+        <div className="rounded-[10px] border border-dashed border-sahara-border bg-sahara-card/45 px-4 py-8 text-center">
+          <Repeat2
+            aria-hidden="true"
+            className="mx-auto size-5 text-sahara-text-muted"
+          />
+          <p className="mt-2 text-xs font-medium text-sahara-text">
+            还没有已配置规则
+          </p>
+          <p className="mt-1 text-[11px] text-sahara-text-muted">
+            返回后可创建第一条循环任务。
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {rules.map((rule) => {
+            const enabled = rule.enabled === 1;
+            const itemType = getRecurringTaskItemType(rule);
+            return (
+              <article
+                key={rule.id}
+                className="flex min-w-0 items-center gap-3 rounded-[10px] border border-sahara-border bg-sahara-surface px-3 py-2.5"
               >
-                循环频率
-              </label>
-              <div
-                role="group"
-                aria-labelledby="recurring-task-frequency-label"
-                className="grid grid-cols-2 gap-2 sm:grid-cols-3"
-              >
-                {FREQUENCY_OPTIONS.map((option) => {
-                  const selected = form.frequency === option.value;
-                  return (
-                    <button
-                      key={option.value}
+                <div className="flex min-w-0 flex-1 items-start gap-2">
+                  {itemType === "focus" ? (
+                    <Focus
+                      aria-hidden="true"
+                      className="mt-0.5 size-3.5 shrink-0 text-sahara-text-secondary"
+                    />
+                  ) : (
+                    <ListTodo
+                      aria-hidden="true"
+                      className="mt-0.5 size-3.5 shrink-0 text-sahara-text-secondary"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <p
+                        className="truncate text-xs font-medium text-sahara-text"
+                        title={rule.name}
+                      >
+                        {itemType === "focus" && (
+                          <span className="task-pomo-label task-pomo-not-started">
+                            专注：
+                          </span>
+                        )}
+                        {rule.name}
+                      </p>
+                      {!enabled && (
+                        <span className="shrink-0 rounded-full bg-sahara-card px-1.5 py-0.5 text-[10px] text-sahara-text-muted">
+                          已停用
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 truncate text-[11px] text-sahara-text-muted">
+                      {itemType === "focus" && (
+                        <span className="mr-1.5 font-mono font-semibold tabular-nums text-sahara-text-secondary">
+                          0/{rule.estimated_pomos}
+                        </span>
+                      )}
+                      {formatRecurringRuleSummary(
+                        getRecurringTaskSchedule(rule),
+                        rule.start_date,
+                        rule.scheduled_time,
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex shrink-0 gap-1.5">
+                  {onUpdateRule && (
+                    <Button
                       type="button"
-                      aria-pressed={selected}
-                      onClick={() =>
-                        dispatch({
-                          type: "SET_FIELD",
-                          field: "frequency",
-                          value: option.value,
-                        })
-                      }
-                      className={`h-11 touch-manipulation rounded-md border px-2 text-xs font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-sahara-focus last:col-span-2 sm:last:col-span-1 ${
-                        selected
-                          ? "border-sahara-text bg-sahara-card text-sahara-text"
-                          : "border-sahara-border bg-sahara-surface text-sahara-text-secondary hover:bg-sahara-card"
-                      }`}
+                      variant="outline"
+                      intent="default"
+                      size="xs"
+                      aria-label={`编辑循环规则：${rule.name}`}
+                      disabled={submitting || togglingRuleId !== null}
+                      onClick={() => beginEditing(rule)}
+                      className="min-h-10 gap-1"
                     >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+                      <Pencil aria-hidden="true" className="size-3" />
+                      编辑
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    intent="default"
+                    size="xs"
+                    aria-label={`${enabled ? "停用" : "启用"}循环规则：${rule.name}`}
+                    disabled={submitting || togglingRuleId !== null}
+                    onClick={() => void handleToggleRule(rule)}
+                    className="min-h-10 shrink-0"
+                  >
+                    {togglingRuleId === rule.id
+                      ? "更新中…"
+                      : enabled
+                        ? "停用"
+                        : "启用"}
+                  </Button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 sm:gap-4">
-              <div>
-                <label
-                  htmlFor="recurring-task-start-date"
-                  className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
-                >
-                  {usesRestDaySchedule ? "生效日期" : "开始日期"}
-                </label>
-                <input
-                  id="recurring-task-start-date"
-                  name="recurring-task-start-date"
-                  type="date"
-                  value={form.startDate}
-                  onChange={(event) =>
-                    dispatch({
-                      type: "SET_FIELD",
-                      field: "startDate",
-                      value: event.target.value,
-                    })
-                  }
-                  className="h-10 w-full min-w-0 rounded-md border border-sahara-border bg-sahara-surface px-2.5 text-sm tabular-nums text-sahara-text outline-none transition-colors duration-150 focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20 sm:px-3"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="recurring-task-time"
-                  className="mb-1.5 block text-xs font-medium text-sahara-text-secondary"
-                >
-                  提醒时间
-                </label>
-                <input
-                  id="recurring-task-time"
-                  name="recurring-task-time"
-                  type="time"
-                  value={form.scheduledTime}
-                  onChange={(event) =>
-                    dispatch({
-                      type: "SET_FIELD",
-                      field: "scheduledTime",
-                      value: event.target.value,
-                    })
-                  }
-                  className="h-10 w-full min-w-0 rounded-md border border-sahara-border bg-sahara-surface px-2.5 text-sm tabular-nums text-sahara-text outline-none transition-colors duration-150 focus:border-sahara-text focus:ring-2 focus:ring-sahara-focus/20 sm:px-3"
-                />
-              </div>
-            </div>
+      {submitError && (
+        <p
+          role="status"
+          aria-live="polite"
+          className="mt-4 text-xs font-medium text-[#b42318]"
+        >
+          {submitError}
+        </p>
+      )}
+    </>
+  );
 
-            <div className="mt-4 flex items-start gap-3 rounded-md border border-sahara-border bg-sahara-card px-3 py-3 text-sahara-text-secondary">
-              <CalendarDays aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-              <div>
-                <p className="text-xs font-medium leading-5 text-sahara-text">
-                  {ruleSummary}
-                </p>
-                {form.frequency === "monthly" && startDay > 28 && (
-                  <p className="mt-0.5 text-[11px] leading-4 text-sahara-text-muted">
-                    遇到没有该日期的月份时，会安排在当月最后一天。
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {submitError && (
-            <p role="status" aria-live="polite" className="text-xs font-medium text-[#b42318]">
-              {submitError}
-            </p>
-          )}
-
-          {submitSuccess && (
-            <p role="status" aria-live="polite" className="text-xs font-medium text-sahara-text-secondary">
-              {submitSuccess}
-            </p>
-          )}
-
-          <div className="flex gap-3 pt-1">
-            <Button
-              type="button"
-              variant="outline"
-              intent="default"
-              size="md"
-              fullWidth
-              onClick={isEditing ? cancelEditing : onClose}
-              disabled={submitting}
-            >
-              {isEditing ? "取消编辑" : "取消"}
-            </Button>
-            <Button
-              type="submit"
-              variant="solid"
-              intent={canSubmit ? "sahara" : "default"}
-              fullWidth
-              disabled={!canSubmit}
-              className="gap-2 whitespace-nowrap px-2 text-xs sm:px-4 sm:text-sm"
-            >
-              {isEditing ? (
-                <Save aria-hidden="true" className="size-4" />
-              ) : (
-                <Plus aria-hidden="true" className="size-4" />
-              )}
-              {submitting
-                ? isEditing
-                  ? "正在保存…"
-                  : "正在创建…"
-                : isEditing
-                  ? "保存修改"
-                  : "创建循环任务"}
-            </Button>
-          </div>
-        </form>
+  return (
+    <ModalOverlay
+      open={open}
+      onClose={handleLayerDismiss}
+      maxWidth="max-w-lg"
+      ariaLabel={
+        activeView === "main"
+          ? mainDialogLabel
+          : CHILD_VIEW_LABELS[activeView]
+      }
+    >
+      <div className="max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain p-5 md:p-6">
+        {activeView === "main" && renderMainView()}
+        {activeView === "focus" && renderFocusView()}
+        {activeView === "attributes" && renderAttributesView()}
+        {activeView === "schedule" && renderScheduleView()}
+        {activeView === "rules" && renderRulesView()}
       </div>
     </ModalOverlay>
   );

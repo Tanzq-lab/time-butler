@@ -102,11 +102,30 @@ test.describe("Responsive and accessibility", () => {
     }));
     expect(overflow.scrollWidth).toBe(overflow.clientWidth);
 
-    const createButton = dialog.getByRole("button", { name: "创建循环任务" });
-    await createButton.scrollIntoViewIfNeeded();
+    const scheduleButton = dialog.getByRole("button", {
+      name: /编辑循环设置/,
+    });
+    await scheduleButton.click();
+    const scheduleDialog = page.getByRole("dialog", {
+      name: "设置循环时间",
+    });
+    await expect(scheduleDialog).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    const returnedDialog = page.getByRole("dialog", {
+      name: "添加循环任务",
+    });
+    await expect(returnedDialog).toBeVisible();
+    await expect(
+      returnedDialog.getByRole("button", { name: /编辑循环设置/ }),
+    ).toBeFocused();
+
+    const createButton = returnedDialog.getByRole("button", {
+      name: "创建循环任务",
+    });
     await expect(createButton).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(dialog).not.toBeVisible();
+    await expect(returnedDialog).not.toBeVisible();
     await expect(page.getByRole("button", { name: "添加循环任务" })).toBeFocused();
   });
 
