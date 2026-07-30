@@ -69,7 +69,12 @@ describe("daily product usage analyzer", () => {
         ('time_page_content_updated', '/notes', 'time_page', '37', '${metadata({ appSessionId: "session-1", appSessionSequence: 10, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:18.000Z", pageType: "day", dateKey: "2026-07-14", deltaLength: 2, removedCharacters: 0, insertedCharacters: 2, changedCharacters: 2 })}', '2026-07-14 01:00:18'),
         ('notification_audio_prepare_result', '/', NULL, NULL, '${metadata({ appSessionId: "session-1", appSessionSequence: 11, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:19.000Z", trigger: "timer_start", phase: "short_break", outcome: "failed", errorName: "ReferenceError", errorMessage: "Missing audio buffer" })}', '2026-07-14 01:00:19'),
         ('app_usage_session_ended', '/tasks', NULL, NULL, '${metadata({ appSessionId: "session-1", appSessionSequence: 12, clientLocalDate: "2026-07-14", clientOccurredAt: "2026-07-14T01:00:20.000Z" })}', '2026-07-14 01:00:20');
-      INSERT INTO sessions VALUES (1, '2026-07-14 09:00:00', 1500, 1);
+      INSERT INTO sessions VALUES
+        (1, '2026-07-14 09:00:00', 1500, 1),
+        (2, '2026-07-13 23:59:59', 60, 1),
+        (3, '2026-07-14 00:00:00', 1500, 1),
+        (4, '2026-07-14 23:59:59', 300, 1),
+        (5, '2026-07-15 00:00:00', 900, 1);
       INSERT INTO tasks VALUES (1, 'PRIVATE TASK NAME', '2026-07-14 01:00:00', NULL);
     `;
     const setup = spawnSync("sqlite3", [database, sql], { encoding: "utf8" });
@@ -132,6 +137,17 @@ describe("daily product usage analyzer", () => {
       smallEditUpdates: 2,
       unmeasuredEditUpdates: 0,
       netDelta: 2,
+    });
+    expect(report.databaseSignals.sessions).toEqual({
+      completed: 3,
+      incomplete: 0,
+      completedSeconds: 3300,
+      window: {
+        timeBasis: "local_wall_clock",
+        timeZone: "Asia/Shanghai",
+        startInclusive: "2026-07-14 00:00:00",
+        endExclusive: "2026-07-15 00:00:00",
+      },
     });
     expect(report.hypotheses).not.toContainEqual(
       expect.objectContaining({ code: "task_create_delete_rework" }),

@@ -30,6 +30,12 @@ function yesterday() {
   return localDateString(date);
 }
 
+function nextDateString(dateString) {
+  const date = new Date(`${dateString}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
 function readOption(args, index, name) {
   const value = args[index + 1];
   if (!value || value.startsWith("--")) {
@@ -754,6 +760,12 @@ function analyze(options) {
   const snapshot = createReadOnlySnapshot(options.db);
   try {
     const dateSql = sqlQuote(options.date);
+    const sessionWindow = {
+      timeBasis: "local_wall_clock",
+      timeZone: process.env.TZ,
+      startInclusive: `${options.date} 00:00:00`,
+      endExclusive: `${nextDateString(options.date)} 00:00:00`,
+    };
     const rawEvents = queryJson(
       snapshot.db,
       `SELECT id, event_name, route, entity_type, entity_id, metadata, created_at
@@ -776,7 +788,8 @@ function analyze(options) {
          SUM(CASE WHEN completed = 0 THEN 1 ELSE 0 END) AS incomplete,
          SUM(CASE WHEN completed = 1 THEN duration_sec ELSE 0 END) AS completed_seconds
        FROM sessions
-       WHERE date(started_at) = ${dateSql};`,
+       WHERE started_at >= ${sqlQuote(sessionWindow.startInclusive)}
+         AND started_at < ${sqlQuote(sessionWindow.endExclusive)};`,
     );
     const taskRows = queryJson(
       snapshot.db,
@@ -861,6 +874,7 @@ function analyze(options) {
       completed: Number(sessionRows[0]?.completed ?? 0),
       incomplete: Number(sessionRows[0]?.incomplete ?? 0),
       completedSeconds: Number(sessionRows[0]?.completed_seconds ?? 0),
+      window: sessionWindow,
     },
     tasks: {
       created: Number(taskRows[0]?.created ?? 0),
